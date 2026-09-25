@@ -21,6 +21,7 @@ COMMANDS = {
     'analyse': ('analyse', 'build timing series, regression flags and steps from run records'),
     'publish': ('publish', 'add run directories to the results store and push'),
     'lineage-check': ('lineage_check', 'report whether a carry-over run is due (exit 3 if so)'),
+    'report': ('report', 'build the static HTML dashboard from a results store'),
 }
 
 
