@@ -1,35 +1,71 @@
-"""Benchmark suites (``suites.toml`` at the repository root) and the run config they define.
+"""Benchmark suites (``proteus_bench/suites.toml``) and the run config they define.
 
 A suite names a PROTEUS config file relative to the PROTEUS checkout, dotted
-overrides applied to it, and the backends the run is expected to report.
+overrides applied to it, and the backends the run is expected to report. The
+file ships inside the package, so it is there however the harness is installed.
 """
 
 from __future__ import annotations
 
 import copy
+import re
 import tomllib
+from importlib import resources
+from importlib.resources.abc import Traversable
 from pathlib import Path
 
-SUITES_PATH = Path(__file__).resolve().parents[2] / 'suites.toml'
+SUITES = resources.files('proteus_bench').joinpath('suites.toml')
+SUITE_KEYS = frozenset({'config', 'overrides', 'expected_backends'})
+# A dotted key: non-empty parts separated by single dots
+_DOTTED = re.compile(r'[^.]+(\.[^.]+)*')
 
 
-def load_suite(name: str, path: Path = SUITES_PATH) -> dict:
+def load_suite(name: str, source: Traversable | Path = SUITES) -> dict:
     """Return ``{name, config, overrides, expected_backends}`` for one suite.
 
-    Raises ``ValueError`` when the suites file is missing or has no such suite.
+    Raises ``ValueError`` when the file is missing, has no such suite, or the
+    suite is malformed, so a bad suite fails before a run rather than after it.
     """
-    if not path.is_file():
-        raise ValueError(f'suites file {path} not found (expected at the repository root)')
-    suites = tomllib.loads(path.read_text()).get('suite', {})
+    if not source.is_file():
+        raise ValueError(f'suites file {source} not found')
+    suites = tomllib.loads(source.read_text()).get('suite', {})
     if name not in suites:
-        raise ValueError(f'unknown suite {name!r} in {path}; known: {sorted(suites)}')
+        raise ValueError(f'unknown suite {name!r} in {source}; known: {sorted(suites)}')
     entry = suites[name]
+    problems = suite_problems(entry)
+    if problems:
+        raise ValueError(f'suite {name!r} in {source}: ' + '; '.join(problems))
     return {
         'name': name,
         'config': entry['config'],
         'overrides': entry.get('overrides', {}),
         'expected_backends': entry.get('expected_backends', {}),
     }
+
+
+def suite_problems(entry: dict) -> list[str]:
+    """What is wrong with one ``[suite.NAME]`` table; empty when it is usable."""
+    problems = [f'unknown key {k!r}' for k in sorted(set(entry) - SUITE_KEYS)]
+    if not isinstance(entry.get('config'), str) or not entry.get('config'):
+        problems.append('config must be a path to a PROTEUS config file')
+    overrides = entry.get('overrides', {})
+    if not isinstance(overrides, dict):
+        problems.append('overrides must be a table')
+    else:
+        problems += [
+            f'override key {k!r} has an empty part'
+            for k in overrides
+            if not _DOTTED.fullmatch(k)
+        ]
+    expected = entry.get('expected_backends', {})
+    if not isinstance(expected, dict):
+        return [*problems, 'expected_backends must be a table']
+    for key, value in expected.items():
+        if not _DOTTED.fullmatch(key) or '.' not in key:
+            problems.append(f'expected_backends key {key!r} is not "<submodule>.<key>"')
+        if not isinstance(value, str):
+            problems.append(f'expected_backends {key!r} must be a string, got {value!r}')
+    return problems
 
 
 def apply_overrides(config: dict, overrides: dict) -> dict:
