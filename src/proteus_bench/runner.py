@@ -35,10 +35,23 @@ def max_rss_mb(ru_maxrss: int, system: str) -> float:
     return ru_maxrss / MIB if system == 'Darwin' else ru_maxrss / 1024
 
 
-def _kill_group(pid: int, fired: threading.Event) -> None:
+def _kill_group(pgid: int) -> None:
+    with contextlib.suppress(ProcessLookupError):  # nothing left in the group
+        os.killpg(pgid, signal.SIGKILL)
+
+
+def _on_timeout(pgid: int, fired: threading.Event) -> None:
     fired.set()
-    with contextlib.suppress(ProcessLookupError):  # the group exited just before the kill
-        os.killpg(pid, signal.SIGKILL)
+    _kill_group(pgid)
+
+
+def timed_out(fired: bool, exit_code: int) -> bool:
+    """Whether the timeout ended the run.
+
+    The timer may fire after the child exited on its own but before the timer
+    was cancelled; only a child that died of the timer's SIGKILL timed out.
+    """
+    return fired and exit_code == -signal.SIGKILL
 
 
 def _tee(stream, log) -> None:
@@ -51,7 +64,11 @@ def _tee(stream, log) -> None:
 
 
 def spawn(argv: list[str], cwd: Path, env: dict, log_path: Path, timeout_s: float | None):
-    """Run ``argv`` to completion (or until ``timeout_s``) and return a ProcessResult."""
+    """Run ``argv`` to completion (or until ``timeout_s``) and return a ProcessResult.
+
+    When the child exits, whatever it left running in its process group is
+    killed: such descendants would otherwise hold the output pipe open forever.
+    """
     started_at = dt.datetime.now(dt.UTC)
     t_start = time.monotonic()
     proc = subprocess.Popen(
@@ -59,26 +76,30 @@ def spawn(argv: list[str], cwd: Path, env: dict, log_path: Path, timeout_s: floa
         start_new_session=True,
     )  # fmt: skip
     fired = threading.Event()
-    timer = threading.Timer(timeout_s, _kill_group, (proc.pid, fired)) if timeout_s else None
-    if timer:
-        timer.start()
-    try:
-        with open(log_path, 'wb') as log:
-            _tee(proc.stdout, log)
-        _, status, usage = os.wait4(proc.pid, 0)
-    except KeyboardInterrupt:
-        _kill_group(proc.pid, fired)  # the child's own session gets no terminal SIGINT
-        os.wait4(proc.pid, 0)
-        raise
-    finally:
+    timer = threading.Timer(timeout_s, _on_timeout, (proc.pid, fired)) if timeout_s else None
+    with open(log_path, 'wb') as log:
+        tee = threading.Thread(target=_tee, args=(proc.stdout, log), daemon=True)
+        tee.start()
         if timer:
-            timer.cancel()
-        proc.stdout.close()
-    wall_s = time.monotonic() - t_start
+            timer.start()
+        try:
+            _, status, usage = os.wait4(proc.pid, 0)
+            wall_s = time.monotonic() - t_start
+        except KeyboardInterrupt:
+            _kill_group(proc.pid)  # the child's own session gets no terminal SIGINT
+            os.wait4(proc.pid, 0)
+            raise
+        finally:
+            if timer:
+                timer.cancel()
+            _kill_group(proc.pid)
+            tee.join()
+            proc.stdout.close()
     proc.returncode = os.waitstatus_to_exitcode(status)  # reaped here, not by Popen
     rusage = {
         'max_rss_mb': round(max_rss_mb(usage.ru_maxrss, os.uname().sysname), 1),
         'user_s': round(usage.ru_utime, 3),
         'sys_s': round(usage.ru_stime, 3),
     }
-    return ProcessResult(proc.returncode, fired.is_set(), started_at, wall_s, rusage)
+    ended_by_timer = timed_out(fired.is_set(), proc.returncode)
+    return ProcessResult(proc.returncode, ended_by_timer, started_at, wall_s, rusage)
