@@ -41,6 +41,30 @@ jobs:
           name: coverage
           path: coverage.xml
 
+  sonarqube:
+    name: SonarQube
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0  # blame data, so Sonar can tell new code from old
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=egpbos
+            -Dsonar.projectKey=egpbos_proteus-bench
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.python.version=3.11,3.12,3.13
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+
   # The harness is installed into PROTEUS environments, so it must work with no
   # dependencies at all: install without extras and run it.
   no-dependencies:
