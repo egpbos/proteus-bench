@@ -15,7 +15,7 @@ dynamic = ["version"]
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-timeout>=2", "jsonschema>=4.18"]
+dev = ["pytest>=8", "pytest-cov>=5", "pytest-timeout>=2", "jsonschema>=4.18", "ruff>=0.16"]
 
 [project.scripts]
 proteus-bench = "proteus_bench.cli:main"
@@ -40,8 +40,20 @@ line-length = 96
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["F", "E", "W", "I"]
+# Style and correctness, plus complexity and bloat limits (see AGENTS.md, "Code quality")
+select = [
+    "F", "E", "W", "I",  # pyflakes, pycodestyle, isort
+    "B",                 # bugbear
+    "C90",               # McCabe complexity
+    "ERA",               # commented-out code
+    "PIE", "RET", "SIM", # redundant or convoluted constructs
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915",  # too many returns, branches, arguments, statements
+    "UP",                # pyupgrade
+]
 ignore = ["E501", "E741"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.ruff.lint.isort]
 known-first-party = ["proteus_bench"]

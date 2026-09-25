@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+tone_instructions: "Be direct and specific. Prioritise maintainability: bloat, complexity, duplication, unclear names, comments that restate code, weak tests."
+reviews:
+  profile: assertive
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: true
+  path_instructions:
+    - path: "src/**/*.py"
+      instructions: "Apply AGENTS.md, sections 'Architecture rules' and 'Code quality'. Flag any runtime dependency, any import of proteus, and any silent fallback."
+    - path: "tests/**/*.py"
+      instructions: "Apply AGENTS.md, section 'Tests'. Flag tests that would still pass if the code under test were broken, and expected values copied from the implementation."
+    - path: "src/proteus_bench/schemas/*.json"
+      instructions: "Schemas are versioned interfaces. Check that docs/interface.md and examples/ change consistently and that the version rules in docs/interface.md are followed."
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - AGENTS.md

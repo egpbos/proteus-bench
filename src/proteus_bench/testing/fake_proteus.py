@@ -25,8 +25,9 @@ import os
 import sys
 import time
 import tomllib
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
+from typing import TextIO
 
 FAKE_DEFAULTS = {
     'structure_init_s': 1138.0,  # first numpy structure solve [s]
@@ -75,8 +76,8 @@ class SyntheticClock:
 class TimingWriter:
     """Writes timing.jsonl events; spans nest through a stack and close in order."""
 
-    def __init__(self, path: Path | None, clock: SyntheticClock):
-        self.fh = open(path, 'w') if path is not None else None
+    def __init__(self, fh: TextIO | None, clock: SyntheticClock):
+        self.fh = fh  # None when PROTEUS_TIMING is off: events are dropped
         self.clock = clock
         self.stack: list[int] = []
         self.next_id = 1
@@ -133,13 +134,13 @@ def _dump_toml(data: dict, prefix: str = '') -> str:
 class _Run:
     """One fake simulation: state shared by the stage functions below."""
 
-    def __init__(self, cfg: dict, outdir: Path, timing: bool):
-        self.fake = {**FAKE_DEFAULTS, **cfg.pop('fake', {})}
-        self.cfg = _deep_merge(RESOLVED_DEFAULTS, cfg)
+    def __init__(self, cfg: dict, outdir: Path, timing_fh: TextIO | None, log_fh: TextIO):
+        self.fake = {**FAKE_DEFAULTS, **cfg.get('fake', {})}
+        self.cfg = _deep_merge(RESOLVED_DEFAULTS, {k: v for k, v in cfg.items() if k != 'fake'})
         self.outdir = outdir
         self.clock = SyntheticClock(self.fake['sleep_scale'])
-        self.tw = TimingWriter(outdir / 'timing.jsonl' if timing else None, self.clock)
-        self.log = open(outdir / 'proteus_00.log', 'w')
+        self.tw = TimingWriter(timing_fh, self.clock)
+        self.log = log_fh
         self.rows: list[tuple[float, ...]] = []
 
     def info(self, msg: str) -> None:
@@ -186,9 +187,8 @@ class _Run:
                 times[comp] = self.clock.now - t0
             self.clock.advance(0.2)  # unattributed bookkeeping
         times['total'] = self.clock.now - t_iter
-        self.info(
-            '[IT_TIMING] iter=%d %s' % (n, ' '.join(f'{k}={v:.3f}' for k, v in times.items()))
-        )
+        parts = ' '.join(f'{k}={v:.3f}' for k, v in times.items())
+        self.info(f'[IT_TIMING] iter={n} {parts}')
         self.rows.append((1e3 * n, 3000.0 - 50 * n, 1.0 - 0.01 * n, 1e5 / n, 250.0 + n))
 
     def _stages(self, n: int):
@@ -219,8 +219,16 @@ class _Run:
 def run(cfg: dict, outdir: Path, timing: bool) -> int:
     """Run the fake simulation; return the process exit code."""
     outdir.mkdir(parents=True, exist_ok=True)
-    r = _Run(cfg, outdir, timing)
-    wall = dt.datetime.now(dt.timezone.utc).isoformat(timespec='milliseconds')
+    with ExitStack() as stack:
+        timing_fh = stack.enter_context(open(outdir / 'timing.jsonl', 'w')) if timing else None
+        log_fh = stack.enter_context(open(outdir / 'proteus_00.log', 'w'))
+        return _simulate(_Run(cfg, outdir, timing_fh, log_fh))
+
+
+def _simulate(r: _Run) -> int:
+    """Emit the whole run through ``r``; return the process exit code."""
+    outdir = r.outdir
+    wall = dt.datetime.now(dt.UTC).isoformat(timespec='milliseconds')
     r.tw.emit(ev='run_start', wall=wall.replace('+00:00', 'Z'), pid=os.getpid())
     r.tw.emit(
         ev='backend', t0=0.0, submodule='aragog', key='solver', value=r.fake['aragog_solver']

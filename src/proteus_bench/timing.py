@@ -10,6 +10,7 @@ so attributed times can be summed without double counting.
 from __future__ import annotations
 
 import json
+from itertools import pairwise
 from pathlib import Path
 
 SUPPORTED_VERSIONS = frozenset({1})
@@ -126,7 +127,7 @@ def _check_attributed_overlap(spans: dict[int, dict]) -> list[str]:
     attributed = sorted((s for s in spans.values() if 'component' in s), key=lambda s: s['t0'])
     return [
         f'attributed spans {a["id"]} and {b["id"]} overlap in time'
-        for a, b in zip(attributed, attributed[1:])
+        for a, b in pairwise(attributed)
         if b['t0'] < a['t0'] + a['dur'] - TOLERANCE_S
     ]
 
@@ -148,7 +149,7 @@ def _check_phases(spans: dict[int, dict]) -> list[str]:
         problems.append(f'root spans must be phases {PHASES}, got {bad}')
     if len(set(names)) != len(names):
         problems.append(f'a phase appears more than once: {names}')
-    for a, b in zip(roots, roots[1:]):
+    for a, b in pairwise(roots):
         if b['t0'] < a['t0'] + a['dur'] - TOLERANCE_S:
             problems.append(f'phases {a["name"]} and {b["name"]} overlap')
     return problems
@@ -170,19 +171,15 @@ def _check_iterations(spans: dict[int, dict]) -> list[str]:
             problems.append(f'span {sid}: iter span outside the loop phase')
         iters.append(span)
     numbers = [s['iter'] for s in sorted(iters, key=lambda s: s['t0'])]
-    if any(b <= a for a, b in zip(numbers, numbers[1:])):
+    if any(b <= a for a, b in pairwise(numbers)):
         problems.append(f'iteration numbers are not increasing: {numbers}')
     return problems
 
 
 def phase_of(span: dict, spans: dict[int, dict]) -> str | None:
     """Name of the phase (root span) a span belongs to, if known."""
-    if span['parent'] is None:
-        return span['name']
-    root = None
-    for root in _ancestors(span, spans):
-        pass
-    return root['name'] if root is not None and root['parent'] is None else None
+    root = [span, *_ancestors(span, spans)][-1]
+    return root['name'] if root['parent'] is None else None
 
 
 def attributed_totals(events: list[dict]) -> dict[str, dict]:
