@@ -119,7 +119,7 @@ def code_section(proteus: dict, env_report: dict, proteus_root: Path, env: dict)
     rad_dir = env.get('RAD_DIR')
     for name, path in (
         ('agni', proteus_root / 'AGNI'),
-        ('socrates', rad_dir and Path(rad_dir)),
+        ('socrates', Path(rad_dir) if rad_dir else None),  # exported empty means unset
     ):
         state = checkout_state(path)
         if state is not None:

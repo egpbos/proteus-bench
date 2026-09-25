@@ -14,7 +14,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from proteus_bench import settings
-from proteus_bench.timing import PHASES, attributed_totals
+from proteus_bench.timing import PHASES, ancestors, attributed_totals
 
 FINGERPRINT_KEYS = ('T_magma', 'Phi_global', 'F_atm', 'P_surf')
 ROUND = 6  # timing.jsonl resolution is one microsecond
@@ -56,7 +56,7 @@ def per_iter_rows(events: list[dict]) -> list[dict]:
     per_iter = defaultdict(lambda: defaultdict(float))
     for span in spans.values():
         if 'component' in span:
-            it = _enclosing_iter(span, spans)
+            it = next((a for a in ancestors(span, spans) if a['name'] == 'iter'), None)
             if it is not None:
                 per_iter[it['id']][span['component']] += span['dur']
     rows = []
@@ -69,13 +69,6 @@ def per_iter_rows(events: list[dict]) -> list[dict]:
         row['components'] = {k: round(v, ROUND) for k, v in per_iter[it['id']].items()}
         rows.append(row)
     return rows
-
-
-def _enclosing_iter(span: dict, spans: dict[int, dict]) -> dict | None:
-    node = spans.get(span['parent'])
-    while node is not None and node['name'] != 'iter':
-        node = spans.get(node['parent'])
-    return node
 
 
 def phase_totals(events: list[dict]) -> dict:

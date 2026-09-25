@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import platform
+import sys
 from importlib import metadata
 
 import pytest
@@ -33,6 +34,7 @@ def test_main_prints_one_json_object(capsys):
     introspect.main(['pytest', 'fwl-no-such-distribution'])
     report = json.loads(capsys.readouterr().out)
     assert report['python'] == platform.python_version()
+    assert report['prefix'] == sys.prefix
     assert list(report['dists']) == ['pytest']
     introspect.main([])
     assert json.loads(capsys.readouterr().out)['dists'] == {}

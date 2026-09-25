@@ -18,6 +18,7 @@ import datetime as dt
 import pytest
 
 from proteus_bench import collect
+from proteus_bench.timing import check_events
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 
@@ -53,11 +54,12 @@ def test_component_rows_add_up_to_phases(good_events):
             phases[phase], abs=1e-5
         )
     loop_names = [r['component'] for r in rows if r['phase'] == 'loop']
-    assert loop_names[0] == 'atmos' and loop_names[-1] == 'other'  # largest first, rest last
+    assert loop_names[0] == 'atmos'
+    assert loop_names[-1] == 'other'  # largest first, rest last
     assert collect.component_rows([]) == []
 
 
-def test_rows_skip_a_phase_that_never_closed(good_events, monkeypatch):
+def test_rows_skip_a_phase_that_never_closed(good_events):
     """A crash leaves loop spans without their phase: no loop rows, iterations still listed."""
     crashed = [
         ev
@@ -69,11 +71,66 @@ def test_rows_skip_a_phase_that_never_closed(good_events, monkeypatch):
     assert {r['phase'] for r in rows} == {'init'}
     assert len(collect.per_iter_rows(crashed)) == 4
     assert collect.phase_totals(crashed)['loop'] is None
-    # Newer attributed_totals report orphaned spans under 'unknown' with no total
-    unknown = {'unknown': {'total': None, 'attributed': {('atmos', 'agni', None): [1.0, 1]},
-                           'other': None}}  # fmt: skip
-    monkeypatch.setattr(collect, 'attributed_totals', lambda events: unknown)
-    assert collect.component_rows(crashed) == []
+
+
+def _span(sid: int, parent: int | None, name: str, t0: float, dur: float, **fields) -> dict:
+    return {'v': 1, 'ev': 'span', 'id': sid, 'parent': parent, 'name': name, 't0': t0,
+            'dur': dur, **fields}  # fmt: skip
+
+
+def test_other_is_clamped_where_children_overrun_within_tolerance():
+    """A child 0.5 ms longer than its phase is legal (1 ms slack); 'other' reads 0, not < 0."""
+    events = [
+        {'v': 1, 'ev': 'run_start', 'wall': '2026-09-25T10:00:00.000Z', 'pid': 1},
+        _span(3, 2, 'atmos', 0.0, 1.0005, component='atmos', submodule='agni'),
+        _span(2, 1, 'iter', 0.0, 1.0, iter=1),
+        _span(1, None, 'loop', 0.0, 1.0),
+        {'v': 1, 'ev': 'run_end', 't0': 1.0, 'status': 'ok'},
+    ]
+    assert check_events(events) == []
+    other = [r for r in collect.component_rows(events) if r['component'] == 'other']
+    assert other[0]['total_s'] == pytest.approx(0.0, abs=0)
+    assert other[0]['total_s'] >= 0  # the schema minimum; unclamped it would be -0.0005
+
+
+def test_rows_only_for_known_phases():
+    """A root span that is not a phase (a broken file) gets no rows, so the record stays valid."""
+    events = [
+        _span(2, 1, 'atmos', 0.0, 1.0, component='atmos'),
+        _span(1, None, 'warmup', 0.0, 2.0),
+        _span(4, 3, 'interior', 2.0, 1.0, component='interior'),
+        _span(3, None, 'loop', 2.0, 1.5),
+    ]
+    assert check_events(events) != []  # the timing_contract check reports the bad root
+    rows = collect.component_rows(events)
+    assert {r['phase'] for r in rows} == {'loop'}
+    assert [r['component'] for r in rows] == ['interior', 'other']
+
+
+def test_per_iter_attributes_spans_nested_below_an_iteration_child():
+    """A component inside a group span inside an iteration counts for that iteration."""
+    events = [
+        _span(4, 3, 'atmos', 2.0, 2.0, component='atmos', submodule='agni'),
+        _span(3, 2, 'equilibrate', 1.0, 4.0),
+        _span(2, 1, 'iter', 0.0, 10.0, iter=1),
+        _span(5, 1, 'interior', 10.0, 1.0, component='interior'),  # in the loop, no iteration
+        _span(1, None, 'loop', 0.0, 11.0),
+    ]
+    rows = collect.per_iter_rows(events)
+    assert rows == [{'iter': 1, 'dur_s': pytest.approx(10.0), 'components': {'atmos': 2.0}}]
+    assert 'interior' not in rows[0]['components']
+
+
+def test_per_iter_terminates_on_a_cyclic_parent_chain():
+    """A corrupt file whose parents form a cycle is read, not looped over forever."""
+    events = [
+        _span(5, 6, 'atmos', 0.0, 1.0, component='atmos'),
+        _span(6, 5, 'group', 0.0, 1.0),
+        _span(7, None, 'iter', 0.0, 1.0, iter=1),
+    ]
+    rows = collect.per_iter_rows(events)
+    assert rows == [{'iter': 1, 'dur_s': pytest.approx(1.0), 'components': {}}]
+    assert collect.per_iter_rows(events[:2]) == []
 
 
 def test_per_iter_rows(good_events):
@@ -112,13 +169,19 @@ def test_outcome_precedence(good_events, run_fake):
         'status': 'ok',
     }
     assert collect.outcome(good_events, 1, False, None)['status'] == 'failed'
+    error_end = [*good_events[:-1], {**good_events[-1], 'status': 'error'}]
+    assert (
+        collect.outcome(error_end, 0, False, None)['status'] == 'failed'
+    )  # exit 0, run_end not ok
     assert collect.outcome(good_events, 0, True, 60.0)['status'] == 'timeout'
     crashed = collect.outcome(good_events[:-1], -9, False, None)
-    assert crashed['status'] == 'crashed' and crashed['n_iters'] == 4
+    assert crashed['status'] == 'crashed'
+    assert crashed['n_iters'] == 4
     assert collect.outcome([], 0, False, None)['error'] == 'no timing.jsonl events'
     _, _, error_events = run_fake({'fail': 'error', 'fail_at_iter': 2}, iters=4)
     failed = collect.outcome(error_events, 1, False, None)
-    assert failed['status'] == 'failed' and failed['n_iters'] == 2
+    assert failed['status'] == 'failed'
+    assert failed['n_iters'] == 2
     assert failed['error'] == 'fake atmosphere solver failure'
 
 

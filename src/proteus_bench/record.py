@@ -12,21 +12,22 @@ import json
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
 from proteus_bench import checks, collect, settings
 from proteus_bench.runner import ProcessResult
 from proteus_bench.timing import read_events
 
 SCHEMA = 'proteus-bench/1'
-COPIED_OUTPUTS = ('timing.jsonl', 'init_coupler.toml')
-# record.artifacts key -> file in the run directory
+# record.artifacts key -> file in the run directory; one key per file
 ARTIFACTS = {
     'spans': 'timing.jsonl',
-    'resolved_config': 'init_coupler.toml',
+    'settings': 'init_coupler.toml',
     'config': 'config.toml',
     'log': 'log.txt',
-    'flame': 'profile/flame.html',
 }
+# Artifacts proteus writes into its output directory, copied next to the record
+COPIED = ('spans', 'settings')
 
 
 @dataclass
@@ -47,6 +48,7 @@ class RunContext:
     proteus_root: Path  # working directory of the proteus process
     argv: list[str]
     child_env: dict
+    profiling: ModuleType | None  # proteus_bench.profiling, imported for profiled runs only
 
     @property
     def output_dir(self) -> Path:
@@ -86,10 +88,10 @@ def trigger_section(adapter: str, env: dict) -> dict:
 
 def copy_outputs(ctx: RunContext) -> None:
     """Copy the raw timing and resolved config next to the record, where present."""
-    for name in COPIED_OUTPUTS:
-        source = ctx.output_dir / name
+    for key in COPIED:
+        source = ctx.output_dir / ARTIFACTS[key]
         if source.is_file():
-            shutil.copy2(source, ctx.run_dir / name)
+            shutil.copy2(source, ctx.run_dir / ARTIFACTS[key])
 
 
 def benchmark_section(ctx: RunContext, flat: dict) -> dict:
@@ -119,11 +121,15 @@ def timings_section(events: list[dict], result: ProcessResult) -> dict:
     return section
 
 
-def build_record(ctx: RunContext, result: ProcessResult) -> dict:
-    """The run record, from the context and the files in the run and output directories."""
-    timing_path = ctx.run_dir / 'timing.jsonl'
+def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, list]) -> dict:
+    """The run record, from the context and the files in the run and output directories.
+
+    ``profile`` holds the profile artifacts and notes (both empty when not profiled).
+    """
+    profile_artifacts, profile_notes = profile
+    timing_path = ctx.run_dir / ARTIFACTS['spans']
     events = read_events(timing_path) if timing_path.is_file() else []
-    flat, notes = collect.resolved_settings(ctx.run_dir / 'init_coupler.toml', ctx.run_config)
+    flat, notes = collect.resolved_settings(ctx.run_dir / ARTIFACTS['settings'], ctx.run_config)
     fingerprint, fp_notes = collect.fingerprint(ctx.output_dir / 'runtime_helpfile.csv')
     backends = collect.backends(events)
     all_checks = [
@@ -146,11 +152,12 @@ def build_record(ctx: RunContext, result: ProcessResult) -> dict:
         'backends': backends,
         'outcome': outcome,
         'comparability': checks.comparability(
-            all_checks, outcome['status'], profiler, notes + fp_notes
+            all_checks, outcome['status'], profiler, notes + fp_notes + profile_notes
         ),
         'timings': timings_section(events, result),
         'fingerprint': fingerprint,
-        'artifacts': {k: p for k, p in ARTIFACTS.items() if (ctx.run_dir / p).is_file()},
+        'artifacts': {k: p for k, p in ARTIFACTS.items() if (ctx.run_dir / p).is_file()}
+        | profile_artifacts,
     }
 
 

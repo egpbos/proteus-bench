@@ -67,7 +67,9 @@ def test_numbers_keep_their_type_and_value():
     }
     back = roundtrip(value)
     assert back == value
-    assert type(back['f']) is float and type(back['i']) is int and type(back['t']) is bool
+    assert type(back['f']) is float
+    assert type(back['i']) is int
+    assert type(back['t']) is bool
     assert math.copysign(1.0, back['neg_zero']) == pytest.approx(-1.0, abs=0)
     nan = roundtrip({'n': math.nan})['n']
     assert math.isnan(nan)

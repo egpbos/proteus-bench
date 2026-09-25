@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import math
 import re
 
 _BARE_KEY = re.compile(r'[A-Za-z0-9_-]+')
@@ -50,7 +49,9 @@ def _value(value) -> str:
     if isinstance(value, bool):
         return 'true' if value else 'false'
     if isinstance(value, float):
-        return _float(value)
+        # repr is the shortest round-tripping form ('1e-07', '1e+16', 'inf', 'nan',
+        # '0.1'), and every one is a valid TOML float; integral values keep '.0'
+        return repr(value)
     if isinstance(value, str):
         return _string(value)
     if isinstance(value, int | dt.date | dt.time):
@@ -61,11 +62,3 @@ def _value(value) -> str:
     if isinstance(value, dict):
         return '{' + ', '.join(f'{_key(k)} = {_value(v)}' for k, v in value.items()) + '}'
     raise TypeError(f'cannot write {type(value).__name__} value {value!r} as TOML')
-
-
-def _float(value: float) -> str:
-    if math.isnan(value):
-        return 'nan'
-    # repr gives the shortest round-tripping form ('1e-07', '1e+16', 'inf', '0.1'),
-    # all valid TOML floats; integral values keep their '.0'.
-    return repr(value)

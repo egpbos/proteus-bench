@@ -1,8 +1,8 @@
 """Environment checks and the comparability rule for a run.
 
-Each check returns ``{name, ok, detail}``. Pre-run checks (CVODE, threads,
-clean tree) can stop a run before it is timed; post-run checks (timing
-contract, expected backends) only affect comparability. A run may enter
+Each check returns ``{name, ok, detail}``. Pre-run checks (CVODE, data and
+library directories, clean tree) can stop a run before it is timed; post-run
+checks (timing contract, expected backends) only affect comparability. A run may enter
 baselines only when every check passed, the run finished ok, and nothing
 else (a profiler, a missing resolved config, a non-finite fingerprint) marks
 its timings as unlike the series.
@@ -11,12 +11,15 @@ its timings as unlike the series.
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 
-from proteus_bench.machine import THREAD_VARS
 from proteus_bench.timing import check_events
 
 # The import PROTEUS requires before an Aragog CVODE run (aragog.py require_cvode)
 CVODE_IMPORT = 'from scikits_odes_sundials.cvode import CVODE, CV_RootFunction, StatusEnum'
+# Required directories and the file each must hold, as PROTEUS doctor checks them
+# (src/proteus/doctor.py ENVIRONMENT_VARS)
+REQUIRED_DIRS = (('FWL_DATA', None), ('RAD_DIR', 'bin/radlib.a'), ('FC_DIR', None))
 
 
 def _check(name: str, ok: bool, detail: str) -> dict:
@@ -45,12 +48,24 @@ def cvode_check(python: str, config: dict) -> dict:
     return _check('cvode_importable', False, f'{python}: {last}')
 
 
-def threads_check(env: dict) -> dict:
-    """Every thread-count variable is unset or 1."""
-    bad = [f'{v}={env[v]}' for v in THREAD_VARS if env.get(v, '1') != '1']
-    if bad:
-        return _check('threads', False, 'not single-threaded: ' + ', '.join(bad))
-    return _check('threads', True, 'all thread counts unset or 1')
+def env_dirs_check(env: dict) -> dict:
+    """The data and library directories PROTEUS needs are set and exist in the child env.
+
+    ``pixi run`` does not source shell rc files, so exports made there are missing.
+    """
+    problems = []
+    for var, marker in REQUIRED_DIRS:
+        value = env.get(var, '')
+        if not value:
+            problems.append(f'{var} is not set')
+        elif not Path(value).is_dir():
+            problems.append(f'{var}={value} is not a directory')
+        elif marker and not (Path(value) / marker).is_file():
+            problems.append(f'{var}={value} has no {marker}')
+    if problems:
+        hint = 'pass them explicitly, e.g. RAD_DIR=/path/to/socrates proteus-bench run'
+        return _check('env_dirs', False, '; '.join(problems) + f'; {hint}')
+    return _check('env_dirs', True, ', '.join(f'{v}={env[v]}' for v, _ in REQUIRED_DIRS))
 
 
 def clean_tree_check(proteus_git: dict) -> dict:
