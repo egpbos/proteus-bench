@@ -121,3 +121,46 @@ One JSON file per run. See `record-v1.schema.json` for every field. Key points:
 - `comparability` says whether the run may enter baselines, and if not, why.
   Examples: a failed environment check, an unexpected backend such as the Radau
   fallback, or a physics fingerprint that doesn't match the series.
+
+## Profiles
+
+A profiled run (`proteus-bench run --profiler scalene|py-spy`) keeps its profile
+in the run directory:
+
+```
+profile/
+  scalene-profile.json   scalene's own output (scalene runs), or
+  py-spy.folded          py-spy's raw output (py-spy runs); exactly one of the two
+  stacks.folded.gz       folded stacks derived from it (gzip, mtime 0)
+  flame.html             flame-graph page built from the folded stacks
+```
+
+The record's `artifacts.profile` and `artifacts.flame` point at the last two.
+
+`stacks.folded.gz` is UTF-8 text, one line per distinct stack:
+`frame;frame;...;frame count`. Frames run from the outermost call to the leaf;
+`count` is a non-negative integer number of samples, separated from the stack by
+the last space on the line. Frames never contain `;`. The counts add up to every
+sample in the profiler output (for scalene: the hits of `combined_stacks`, which
+only holds samples that came with a native stack).
+
+Frame labels:
+
+- Python frame: `function (package/path.py)`. The path is shortened to the part
+  below `site-packages/`, the standard library (as `python/...`), or `src/`.
+- Native frame: `symbol [library]`, with `?` for an unresolved symbol and `[]`
+  for an unknown library. A label ending in `]` is native.
+- py-spy output has the same shape (with `--nolineno`), plus a root
+  `process PID:"command line"` frame per process. Its function names may be
+  unqualified where scalene's are qualified (`start` against `Proteus.start`).
+
+The stored stacks keep every native frame. The flame page merges each run of
+consecutive native frames into one `[native code]` block, or
+`[native code: Julia]` when any library in the run is Julia's (`libjulia-*`,
+`libLLVM-*jl`), and colours frames by component: `zalmoxis`, `proteus` and
+`aragog` from the first path element of Python frames, then `julia`, `native`
+and `other`.
+
+`flame.html` is a single file: data, styles and code are inline, except d3 7.9.0
+and d3-flame-graph 5.0.0, which load from jsDelivr with subresource integrity
+hashes.
