@@ -121,3 +121,30 @@ One JSON file per run. See `record-v1.schema.json` for every field. Key points:
 - `comparability` says whether the run may enter baselines, and if not, why.
   Examples: a failed environment check, an unexpected backend such as the Radau
   fallback, or a physics fingerprint that doesn't match the series.
+
+## Analysis output
+
+`proteus-bench analyse <store>` (or `proteus_bench.analysis.analyse(records)`)
+turns run records into series for the dashboard. It is derived data, recomputed
+from the records every time. Schema name `proteus-bench-analysis/1`:
+
+- `series[]`, one per (benchmark, lineage, machine class, metric):
+  - `key`: `benchmark`, `lineage`, `machine_class`, `metric`. Metrics: `total`,
+    `init`, `loop`, `shutdown`, `n_iters`, `loop_per_iter_median`,
+    `init.<component>`, `loop.<component>.per_iter_median`,
+    `submodule.<name>.total`.
+  - `unit`: `s`, or `count` for `n_iters`.
+  - `points[]`: `run_id`, `commit`, `time` (the run's `trigger.started_at`),
+    `value`, `comparable`; ordered by time.
+  - `baseline`: `median`, `sigma`, `n` over the last comparable points of the
+    latest settings segment, or `null` with fewer than 3.
+  - `flags[]`: `run_id`, `kind` (`regression` or `improvement`), `delta_rel`,
+    `delta_abs`, `threshold_rel`, `confirmed`. `delta_rel` and `threshold_rel`
+    are `null` when the baseline median is 0.
+  - `steps[]`: `after_run_id` (first run of the new level), `before`, `after`,
+    `delta_rel`.
+  - `boundaries[]`: `run_id` (first run with the new settings), `reason`
+    (`settings_changed`), `changed_keys`.
+
+The rules (noise model, flag threshold, confirmation, boundaries) are stated in
+the `proteus_bench.analysis` module docstring.
