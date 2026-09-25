@@ -121,3 +121,40 @@ One JSON file per run. See `record-v1.schema.json` for every field. Key points:
 - `comparability` says whether the run may enter baselines, and if not, why.
   Examples: a failed environment check, an unexpected backend such as the Radau
   fallback, or a physics fingerprint that doesn't match the series.
+
+## Analysis output (internal)
+
+`proteus-bench analyse <store>` (or `proteus_bench.analysis.analyse(records)`)
+turns run records into series for the dashboard. Unlike the two files above it
+is not a versioned interface: its only consumer is the dashboard in this
+repository, and the format may change together with the dashboard. It is
+derived data, recomputed from the records every time, and has no JSON Schema.
+The `schema` field (`proteus-bench-analysis/1`) only names the format.
+
+- `series[]`, one per (benchmark, lineage, machine class, metric):
+  - `key`: `benchmark`, `lineage`, `machine_class`, `metric`. Metrics: `total`,
+    each non-null phase (`setup`, `init`, `loop`, `shutdown`), `n_iters`,
+    `loop_per_iter_median`, `init.<component>`,
+    `loop.<component>.per_iter_median`, `submodule.<name>.total`.
+  - `unit`: `s`, or `count` for `n_iters`.
+  - `points[]`: `run_id`, `commit`, `time` (the run's `trigger.started_at`),
+    `value`, `comparable`; ordered by time, then run id.
+  - `baseline`: `median`, `sigma` (1.4826 x MAD), `n` over the last 10
+    comparable points of the latest settings segment, or `null` with fewer
+    than 3.
+  - `flags[]`: `run_id`, `kind` (`regression` or `improvement`), `delta_rel`,
+    `delta_abs`, `threshold_rel`, `confirmed`. A run flags when its distance
+    from the baseline median exceeds max(3 sigma, 5 % of the median), so 5 % is
+    the smallest threshold, and also exceeds 1 s (0 for `n_iters`).
+    `delta_rel` and `threshold_rel` are `null` when the baseline median is 0.
+    `confirmed` is `null` while there is no later comparable run with the same
+    settings, `true` when that next run exceeds the same threshold in the same
+    direction, and `false` otherwise.
+  - `steps[]`: `after_run_id` (first run of the new level), `before`, `after`
+    (level medians, without excursion runs of fewer than 3 runs), `delta_rel`
+    (relative to `before`).
+  - `boundaries[]`: `run_id` (first comparable run with the new settings),
+    `reason` (`settings_changed`), `changed_keys`. Non-comparable runs make no
+    boundary.
+
+The full rules are stated in the `proteus_bench.analysis` module docstring.

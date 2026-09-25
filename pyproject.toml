@@ -7,7 +7,7 @@ name = "proteus-bench"
 description = "Benchmarking and profiling harness for the PROTEUS planet evolution framework"
 readme = "README.md"
 license = "Apache-2.0"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
 dynamic = ["version"]
 # The harness has no runtime dependencies: it is installed into PROTEUS
@@ -34,10 +34,16 @@ markers = [
     "smoke: tests that start subprocesses such as the fake proteus stub",
 ]
 
+[tool.coverage.run]
+# Vendored third-party code is tested upstream
+omit = ["*/proteus_bench/_vendor/*"]
+
 [tool.ruff]
 src = ["src"]
 line-length = 96
 target-version = "py311"
+# Vendored third-party code keeps its upstream style so updates stay a plain diff
+extend-exclude = ["src/proteus_bench/_vendor"]
 
 [tool.ruff.lint]
 # Style and correctness, plus complexity and bloat limits (see AGENTS.md, "Code quality")
