@@ -49,8 +49,9 @@ Every event also has `"v": 1`.
 
 ### Span tree rules
 
-1. **Ids.** `id` is unique within a run and assigned when the span opens.
-   `parent` is the id of the enclosing span, or `null` for a root.
+1. **Ids.** `id` is unique within a run and assigned when the span opens, so a
+   parent's id is always lower than its children's. `parent` is the id of the
+   enclosing span, or `null` for a root.
 2. **Roots are phases.** Root spans are named `setup`, `init`, `loop` or
    `shutdown`. Each appears at most once, and they don't overlap.
 3. **Containment.** A child lies within its parent's time window.

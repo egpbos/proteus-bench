@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 concurrency:
   group: ci-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  # Superseded PR pushes are cancelled; every push to main is analysed
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:

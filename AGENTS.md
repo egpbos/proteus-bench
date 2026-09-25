@@ -16,6 +16,8 @@ src/proteus_bench/
   cli.py            dispatcher only; each subcommand is commands/<name>.py
   commands/         add_arguments(parser) + main(args) -> int, one module per subcommand
   schemas/          JSON Schemas (versioned interfaces, see docs/interface.md)
+  schema.py         loading the schemas; optional shape validation
+  settings.py       flattening, hashing and comparing resolved PROTEUS settings
   timing.py         reading and checking timing.jsonl
   testing/          fake proteus stub used by the tests
 tests/              mirrors src/proteus_bench/
@@ -73,15 +75,19 @@ Line coverage is not the goal; catching real bugs is. A test that passes for the
 reason is worse than none.
 
 1. Every test file starts with `pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]`
-   (or `smoke` for tests that start subprocesses) and a docstring listing the contract
-   clauses it covers.
-2. Every test function has a docstring (the behaviour verified), at least two meaningful
-   assertions, at least one edge case and at least one error or limit path.
+   and a docstring listing the contract clauses it covers. Tests that need an external
+   program or exceed the unit budget go in their own file marked
+   `[pytest.mark.smoke, pytest.mark.timeout(60)]`.
+2. Every test function has a docstring (the behaviour verified). Every contract clause
+   has, somewhere in its file, a normal case, an edge case and an error or limit path.
+   Every assertion must be able to fail for a plausible bug; never add one just to reach
+   a count.
 3. Assertion values must not be copied from the implementation. Pin independently
    derived values, and add a guard that the most plausible wrong result would fail
    (e.g. "without the equilibration solves the total would be 1138 s, not 1768 s").
-4. Mutation check: for rule-like code (validators, checkers, detectors), every rule must
-   be killed by at least one test when the rule is disabled. Record how you checked.
+4. Mutation check: for rule-like code (validators, checkers, detectors, flag logic),
+   disabling any single rule must make at least one test fail. Check every rule, not a
+   sample, and list the results in the pull request.
 5. No float `==`; use `pytest.approx` with a stated tolerance. Unit tests < 100 ms.
    Tests never need PROTEUS: use `proteus_bench.testing.fake_proteus`.
 
