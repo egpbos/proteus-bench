@@ -87,7 +87,9 @@ reason is worse than none.
    (e.g. "without the equilibration solves the total would be 1138 s, not 1768 s").
 4. Mutation check: for rule-like code (validators, checkers, detectors, flag logic),
    disabling any single rule must make at least one test fail. Check every rule, not a
-   sample, and list the results in the pull request.
+   sample, and list the results in the pull request. Run the check with
+   `PYTHONDONTWRITEBYTECODE=1` after clearing `__pycache__`: a restored file can match the
+   mutant's size and modification second, and Python would then run stale bytecode.
 5. No float `==`; use `pytest.approx` with a stated tolerance. Unit tests < 100 ms.
    Tests never need PROTEUS: use `proteus_bench.testing.fake_proteus`.
 
