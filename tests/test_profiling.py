@@ -1,11 +1,14 @@
 """Tests for proteus_bench.profiling: profiler commands, folded stacks and flame pages.
 
-Contract clauses: wrap_command builds the scalene 2.3.0 recipe (flags, derived
---profile-only, ``---`` before the proteus arguments, JAX_DISABLE_JIT=0) and the
-py-spy raw recipe, and refuses unknown or unusable profilers; scalene_to_folded
-keeps every sample and refuses empty profiles; collapse_native merges each run of
-native frames into one block, Julia or not; the flame page embeds every tree node
-in valid HTML; collect writes stacks.folded.gz and flame.html and returns their paths.
+Contract clauses: wrap_command builds the scalene 2.3.0 recipe (run by the proteus
+environment's Python, derived --profile-only, ``---`` before the proteus arguments,
+JAX_DISABLE_JIT=0) and the py-spy raw recipe, and refuses unknown or unusable
+profilers; profiler_of maps output files to profilers; scalene_to_folded keeps
+every sample and refuses empty profiles; collapse_native merges each run of native
+frames into one block, Julia or not; the flame page holds the whole tree with self
+values summing to the total, in valid HTML with escaped text; collect writes
+stacks.folded.gz and flame.html, returns their paths, and refuses ambiguous input.
+package_dirs starts a subprocess and is tested in test_profiling_package_dirs.py.
 
 Fixture ``scalene-profile.json`` is hand-built to the shape scalene 2.3.0 writes
 (tag v2.3.0, ``scalene/scalene_json.py``): ``CombinedStackFrame`` (line 143) has
@@ -19,7 +22,6 @@ from __future__ import annotations
 
 import gzip
 import json
-import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -29,11 +31,6 @@ from proteus_bench import profiling
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 
-FIXTURES = Path(__file__).parent / 'fixtures'
-SCALENE = FIXTURES / 'scalene-profile.json'
-SLICE = FIXTURES / 'real-slice.folded'
-FIXTURE_TOTAL = 40 + 25 + 12 + 8 + 3 + 2  # hits of the six combined_stacks entries
-SLICE_TOTAL = 22562  # awk '{s+=$NF} END {print s}' real-slice.folded
 ZALMOXIS_STACK = (
     'start (proteus/cli.py);Proteus.start (proteus/proteus.py);'
     'zalmoxis_solver (proteus/interior_struct/zalmoxis.py);main (zalmoxis/solver.py);'
@@ -42,33 +39,38 @@ ZALMOXIS_STACK = (
 )
 
 
-def scalene_profile() -> dict:
-    return json.loads(SCALENE.read_text())
-
-
 @pytest.fixture
 def tools(monkeypatch, tmp_path):
-    """Fake PATH lookups and package discovery; returns the fake script path."""
+    """Fake PATH lookups and package discovery; returns the script path and probe calls."""
     script = str(tmp_path / 'env' / 'bin' / 'proteus')
-    found = {'scalene': '/opt/bin/scalene', 'py-spy': '/opt/bin/py-spy', 'proteus': script}
-    monkeypatch.setattr(profiling.shutil, 'which', found.get)
-    dirs = {'proteus': '/co/PROTEUS/src/proteus', 'zalmoxis': '/env/site-packages/zalmoxis'}
-    calls = []
     monkeypatch.setattr(
-        profiling, 'package_dirs', lambda python, names: calls.append(python) or dirs
+        profiling.shutil, 'which', {'py-spy': '/opt/bin/py-spy', 'proteus': script}.get
     )
-    return script, calls
+    dirs = {
+        'proteus': '/co/PROTEUS/src/proteus',
+        'zalmoxis': '/env/site-packages/zalmoxis',
+        'scalene': '/env/site-packages/scalene',
+    }
+    calls = []
+
+    def fake_package_dirs(python, names):
+        calls.append((python, names))
+        return dict(dirs)
+
+    monkeypatch.setattr(profiling, 'package_dirs', fake_package_dirs)
+    return script, calls, dirs
 
 
 def test_scalene_command_follows_the_recipe(tools, tmp_path):
-    """scalene gets the verified flags, the script path, then --- and the proteus args."""
-    script, calls = tools
+    """The env's Python runs scalene with the verified flags, the script, --- and the args."""
+    script, calls, _ = tools
+    python = str(Path(script).parent / 'python')
     profile_dir = tmp_path / 'run' / 'profile'
     argv, env = profiling.wrap_command(
         'scalene', ['proteus', 'start', '-c', 'x.toml'], profile_dir
     )
     assert argv == [
-        '/opt/bin/scalene', 'run', '--cpu-only', '--profile-all',
+        python, '-m', 'scalene', 'run', '--cpu-only', '--profile-all',
         '--profile-only', '/co/PROTEUS/src/proteus/,/env/site-packages/zalmoxis/',
         '--profile-exclude', '.jl,.julia',
         '-o', str(profile_dir / 'scalene-profile.json'),
@@ -76,21 +78,30 @@ def test_scalene_command_follows_the_recipe(tools, tmp_path):
     ]  # fmt: skip
     assert env == {'JAX_DISABLE_JIT': '0'}
     sep = argv.index('---')
-    assert argv[sep - 1] == script and argv[sep + 1 :] == ['start', '-c', 'x.toml']
+    assert argv[sep - 1] == script
+    assert argv[sep + 1 :] == ['start', '-c', 'x.toml']
     assert profile_dir.is_dir()
-    assert calls == [Path(script).parent / 'python']  # the env's own interpreter
+    # The interpreter that runs scalene is the one probed, and it is asked for scalene too.
+    assert calls[0][0] == Path(python)
+    assert 'scalene' in calls[0][1]
+    # Limit: no proteus arguments still ends with the separator.
+    assert profiling.wrap_command('scalene', ['proteus'], profile_dir)[0][-1] == '---'
 
 
-def test_scalene_refuses_what_it_cannot_profile(tools, monkeypatch, tmp_path):
-    """A missing script, missing scalene or undiscoverable proteus package raises."""
+def test_scalene_refuses_what_it_cannot_profile(tools, tmp_path):
+    """A missing script, scalene or proteus package raises and creates nothing."""
+    _, _, dirs = tools
+    target = tmp_path / 'p'
     with pytest.raises(RuntimeError, match='console script'):
-        profiling.wrap_command('scalene', ['no-such-proteus', 'start'], tmp_path)
-    monkeypatch.setattr(profiling, 'package_dirs', lambda python, names: {'zalmoxis': '/z'})
+        profiling.wrap_command('scalene', ['no-such-proteus', 'start'], target)
+    del dirs['scalene']
+    with pytest.raises(RuntimeError, match='scalene is not installed in the environment'):
+        profiling.wrap_command('scalene', ['proteus', 'start'], target)
+    dirs['scalene'] = '/env/site-packages/scalene'
+    del dirs['proteus']
     with pytest.raises(RuntimeError, match='cannot find the proteus package'):
-        profiling.wrap_command('scalene', ['proteus', 'start'], tmp_path)
-    monkeypatch.setattr(profiling.shutil, 'which', lambda name: None)
-    with pytest.raises(RuntimeError, match='scalene not found on PATH'):
-        profiling.wrap_command('scalene', ['proteus', 'start'], tmp_path)
+        profiling.wrap_command('scalene', ['proteus', 'start'], target)
+    assert not target.exists()
 
 
 def test_unknown_profiler_raises(tools, tmp_path):
@@ -101,38 +112,33 @@ def test_unknown_profiler_raises(tools, tmp_path):
     assert not (tmp_path / 'p').exists()  # nothing is created for a refused profiler
 
 
-def test_pyspy_command_and_macos_root_rule(tools, monkeypatch, tmp_path):
-    """py-spy records raw folded stacks of all subprocesses; on macOS it needs root."""
+def test_pyspy_command_and_its_limits(tools, monkeypatch, tmp_path):
+    """py-spy records raw folded stacks of all subprocesses; macOS needs root."""
     monkeypatch.setattr(profiling.sys, 'platform', 'linux')
     argv, env = profiling.wrap_command('py-spy', ['proteus', 'start', '-c', 'x.toml'], tmp_path)
     assert argv == [
         '/opt/bin/py-spy', 'record', '--format', 'raw', '--nolineno', '--subprocesses',
         '-o', str(tmp_path / 'py-spy.folded'), '--', 'proteus', 'start', '-c', 'x.toml',
     ]  # fmt: skip
-    assert env == {}  # JAX_DISABLE_JIT is a scalene workaround only
+    assert env == {}  # JAX_DISABLE_JIT is a scalene guard only
     monkeypatch.setattr(profiling.sys, 'platform', 'darwin')
     monkeypatch.setattr(profiling.os, 'geteuid', lambda: 501)
     with pytest.raises(RuntimeError, match='root on macOS'):
         profiling.wrap_command('py-spy', ['proteus'], tmp_path)
     monkeypatch.setattr(profiling.os, 'geteuid', lambda: 0)
     assert profiling.wrap_command('py-spy', ['proteus'], tmp_path)[0][-1] == 'proteus'
+    monkeypatch.setattr(profiling.shutil, 'which', lambda name: None)
+    with pytest.raises(RuntimeError, match='py-spy not found on PATH'):
+        profiling.wrap_command('py-spy', ['proteus'], tmp_path)
 
 
-@pytest.mark.smoke
-def test_package_dirs_locates_without_the_current_directory(tmp_path, monkeypatch):
-    """Installed packages are found by path; a same-named directory in cwd is ignored."""
-    site = tmp_path / 'site'
-    for pkg in ('pkg_a', 'pkg_a_extra'):
-        (site / pkg).mkdir(parents=True)
-        (site / pkg / '__init__.py').write_text('raise SystemExit("imported")\n')
-    (tmp_path / 'cwd' / 'pkg_b').mkdir(parents=True)
-    (tmp_path / 'cwd' / 'pkg_b' / '__init__.py').write_text('')
-    monkeypatch.chdir(tmp_path / 'cwd')
-    monkeypatch.setenv('PYTHONPATH', str(site))
-    found = profiling.package_dirs(Path(sys.executable), ('pkg_a', 'pkg_b', 'missing'))
-    assert found == {'pkg_a': str(site / 'pkg_a')}  # located, not imported, and pkg_b skipped
-    with pytest.raises(RuntimeError, match='cannot run'):
-        profiling.package_dirs(tmp_path / 'no-python', ('pkg_a',))
+def test_profiler_of_output_files():
+    """JSON is scalene; py-spy is known by its output name; other folded files are unknown."""
+    assert profiling.profiler_of(Path('run/profile/scalene-profile.json')) == 'scalene'
+    assert profiling.profiler_of(Path('cluster-prof.json')) == 'scalene'
+    assert profiling.profiler_of(Path('profile/py-spy.folded')) == 'py-spy'
+    assert profiling.profiler_of(Path('profile/stacks.folded.gz')) is None
+    assert profiling.profiler_of(Path('py-spy.folded.gz')) is None
 
 
 def test_source_path_keeps_the_package_part():
@@ -150,11 +156,11 @@ def test_source_path_keeps_the_package_part():
         assert profiling.source_path(path) == expected, path
 
 
-def test_scalene_conversion_keeps_every_sample():
+def test_scalene_conversion_keeps_every_sample(profiles):
     """Labels follow the frame kinds, equal labelled stacks merge, the total is kept."""
-    lines = profiling.scalene_to_folded(scalene_profile())
+    lines = profiling.scalene_to_folded(json.loads(profiles.scalene.read_text()))
     counts = dict(line.rsplit(' ', 1) for line in lines)
-    assert sum(int(n) for n in counts.values()) == FIXTURE_TOTAL
+    assert sum(int(n) for n in counts.values()) == profiles.scalene_total
     # The two Zalmoxis entries differ only in the source line, so they merge (40 + 25);
     # without the merge there would be 6 lines, not 5.
     assert len(lines) == 5
@@ -170,13 +176,12 @@ def test_frame_label_edge_cases():
     assert profiling.frame_label(odd) == 'f,g (pkg/a.py)'
 
 
-def test_empty_scalene_profiles_are_refused():
+def test_empty_scalene_profiles_are_refused(profiles):
     """No stacks, only native stacks, or no combined_stacks at all: a clear error."""
-    empty = scalene_profile() | {'combined_stacks': [], 'files': {}}
+    profile = json.loads(profiles.scalene.read_text())
     with pytest.raises(ValueError, match='--profile-all'):
-        profiling.scalene_to_folded(empty)
-    native_only = scalene_profile()
-    native_only['combined_stacks'] = native_only['combined_stacks'][-1:]
+        profiling.scalene_to_folded(profile | {'combined_stacks': [], 'files': {}})
+    native_only = profile | {'combined_stacks': profile['combined_stacks'][-1:]}
     with pytest.raises(ValueError, match='no samples in PROTEUS code'):
         profiling.scalene_to_folded(native_only)
     with pytest.raises(ValueError, match='not a scalene profile'):
@@ -205,12 +210,42 @@ def test_collapse_merges_native_runs():
 def test_components_from_frame_paths():
     """Colour keys come from the package in the label; everything else is 'other'."""
     assert profiling.component('main (zalmoxis/solver.py)') == 'zalmoxis'
-    assert profiling.component('solve (aragog/solver.py:12)') == 'aragog'  # py-spy lines
+    assert profiling.component('solve (aragog/solver.py:12)') == 'aragog'  # with line number
     assert profiling.component('run (proteus/atmos_clim/agni.py)') == 'proteus'
     assert profiling.component('[native code: Julia]') == 'julia'
     assert profiling.component('[native code]') == 'native'
     assert profiling.component('update (mors/star.py)') == 'other'
-    assert profiling.component('process 12:"python -m x"') == 'other'
+    assert profiling.component('thread (0x7f): MainThread') == 'other'
+    assert profiling.component('') == 'other'
+
+
+def test_pyspy_raw_labels_read_like_scalene(tmp_path):
+    """A py-spy 0.4.2 raw line passes through unchanged and gets the same colours.
+
+    Shape from py-spy v0.4.2: ``name (short_filename)`` with --nolineno
+    (src/flamegraph.rs, Flamegraph::increment), short_filename is the path below the
+    outermost package directory (src/python_spy.rs, shorten_filename), and
+    --subprocesses adds a root ``process PID:"cmdline"`` frame (src/stack_trace.rs,
+    ProcessInfo::to_frame). Function names may be unqualified there.
+    """
+    raw = tmp_path / 'py-spy.folded'
+    line = (
+        'process 4242:"/env/bin/python3.12 /env/bin/proteus start -c x.toml";'
+        '<module> (proteus);start (proteus/cli.py);main (zalmoxis/solver.py) 7'
+    )
+    raw.write_text(line + '\n')
+    assert profiling.read_folded(raw) == [line]
+    tree, total = profiling.flame_tree([line])
+    assert total == 7
+    process = tree['children'][0]
+    assert process['k'] == 'other'  # the process root frame
+    assert process['children'][0]['k'] == 'proteus'  # console script, named 'proteus'
+    leaf = process['children'][0]['children'][0]['children'][0]
+    assert (leaf['name'], leaf['k'], leaf['value']) == (
+        'main (zalmoxis/solver.py)',
+        'zalmoxis',
+        7,
+    )
 
 
 class PageParser(HTMLParser):
@@ -230,7 +265,8 @@ class PageParser(HTMLParser):
             self.scripts.append('')
 
     def handle_endtag(self, tag):
-        assert self.open and self.open.pop() == tag, f'unbalanced </{tag}>'
+        assert self.open, f'</{tag}> without an open element'
+        assert self.open.pop() == tag, f'unbalanced </{tag}>'
         self.in_script = False
 
     def handle_data(self, data):
@@ -238,102 +274,133 @@ class PageParser(HTMLParser):
             self.scripts[-1] += data
 
 
-def page_data(path: Path) -> tuple[dict, PageParser]:
+def page_data(path: Path) -> dict:
     parser = PageParser()
     parser.feed(path.read_text())
     parser.close()
     assert parser.open == []
     (script,) = parser.scripts
-    data = script.split('const DATA = ', 1)[1].split(';\n', 1)[0]
-    return json.loads(data), parser
+    return json.loads(script.split('const DATA = ', 1)[1].split(';\n', 1)[0])
+
+
+def nodes(node: dict) -> list[dict]:
+    return [node] + [n for c in node.get('children', []) for n in nodes(c)]
 
 
 def names(node: dict) -> list[str]:
-    return [node['name']] + [n for c in node.get('children', []) for n in names(c)]
+    return [n['name'] for n in nodes(node)]
 
 
-def test_flame_page_embeds_every_node(tmp_path):
-    """The page is balanced HTML whose data holds the whole collapsed tree."""
+def test_flame_page_embeds_every_node_with_its_width(tmp_path, profiles):
+    """The page holds the whole collapsed tree; self values add up to the total."""
     out = tmp_path / 'flame.html'
-    lines = profiling.scalene_to_folded(scalene_profile())
+    lines = profiling.scalene_to_folded(json.loads(profiles.scalene.read_text()))
     meta = {'title': 'A <b> title', 'run_id': 'r1', 'commit': 'abd4ca53', 'profiler': 'scalene'}
-    assert profiling.write_flame_page(lines, out, meta) == FIXTURE_TOTAL
-    tree, _ = page_data(out)
+    assert profiling.write_flame_page(lines, out, meta) == profiles.scalene_total
+    tree = page_data(out)
     # root, start, Proteus.start, zalmoxis_solver, main, 1 block; run_atmosphere, 1 Julia
     # block; solve, 1 block; update_mors; 1 root block: 12 (18 without collapsing).
-    assert len(names(tree)) == 12
+    assert len(nodes(tree)) == 12
     assert names(tree).count('[native code]') == 3
-    assert '[native code: Julia]' in names(tree) and 'update_mors (mors/star.py)' in names(tree)
+    assert sum(n['value'] for n in nodes(tree)) == profiles.scalene_total
+    main = next(n for n in nodes(tree) if n['name'] == 'main (zalmoxis/solver.py)')
+    assert main['value'] == 0  # all its samples are in the native block below it
+    assert main['children'][0]['value'] == 40 + 25
     text = out.read_text()
-    assert 'A &lt;b&gt; title' in text and 'A <b> title' not in text
-    assert 'run <code>r1</code>' in text and f'{FIXTURE_TOTAL:,} samples' in text
+    assert 'A &lt;b&gt; title' in text
+    assert 'A <b> title' not in text
+    assert f'{profiles.scalene_total:,} samples' in text
+
+
+def test_meta_values_are_escaped(tmp_path):
+    """Run ids, commits and profilers are text, never markup; empty ones are left out."""
+    out = tmp_path / 'flame.html'
+    meta = {'run_id': '<img src=x>', 'commit': 'a&b', 'profiler': '', 'title': None}
+    profiling.write_flame_page(['a (proteus/x.py) 3'], out, meta)
+    text = out.read_text()
+    assert 'run <code>&lt;img src=x&gt;</code>' in text
+    assert 'PROTEUS <code>a&amp;b</code>' in text
+    assert '<img' not in text
+    assert 'profiler ' not in text  # empty value omitted
+    assert '<h1>PROTEUS CPU flame graph</h1>' in text  # default title
 
 
 def test_flame_page_survives_hostile_names_and_refuses_empty(tmp_path):
     """A frame named like a closing script tag stays data; no samples is an error."""
     out = tmp_path / 'flame.html'
     profiling.write_flame_page(['evil</script><b> (proteus/x.py) 3'], out, {})
-    tree, parser = page_data(out)
-    assert names(tree) == ['all samples', 'evil</script><b> (proteus/x.py)']
-    assert 'PROTEUS CPU flame graph' in out.read_text()  # default title
+    assert names(page_data(out)) == ['all samples', 'evil</script><b> (proteus/x.py)']
     with pytest.raises(ValueError, match='no samples'):
         profiling.write_flame_page([], out, {})
     with pytest.raises(ValueError, match='no samples'):
         profiling.write_flame_page(['a (proteus/x.py) 0'], out, {})
 
 
-def test_real_slice_matches_the_reference_tree(tmp_path):
-    """The real slice keeps its total and gives the tree of the original flame script."""
-    lines = profiling.read_folded(SLICE)
+def test_real_slice_matches_the_reference_counts(profiles):
+    """The real slice keeps its total and its tree shape; a corrupt line is refused."""
+    lines = profiling.read_folded(profiles.slice)
     tree, total = profiling.flame_tree(lines)
-    assert total == SLICE_TOTAL
-    # Node count and component mix from the study's make_flame.py on the same file.
-    assert len(names(tree)) == 70
-    kinds: dict[str, int] = {}
-    stack = list(tree['children'])
-    while stack:
-        node = stack.pop()
-        kinds[node['k']] = kinds.get(node['k'], 0) + 1
-        stack += node.get('children', [])
-    assert kinds == {'other': 21, 'proteus': 17, 'zalmoxis': 12, 'native': 10, 'aragog': 8,
-                     'julia': 1}  # fmt: skip
+    assert total == profiles.slice_total
+    assert sum(n['value'] for n in nodes(tree)) == total
+    # sh tests/fixtures/count_flame_nodes.sh tests/fixtures/real-slice.folded prints
+    # 69 nodes below the root, 10 native blocks and 1 Julia block.
+    assert len(nodes(tree)) == 69 + 1
+    assert names(tree).count('[native code]') == 10
+    assert names(tree).count('[native code: Julia]') == 1
+    with pytest.raises(ValueError, match='expected "frame;frame'):
+        profiling.flame_tree([lines[0].rsplit(' ', 1)[0]])  # count cut off
 
 
 def test_read_folded_rejects_malformed_lines(tmp_path):
-    """A line without a non-negative integer count names the file, line and format."""
+    """A line without a non-negative integer count names the line and the format."""
     bad = tmp_path / 'bad.folded'
     for tail in ('a;c three', 'a;c -3', 'a;c', ' 3'):
         bad.write_text(f'a;b 3\n\n{tail}\n')
-        with pytest.raises(ValueError, match='bad.folded line 2: expected "frame;frame'):
+        with pytest.raises(ValueError, match='line 2: expected "frame;frame'):
             profiling.read_folded(bad)
     gz = tmp_path / 'ok.folded.gz'
     gz.write_bytes(gzip.compress(b'a;b 3\n\n'))
     assert profiling.read_folded(gz) == ['a;b 3']  # blank lines skipped
 
 
-def test_collect_scalene_profile_dir(tmp_path):
+def test_collect_scalene_profile_dir(tmp_path, profiles):
     """collect writes both artifacts, keeps the samples, and returns run-relative paths."""
     profile_dir = tmp_path / 'run' / 'profile'
     profile_dir.mkdir(parents=True)
-    (profile_dir / 'scalene-profile.json').write_text(SCALENE.read_text())
+    (profile_dir / 'scalene-profile.json').write_text(profiles.scalene.read_text())
     artifacts = profiling.collect(profile_dir, {'run_id': 'r7'})
     assert artifacts == {'profile': 'profile/stacks.folded.gz', 'flame': 'profile/flame.html'}
     stacks = gzip.decompress((tmp_path / 'run' / artifacts['profile']).read_bytes()).decode()
-    assert sum(int(line.rsplit(' ', 1)[1]) for line in stacks.splitlines()) == FIXTURE_TOTAL
+    assert (
+        sum(int(line.rsplit(' ', 1)[1]) for line in stacks.splitlines())
+        == profiles.scalene_total
+    )
     page = (tmp_path / 'run' / artifacts['flame']).read_text()
-    assert 'profiler scalene' in page and 'run <code>r7</code>' in page
+    assert 'profiler scalene' in page
+    assert 'run <code>r7</code>' in page
     # gzip header bytes 4-7 hold the mtime; zero keeps equal stacks byte-identical.
     assert (profile_dir / 'stacks.folded.gz').read_bytes()[4:8] == bytes(4)
 
 
-def test_collect_pyspy_and_missing_output(tmp_path):
-    """py-spy output is used as folded stacks; an empty directory is an error."""
+def test_collect_pyspy_missing_and_ambiguous_output(tmp_path):
+    """py-spy output is used as folded stacks; no output or two outputs is an error."""
     (tmp_path / 'py-spy.folded').write_text('process 1:"proteus";main (proteus/cli.py) 4\n')
     profiling.collect(tmp_path)
     assert 'profiler py-spy' in (tmp_path / 'flame.html').read_text()
     assert gzip.decompress((tmp_path / 'stacks.folded.gz').read_bytes()).endswith(b' 4\n')
+    (tmp_path / 'scalene-profile.json').write_text('{}')
+    with pytest.raises(ValueError, match='several profilers'):
+        profiling.collect(tmp_path)
     empty = tmp_path / 'empty'
     empty.mkdir()
     with pytest.raises(FileNotFoundError, match='no profiler output'):
         profiling.collect(empty)
     assert not (empty / 'flame.html').exists()
+
+
+def test_collect_names_the_empty_source(tmp_path):
+    """An empty profile fails with the path of the file that holds it."""
+    (tmp_path / 'py-spy.folded').write_text('')
+    with pytest.raises(ValueError, match=r'py-spy\.folded: no samples'):
+        profiling.collect(tmp_path)
+    assert not (tmp_path / 'stacks.folded.gz').exists()

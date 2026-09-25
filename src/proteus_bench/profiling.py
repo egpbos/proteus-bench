@@ -1,13 +1,9 @@
 """Profiled runs: wrap the proteus command in a profiler, turn its output into folded
-stacks and build a self-contained flame-graph page.
+stacks and build a single-file flame-graph page.
 
-A profiled run writes into ``<run>/profile/``: the profiler's own output
-(``scalene-profile.json`` or ``py-spy.folded``), then ``collect`` adds
-``stacks.folded.gz`` (one ``frame;frame;frame count`` line per distinct stack,
-outermost frame first) and ``flame.html``.
-
-Frame labels: Python frames are ``function (package/path.py)``, native frames
-are ``symbol [library]``, so a label ending in ``]`` is native.
+A profiled run writes into ``<run>/profile/``: the profiler's own output (see
+``PROFILERS``), then ``collect`` adds ``stacks.folded.gz`` and ``flame.html``.
+Formats and label conventions: docs/interface.md, "Profiles".
 """
 
 from __future__ import annotations
@@ -21,11 +17,11 @@ import shutil
 import subprocess
 import sys
 from collections import Counter
+from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
+from typing import NamedTuple
 
-SCALENE_OUTPUT = 'scalene-profile.json'
-PYSPY_OUTPUT = 'py-spy.folded'
 STACKS_FILE = 'stacks.folded.gz'
 FLAME_FILE = 'flame.html'
 
@@ -48,6 +44,7 @@ COLOURED_PACKAGES = frozenset({'aragog', 'proteus', 'zalmoxis'})
 NATIVE_BLOCK = '[native code]'
 NATIVE_JULIA_BLOCK = '[native code: Julia]'
 
+# Regular packages only: a single-file module has no search locations and is skipped.
 _FIND_PACKAGES = """
 import importlib.util, json, sys
 found = {}
@@ -59,57 +56,82 @@ print(json.dumps(found))
 """
 
 
+class Profiler(NamedTuple):
+    output: str  # file the profiler writes into the profile directory
+    build: Callable[[list[str], Path], tuple[list[str], dict[str, str]]]
+
+
+def _scalene_command(argv: list[str], output: Path) -> tuple[list[str], dict[str, str]]:
+    # scalene runs a Python file, not a command on PATH, so it needs the script path.
+    script = shutil.which(argv[0])
+    if script is None:
+        raise RuntimeError(f'{argv[0]!r} not found; scalene needs the proteus console script')
+    # Run scalene with the interpreter of proteus's environment, the one probed here.
+    python = Path(script).parent / 'python'
+    dirs = package_dirs(python, (*ECOSYSTEM_PACKAGES, 'scalene'))
+    if dirs.pop('scalene', None) is None:
+        raise RuntimeError(f'scalene is not installed in the environment of {script}')
+    if 'proteus' not in dirs:
+        raise RuntimeError(f'the Python next to {script} cannot find the proteus package')
+    # The trailing separator keeps e.g. .../proteus/ from matching .../proteus_bench/.
+    only = ','.join(os.path.join(d, '') for d in dirs.values())
+    command = [
+        str(python), '-m', 'scalene', 'run', '--cpu-only',
+        '--profile-all',  # without it the profile is empty: PROTEUS is outside the script dir
+        '--profile-only', only,
+        '--profile-exclude', '.jl,.julia',  # tracing Julia files through juliacall crashes
+        '-o', str(output),
+        script, '---', *argv[1:],
+    ]  # fmt: skip
+    # scalene 2.3.0 disables JAX JIT only with --disable-jit; the pin guards against
+    # builds that disable it by default. A JIT-disabled Zalmoxis run failed on the
+    # cluster under scalene (TracerArrayConversionError; cause not verified).
+    return command, {'JAX_DISABLE_JIT': '0'}
+
+
+def _pyspy_command(argv: list[str], output: Path) -> tuple[list[str], dict[str, str]]:
+    tool = shutil.which('py-spy')
+    if tool is None:
+        raise RuntimeError('py-spy not found on PATH; install it where proteus runs')
+    if sys.platform == 'darwin' and os.geteuid() != 0:
+        raise RuntimeError('py-spy needs root on macOS; use scalene or run as root')
+    # raw is py-spy's folded format; --nolineno gives labels of the scalene shape.
+    command = [
+        tool, 'record', '--format', 'raw', '--nolineno', '--subprocesses',
+        '-o', str(output), '--', *argv,
+    ]  # fmt: skip
+    return command, {}
+
+
+PROFILERS = {
+    'scalene': Profiler('scalene-profile.json', _scalene_command),
+    'py-spy': Profiler('py-spy.folded', _pyspy_command),
+}
+
+
 def wrap_command(
     profiler: str, argv: list[str], profile_dir: Path
 ) -> tuple[list[str], dict[str, str]]:
     """The command that runs ``argv`` under ``profiler``, and extra environment variables.
 
     ``argv[0]`` is the proteus console script (a name on PATH or a path). The
-    profiler writes its output into ``profile_dir``, which is created. Raises
-    ValueError for an unknown profiler and RuntimeError when the profiler or the
-    script cannot be used here.
+    profiler writes ``PROFILERS[profiler].output`` into ``profile_dir``, which is
+    created. Raises ValueError for an unknown profiler and RuntimeError when the
+    profiler or the script cannot be used here.
     """
-    if profiler not in ('scalene', 'py-spy'):
-        raise ValueError(f'unknown profiler {profiler!r}; expected scalene or py-spy')
-    tool = shutil.which(profiler)
-    if tool is None:
-        raise RuntimeError(f'{profiler} not found on PATH; install it where proteus runs')
+    if profiler not in PROFILERS:
+        raise ValueError(f'unknown profiler {profiler!r}; expected one of {sorted(PROFILERS)}')
+    spec = PROFILERS[profiler]
+    command = spec.build(argv, profile_dir / spec.output)
     profile_dir.mkdir(parents=True, exist_ok=True)
-    if profiler == 'scalene':
-        # scalene 2.3.0 leaves JAX JIT alone unless --disable-jit is given, but a
-        # disabled JIT breaks Zalmoxis (TracerArrayConversionError), so pin it on.
-        return _scalene_argv(tool, argv, profile_dir), {'JAX_DISABLE_JIT': '0'}
-    return _pyspy_argv(tool, argv, profile_dir), {}
+    return command
 
 
-def _scalene_argv(tool: str, argv: list[str], profile_dir: Path) -> list[str]:
-    # scalene runs a Python file, not a command on PATH, so it needs the script path.
-    script = shutil.which(argv[0])
-    if script is None:
-        raise RuntimeError(f'{argv[0]!r} not found; scalene needs the proteus console script')
-    dirs = package_dirs(Path(script).parent / 'python', ECOSYSTEM_PACKAGES)
-    if 'proteus' not in dirs:
-        raise RuntimeError(f'the Python next to {script} cannot find the proteus package')
-    # The trailing separator keeps e.g. .../proteus/ from matching .../proteus_bench/.
-    only = ','.join(os.path.join(d, '') for d in dirs.values())
-    return [
-        tool, 'run', '--cpu-only',
-        '--profile-all',  # without it the profile is empty: PROTEUS is outside the script dir
-        '--profile-only', only,
-        '--profile-exclude', '.jl,.julia',  # tracing Julia files through juliacall crashes
-        '-o', str(profile_dir / SCALENE_OUTPUT),
-        script, '---', *argv[1:],
-    ]  # fmt: skip
-
-
-def _pyspy_argv(tool: str, argv: list[str], profile_dir: Path) -> list[str]:
-    if sys.platform == 'darwin' and os.geteuid() != 0:
-        raise RuntimeError('py-spy needs root on macOS; use scalene or run as root')
-    # raw is py-spy's folded format; --nolineno gives the same labels as scalene_to_folded.
-    return [
-        tool, 'record', '--format', 'raw', '--nolineno', '--subprocesses',
-        '-o', str(profile_dir / PYSPY_OUTPUT), '--', *argv,
-    ]  # fmt: skip
+def profiler_of(path: Path) -> str | None:
+    """The profiler whose output ``path`` is: scalene for any JSON, else by file name."""
+    if path.suffix == '.json':
+        return 'scalene'
+    return next((name for name, spec in PROFILERS.items() if spec.output == path.name), None)
 
 
 def package_dirs(python: Path, names: tuple[str, ...]) -> dict[str, str]:
@@ -140,13 +162,13 @@ def source_path(filename: str) -> str:
     i = filename.rfind('/src/')
     if i >= 0:
         return filename[i + len('/src/') :]
-    return os.path.basename(filename) or filename
+    return os.path.basename(filename)
 
 
 def frame_label(frame: dict) -> str:
     """Folded-stack label of one scalene ``combined_stacks`` frame."""
     name = (frame['display_name'] or '?').replace(';', ',')
-    where = frame['filename_or_module'] or ''
+    where = frame['filename_or_module']
     if frame['kind'] == 'py':
         return f'{name} ({source_path(where)})'
     return f'{name} [{os.path.basename(where)}]'
@@ -173,7 +195,7 @@ def scalene_to_folded(profile: dict) -> list[str]:
             'scalene profile has no samples in PROTEUS code; record it with '
             '--profile-all and a --profile-only that matches the PROTEUS sources'
         )
-    return [f'{stack} {n}' for stack, n in counts.items() if n > 0]
+    return [f'{stack} {n}' for stack, n in counts.items()]
 
 
 def parse_folded_line(line: str) -> tuple[list[str], int]:
@@ -194,18 +216,18 @@ def read_folded(path: Path) -> list[str]:
         try:
             parse_folded_line(line)
         except ValueError as err:
-            raise ValueError(f'{path} line {i}: {err}') from None
+            raise ValueError(f'line {i}: {err}') from None
     return lines
 
 
 def load_stacks(path: Path) -> list[str]:
-    """Folded stacks from a scalene JSON profile (``*.json``) or a folded file."""
-    if path.suffix != '.json':
+    """Folded stacks from a scalene JSON profile or a folded file (see ``profiler_of``)."""
+    if profiler_of(path) != 'scalene':
         return read_folded(path)
     try:
         profile = json.loads(path.read_text())
     except json.JSONDecodeError as err:
-        raise ValueError(f'{path}: not valid JSON ({err.msg})') from None
+        raise ValueError(f'not valid JSON ({err.msg})') from None
     return scalene_to_folded(profile)
 
 
@@ -242,7 +264,7 @@ def component(label: str) -> str:
         return 'julia'
     if label.endswith(']'):
         return 'native'
-    if label.endswith(')') and '(' in label:
+    if label.endswith(')'):
         package = label[label.rfind('(') + 1 : -1].split('/')[0]
         if package in COLOURED_PACKAGES:
             return package
@@ -305,18 +327,24 @@ def collect(profile_dir: Path, meta: dict | None = None) -> dict[str, str]:
 
     Returns artifact paths relative to the run directory (the parent of
     ``profile_dir``) under the keys ``profile`` and ``flame``. Raises
-    FileNotFoundError when no profiler output exists, ValueError when it is empty.
+    FileNotFoundError when no profiler output exists, and ValueError when the
+    output of more than one profiler exists or the output holds no samples.
     """
-    sources = {SCALENE_OUTPUT: 'scalene', PYSPY_OUTPUT: 'py-spy'}
-    found = [name for name in sources if (profile_dir / name).exists()]
+    found = [name for name, spec in PROFILERS.items() if (profile_dir / spec.output).exists()]
+    outputs = [PROFILERS[name].output for name in found]
     if not found:
-        raise FileNotFoundError(
-            f'no profiler output in {profile_dir}: expected {sorted(sources)}'
+        expected = ' or '.join(spec.output for spec in PROFILERS.values())
+        raise FileNotFoundError(f'no profiler output in {profile_dir}: expected {expected}')
+    if len(found) > 1:
+        raise ValueError(f'{profile_dir} holds output of several profilers: {outputs}')
+    source = profile_dir / outputs[0]
+    try:
+        lines = load_stacks(source)
+        write_flame_page(
+            lines, profile_dir / FLAME_FILE, {'profiler': found[0], **(meta or {})}
         )
-    lines = load_stacks(profile_dir / found[0])
-    write_flame_page(
-        lines, profile_dir / FLAME_FILE, {'profiler': sources[found[0]], **(meta or {})}
-    )
+    except ValueError as err:
+        raise ValueError(f'{source}: {err}') from None
     text = ''.join(line + '\n' for line in lines)
     # mtime=0 keeps the file byte-identical for identical stacks.
     (profile_dir / STACKS_FILE).write_bytes(gzip.compress(text.encode(), mtime=0))

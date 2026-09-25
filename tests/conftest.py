@@ -1,6 +1,9 @@
-"""Shared fixtures: runs of the fake proteus stub in a temporary directory."""
+"""Shared fixtures: runs of the fake proteus stub, and the profiling fixture files."""
 
 from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -31,3 +34,15 @@ def good_events(run_fake):
     code, _, events = run_fake()
     assert code == 0
     return events
+
+
+@pytest.fixture
+def profiles():
+    """Profiling fixture files and their sample totals, counted outside proteus_bench."""
+    fixtures = Path(__file__).parent / 'fixtures'
+    return SimpleNamespace(
+        scalene=fixtures / 'scalene-profile.json',
+        scalene_total=40 + 25 + 12 + 8 + 3 + 2,  # hits of its six combined_stacks entries
+        slice=fixtures / 'real-slice.folded',
+        slice_total=22562,  # awk '{s += $NF} END {print s}' real-slice.folded
+    )

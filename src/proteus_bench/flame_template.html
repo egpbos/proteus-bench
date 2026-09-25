@@ -4,15 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>__TITLE__</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 :root{color-scheme:light;--ground:#f6f7f6;--surface:#fcfcfb;--ink:#141a18;--muted:#56605b;--rule:#d9dedb;--accent:#1f6f5c;
   --zalmoxis:#2a78d6;--proteus:#eb6834;--aragog:#1baf7a;--other:#eda100;--julia:#e87ba4;--native:#c9cdca;--hl:#4a3aa7;
-  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--ground:#121513;--surface:#1a1a19;--ink:#eef1ef;--muted:#a3ada8;--rule:#2d3431;--accent:#56b79d;
+  --sans:system-ui,-apple-system,"Segoe UI",sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--ground:#121513;--surface:#1a1a19;--ink:#eef1ef;--muted:#a3ada8;--rule:#2d3431;--accent:#56b79d;
   --zalmoxis:#3987e5;--proteus:#d95926;--aragog:#199e70;--other:#c98500;--julia:#d55181;--native:#5b625e;--hl:#9085e9}}
-:root[data-theme="dark"]{color-scheme:dark;--ground:#121513;--surface:#1a1a19;--ink:#eef1ef;--muted:#a3ada8;--rule:#2d3431;--accent:#56b79d;
-  --zalmoxis:#3987e5;--proteus:#d95926;--aragog:#199e70;--other:#c98500;--julia:#d55181;--native:#5b625e;--hl:#9085e9}
 *{box-sizing:border-box}
 body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--sans);padding-inline:16px;padding-block:28px 56px}
 main{max-width:1400px;margin:0 auto;display:grid;gap:22px}
@@ -68,8 +65,8 @@ p{margin:0} .note{font-size:.86rem;color:var(--muted)} code{font-family:var(--mo
   <p>Built from folded stacks (<code>stacks.folded.gz</code> next to this page). Consecutive native frames are merged into one block. Widths are shares of samples under profiling, which inflates Python-heavy code more than native code; they are not minutes of a plain run. Measure phase durations with the run's timing record and use this page for what is hot inside a phase. JIT-compiled JAX kernels are opaque to the profiler.</p>
 </section>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-flame-graph@5.0.0/dist/d3-flamegraph.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-flame-graph@5.0.0/dist/d3-flamegraph.umd.min.js" integrity="sha384-GcrVlww9WxDPRUzpREH2YdvFZAXFhSp2w/nPPK2Fqj3anxYV6sp1QpQvJZ/h7OIE" crossorigin="anonymous"></script>
 <script>
 const DATA = __DATA__;
 let chart, inverted = false;
@@ -78,14 +75,15 @@ let sumAll = 0; (function s(n){ sumAll += n.value || 0; (n.children || []).forEa
 const pct = v => (100 * v / sumAll).toFixed(2) + '%';
 function render() {
   const el = document.getElementById('chart'); el.innerHTML = '';
-  const colors = {zalmoxis: css('--zalmoxis'), proteus: css('--proteus'), aragog: css('--aragog'), other: css('--other'), julia: css('--julia'), native: css('--native')};
+  const colours = {}, colour = k => colours[k] ??= css('--' + k);
   const hl = css('--hl');
+  const escape = s => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
   const tip = flamegraph.tooltip.defaultFlamegraphTooltip().html(d =>
-    `<b>${d.data.name.replace(/</g,'&lt;')}</b><br>${d.value.toLocaleString()} samples · ${pct(d.value)} of total`);
+    `<b>${escape(d.data.name)}</b><br>${d.value.toLocaleString()} samples · ${pct(d.value)} of total`);
   chart = flamegraph.default()
     .width(Math.max(el.clientWidth, 640)).cellHeight(18).minFrameSize(1).transitionDuration(250)
     .selfValue(true).inverted(inverted).sort(true).tooltip(tip)
-    .setColorMapper(d => d.highlight ? hl : (colors[d.data.k] || colors.native));
+    .setColorMapper(d => d.highlight ? hl : colour(d.data.k || 'native'));
   d3.select('#chart').datum(DATA).call(chart);
   const q = document.getElementById('q').value.trim(); if (q) chart.search(q);
 }
