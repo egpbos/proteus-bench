@@ -5,52 +5,73 @@ on:
   pull_request:
   workflow_dispatch:
 concurrency:
-  group: ci-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # Superseded PR pushes are cancelled; every push to main is analysed
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
+# Every tool comes from the locked pixi environments (pixi.lock), the same ones
+# developers use through `pixi run`; actions are pinned by commit.
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: ruff check src tests
-      - run: ruff format --check src tests
+          persist-credentials: false # installing the package runs PR code
+      - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
+        with:
+          pixi-version: v0.79.0
+          manifest-path: pyproject.toml
+          environments: default
+      - run: pixi run lint
 
   test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        environment: [py311, default, py313] # default is Python 3.12
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev]"
-      - run: pytest --cov=proteus_bench --cov-report=xml --cov-report=term
-      - run: proteus-bench validate examples/timing.jsonl examples/record.json
-      - if: matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+          persist-credentials: false # installing the package runs PR code
+      - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
+        with:
+          pixi-version: v0.79.0
+          manifest-path: pyproject.toml
+          environments: ${{ matrix.environment }}
+      - run: pixi run -e ${{ matrix.environment }} test --cov=proteus_bench --cov-report=xml --cov-report=term
+      - run: pixi run -e ${{ matrix.environment }} proteus-bench validate examples/timing.jsonl examples/record.json
+      - if: matrix.environment == 'default'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage
           path: coverage.xml
 
-  # The harness is installed into PROTEUS environments, so it must work with no
-  # dependencies at all: install without extras and run it.
-  no-dependencies:
+  sonarqube:
+    name: SonarQube
+    needs: test
     runs-on: ubuntu-latest
+    # Pull requests from forks get no secrets; skip the scan there instead of failing
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          python-version: "3.12"
-      - run: pip install .
-      # Only proteus-bench itself may have been added to the fresh environment
-      - run: test "$(pip list --format=freeze | grep -vciE '^(pip|setuptools|wheel|proteus-bench)==')" = 0
-      - run: proteus-bench validate examples/timing.jsonl | tee out.txt && grep -q 'shape not checked' out.txt
+          fetch-depth: 0  # blame data, so Sonar can tell new code from old
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: coverage
+      - name: SonarQube Scan
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        with:
+          args: >
+            -Dsonar.organization=egpbos
+            -Dsonar.projectKey=egpbos_proteus-bench
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.python.version=3.11,3.12,3.13
+            -Dsonar.python.coverage.reportPaths=coverage.xml

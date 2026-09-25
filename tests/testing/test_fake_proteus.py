@@ -17,6 +17,7 @@ import tomllib
 
 import pytest
 
+from proteus_bench.testing.fake_proteus import FAKE_DEFAULTS, scenario
 from proteus_bench.timing import attributed_totals, check_events, read_events
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
@@ -63,7 +64,6 @@ def test_error_closes_spans_as_failed_and_ends_the_run(run_fake):
     assert not any(e['ev'] == 'span' and e['name'] == 'shutdown' for e in events)
 
 
-@pytest.mark.smoke
 def test_hard_kill_leaves_a_readable_partial_file(tmp_path):
     """A killed process leaves a torn line and no run_end; the rest still checks out."""
     cfg = tmp_path / 'cfg.toml'
@@ -98,3 +98,14 @@ def test_it_timing_log_lines_agree_with_spans(run_fake):
     assert printed[0] > 10 * printed[1]
     loop = attributed_totals(events)['loop']
     assert loop['other'] == pytest.approx(3 * 0.2, abs=1e-6)  # bookkeeping per iteration
+
+
+def test_scenario_rejects_typos_instead_of_running_the_default():
+    """A misspelt key or fail mode must fail loudly, or a test silently tests the wrong thing."""
+    assert scenario({}) == FAKE_DEFAULTS
+    assert scenario({})['fail'] == 'none'  # a default run must succeed
+    assert scenario({'fail': 'kill'})['fail'] == 'kill'
+    with pytest.raises(ValueError, match=r"fail = 'kil'"):
+        scenario({'fail': 'kil'})
+    with pytest.raises(ValueError, match=r"unknown \[fake\] keys \['atmos_first'\]"):
+        scenario({'atmos_first': 1.0})

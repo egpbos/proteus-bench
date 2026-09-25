@@ -48,7 +48,8 @@ def test_hash_ignores_order_and_per_run_keys_only():
     # Type changes count: 1 and 1.0 or '1' are different settings in a config file.
     assert settings_hash({**flat, 'params.out.write_mod': 1.0}) != base
     assert settings_hash({**flat, 'params.out.write_mod': '1'}) != base
-    assert base.startswith('sha256:') and len(base) == len('sha256:') + 64
+    assert base.startswith('sha256:')
+    assert len(base) == len('sha256:') + 64
 
 
 def test_changed_keys_reports_edits_additions_and_removals():

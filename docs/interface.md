@@ -49,8 +49,9 @@ Every event also has `"v": 1`.
 
 ### Span tree rules
 
-1. **Ids.** `id` is unique within a run and assigned when the span opens.
-   `parent` is the id of the enclosing span, or `null` for a root.
+1. **Ids.** `id` is unique within a run and assigned when the span opens, so a
+   parent's id is always lower than its children's. `parent` is the id of the
+   enclosing span, or `null` for a root.
 2. **Roots are phases.** Root spans are named `setup`, `init`, `loop` or
    `shutdown`. Each appears at most once, and they don't overlap.
 3. **Containment.** A child lies within its parent's time window.
@@ -113,8 +114,10 @@ One JSON file per run. See `record-v1.schema.json` for every field. Key points:
 - Raw spans are kept in a sidecar file (`artifacts.spans`). Every statistic can
   be recomputed from them, so better analysis applies to old runs too.
 - `benchmark.settings` is the flattened resolved config read from PROTEUS's
-  `init_coupler.toml`. `settings_hash` covers it with per-run fields such as
-  paths removed. `lineage` is `default` for the default-settings series.
+  `init_coupler.toml`, without the per-run keys (`proteus_bench.settings.PER_RUN_KEYS`:
+  output name, resume and offline flags). `settings_hash` is
+  `proteus_bench.settings.settings_hash(settings)`. `lineage` is `default` for the
+  default-settings series.
 - `timings.components` has one row per (phase, component, submodule, backend).
   The phase's unattributed remainder is a row with `component = other`, so the
   rows for a phase add up to its entry in `timings.phases`.
