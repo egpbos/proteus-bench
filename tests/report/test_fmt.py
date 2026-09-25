@@ -45,7 +45,9 @@ def test_slugs_and_series_paths_are_unambiguous():
     assert len(slug('x' * 100)) == 64
     assert series_href(('a-', '-b', 'c')).startswith('series/a--b--c--')
     assert series_href(('A', 'b', 'c')) != series_href(('a', 'b', 'c'))  # same slug, other key
-    assert series_href(('a', 'b', 'c')) == series_href(('a', 'b', 'c'))  # stable across builds
+    # Stable across builds and machines: pinned to sha256('["a", "b", "c"]'), computed
+    # independently with `shasum -a 256`, so a per-process salt (like hash()) would fail.
+    assert series_href(('a', 'b', 'c')) == 'series/a--b--c--d33b202c02.html'
 
 
 def test_script_json_cannot_close_the_script():

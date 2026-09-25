@@ -17,7 +17,9 @@ from typing import NamedTuple
 from urllib.parse import quote
 
 RECORD_SCHEMA = 'proteus-bench/1'
-RUN_ID = re.compile(r'[0-9]{8}T[0-9]{6}Z-[a-z0-9-]+')  # as in record-v1.schema.json
+# As in record-v1.schema.json. [0-9], not \d: \d also matches non-ASCII digits, which
+# would let unexpected characters into file names.
+RUN_ID = re.compile(r'[0-9]{8}T[0-9]{6}Z-[a-z0-9-]+')  # NOSONAR
 REPO = re.compile(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+')  # GitHub owner/name
 NUMBER = (int, float)
 
