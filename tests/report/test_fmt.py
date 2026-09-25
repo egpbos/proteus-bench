@@ -29,6 +29,7 @@ def test_duration_formats_at_their_boundaries():
 
 def test_values_and_relative_changes():
     """Non-second units print as given; a count has no unit; signs are explicit."""
+    assert fmt_value(6, 'count') == '6'  # n_iters, unit 'count' in the analysis output
     assert fmt_value(6, '') == '6'
     assert fmt_value(2.5, 'GB') == '2.5 GB'
     assert fmt_value(None, 's') == 'n/a'

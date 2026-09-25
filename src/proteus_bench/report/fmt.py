@@ -35,11 +35,13 @@ def fmt_s(seconds: float | None) -> str:
 
 
 def fmt_value(value: float | None, unit: str) -> str:
-    """A metric value in its unit; seconds use ``fmt_s``."""
+    """A metric value in its unit; seconds use ``fmt_s``, counts print bare."""
     if value is None:
         return 'n/a'
     if unit == 's':
         return fmt_s(value)
+    if unit == 'count':
+        return f'{value:g}'
     return f'{value:g} {unit}'.rstrip()
 
 

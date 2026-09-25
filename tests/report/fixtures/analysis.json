@@ -91,7 +91,7 @@
     "machine_class": "habrok-vink",
     "metric": "n_iters"
    },
-   "unit": "",
+   "unit": "count",
    "points": [
     {
      "run_id": "20260918T031000Z-habrok-default-r1",
@@ -1573,7 +1573,7 @@
     "machine_class": "gha-ubuntu-epyc7763",
     "metric": "n_iters"
    },
-   "unit": "",
+   "unit": "count",
    "points": [
     {
      "run_id": "20260921T120000Z-gha-default-g1",
