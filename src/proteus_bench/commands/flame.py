@@ -21,11 +21,15 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def main(args: argparse.Namespace) -> int:
-    meta = {'title': args.title, 'profiler': 'scalene' if args.input.suffix == '.json' else ''}
+    meta = {'title': args.title, 'profiler': profiling.profiler_of(args.input)}
     try:
         lines = profiling.load_stacks(args.input)
         total = profiling.write_flame_page(lines, args.out, meta)
-    except (OSError, ValueError) as err:
+    except OSError as err:  # a missing file names itself; a corrupt gzip does not
+        where, reason = err.filename or args.input, err.strerror or err
+        print(f'proteus-bench flame: {where}: {reason}', file=sys.stderr)
+        return 1
+    except ValueError as err:
         print(f'proteus-bench flame: {args.input}: {err}', file=sys.stderr)
         return 1
     print(f'{args.out}: {total:,} samples in {len(lines):,} stacks')
