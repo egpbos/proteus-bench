@@ -2,10 +2,12 @@
 
 Everything goes through the ``git`` CLI, so the user's own git configuration
 and credentials apply; this module never sees a token. The local checkout is a
-cache: each attempt resets it to the remote tip, stages the runs on top, commits
-and pushes. A rejected push means another publisher got there first; the next
-attempt fetches the new tip and stages again, which for add-only commits is the
-same as a rebase and also notices runs the other publisher already added.
+cache that each attempt resets to the remote tip (``git clean -fdx``), so it
+must be a directory this module created: it carries the ``MARKER`` git config
+key, and any other existing directory is refused. A rejected push means
+another publisher got there first; the next attempt fetches the new tip and
+stages again, which for add-only commits is the same as a rebase and also
+notices runs the other publisher already added.
 """
 
 from __future__ import annotations
@@ -22,15 +24,16 @@ from pathlib import Path
 from proteus_bench import store
 
 ATTEMPTS = 3
+MARKER = 'proteus-bench.store'  # git config key set in checkouts this module created
 PAGES_WORKFLOW = 'pages.yml'
 GITHUB_REMOTE = re.compile(
-    r'^(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)'
-    r'([\w.-]+/[\w.-]+?)(?:\.git)?/?$'
+    r'(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)'
+    r'([\w.-]+/[\w.-]+?)(?:\.git)?/?'
 )
 
 
 class PublishError(RuntimeError):
-    """A git step failed; the message holds the command and git's error output."""
+    """A git step failed or the checkout is unsafe; the message says which and why."""
 
 
 @dataclass
@@ -40,6 +43,7 @@ class Published:
     commit: str | None = None  # store commit that added the runs; None if nothing new
     added: list[str] = field(default_factory=list)
     skipped: dict[str, str] = field(default_factory=dict)  # run_id -> commit that has it
+    retries: int = 0  # pushes rejected because another publisher pushed first
 
 
 def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -53,15 +57,44 @@ def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProce
     return proc
 
 
+def _is_own_checkout(checkout: Path) -> bool:
+    config = checkout / '.git' / 'config'
+    if not config.is_file():
+        return False
+    proc = git(checkout, 'config', '--file', str(config), '--get', MARKER, check=False)
+    return proc.stdout.strip() == 'true'
+
+
+def check_checkout(checkout: Path) -> None:
+    """Refuse a checkout path that publishing must not reset.
+
+    Allowed: an absolute path that does not exist, an empty directory, or a
+    checkout carrying ``MARKER``. Raises PublishError otherwise.
+    """
+    if not checkout.is_absolute():
+        raise PublishError(f'store checkout must be an absolute path, not {str(checkout)!r}')
+    if not checkout.exists() or (checkout.is_dir() and not any(checkout.iterdir())):
+        return
+    if not _is_own_checkout(checkout):
+        raise PublishError(
+            f'{checkout} exists and is not a proteus-bench store checkout (git config '
+            f'{MARKER} is not set), so it is left alone. Set store.cache_dir to a new '
+            'directory, or remove this one if it is a stale cache.'
+        )
+
+
 def update_checkout(checkout: Path, remote: str, branch: str) -> bool:
     """Make ``checkout`` a clean copy of ``branch`` on ``remote``.
 
     Returns False when the remote has no such branch; the checkout is then an
-    empty orphan branch of that name, ready for the first commit.
+    empty orphan branch of that name, ready for the first commit. Raises
+    PublishError for an unsafe checkout path (see ``check_checkout``).
     """
-    checkout.mkdir(parents=True, exist_ok=True)
-    if not (checkout / '.git').exists():
+    check_checkout(checkout)
+    if not _is_own_checkout(checkout):
+        checkout.mkdir(parents=True, exist_ok=True)
         git(checkout, 'init', '-q')
+        git(checkout, 'config', MARKER, 'true')
     if git(checkout, 'remote', 'get-url', 'origin', check=False).returncode:
         git(checkout, 'remote', 'add', 'origin', remote)
     else:
@@ -83,8 +116,9 @@ def update_checkout(checkout: Path, remote: str, branch: str) -> bool:
 
 @contextmanager
 def locked(checkout: Path):
-    """Hold the machine-wide lock of a store checkout."""
+    """Hold the machine-wide lock of a store checkout (checked first, see check_checkout)."""
     # Two publishers on one machine (e.g. Slurm jobs ending together) share the cache
+    check_checkout(checkout)
     checkout.parent.mkdir(parents=True, exist_ok=True)
     with open(checkout.parent / f'{checkout.name}.lock', 'w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -96,25 +130,23 @@ def publish(
 ) -> Published:
     """Add checked runs (run dir, record) to the store in one commit and push it.
 
-    Run ids must be distinct (``store.check_run`` does not check that across
-    runs; the publish command does). Runs already in the store are skipped. Each added run dir gets a
-    ``.published`` file holding the store commit. Raises PublishError when git
-    fails or the push is still rejected after ``ATTEMPTS`` tries.
+    Run ids must be distinct (the publish command checks that). Runs already in
+    the store are skipped. Every run dir, added or skipped, gets a
+    ``.published`` file holding the store commit that has it. Raises
+    PublishError when git fails or the push is still rejected after
+    ``ATTEMPTS`` tries.
     """
+    retries = 0
     with locked(checkout):
-        for attempt in range(1, ATTEMPTS + 1):
+        for _ in range(ATTEMPTS):
             result = _commit_runs(runs, remote, branch, checkout)
-            if result.commit is None:
-                return result
-            push = _push(checkout, branch)
-            if push.returncode == 0:
+            result.retries = retries
+            if result.commit is None or _pushed(checkout, branch, result.commit):
                 for run_dir, record in runs:
-                    if record['run_id'] in result.added:
-                        (run_dir / '.published').write_text(result.commit + '\n')
+                    commit = result.skipped.get(record['run_id'], result.commit)
+                    (run_dir / '.published').write_text(f'{commit}\n')
                 return result
-            if '[rejected]' not in push.stderr:
-                raise PublishError(f'push to {remote} failed: {push.stderr.strip()}')
-            print(f'push rejected: the store moved on; retrying ({attempt}/{ATTEMPTS})')
+            retries += 1
     raise PublishError(f'push to {remote} still rejected after {ATTEMPTS} attempts')
 
 
@@ -139,12 +171,37 @@ def _commit_runs(runs, remote: str, branch: str, checkout: Path) -> Published:
 
 
 def _push(checkout: Path, branch: str) -> subprocess.CompletedProcess:
-    return git(checkout, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}', check=False)
+    return git(
+        checkout, 'push', '--porcelain', 'origin', f'HEAD:refs/heads/{branch}', check=False
+    )
+
+
+def _pushed(checkout: Path, branch: str, commit: str) -> bool:
+    """Push ``commit``; True when it is on the remote, False when rejected as behind.
+
+    ``--porcelain`` prints ``<flag>\\t<from>:<to>\\t<summary>`` per ref (git-push(1),
+    OUTPUT); flag ``!`` with summary ``[rejected]`` means the remote moved on. Any
+    other failure is checked against the remote tip, because a push can land
+    while git still exits non-zero (e.g. the connection dropped afterwards).
+    """
+    proc = _push(checkout, branch)
+    if proc.returncode == 0:
+        return True
+    ref = f'refs/heads/{branch}'
+    for line in proc.stdout.splitlines():
+        flag, _, rest = line.partition('\t')
+        refs, _, summary = rest.partition('\t')
+        if flag == '!' and refs.endswith(f':{ref}') and summary.startswith('[rejected]'):
+            return False
+    tip = git(checkout, 'ls-remote', 'origin', ref, check=False).stdout.split('\t')[0]
+    if tip == commit:
+        return True
+    raise PublishError(f'push failed (exit {proc.returncode}): {proc.stderr.strip()}')
 
 
 def github_repo(remote: str) -> str | None:
     """``owner/name`` for a github.com remote URL, else None."""
-    match = GITHUB_REMOTE.match(remote)
+    match = GITHUB_REMOTE.fullmatch(remote)
     return match.group(1) if match else None
 
 

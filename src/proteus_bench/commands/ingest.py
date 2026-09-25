@@ -11,6 +11,7 @@ fails (the staging directory is then kept for inspection).
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -30,9 +31,14 @@ def main(args: argparse.Namespace) -> int:
     if shutil.which('gh') is None:
         print('gh (GitHub CLI) is required to download run artifacts: https://cli.github.com')
         return 1
-    runs_dir = Path(userconfig.load()['runs']['dir']).expanduser()
+    try:
+        runs_dir = Path(userconfig.load()['runs']['dir']).expanduser()
+    except ValueError as err:
+        print(err)
+        return 1
     staging = runs_dir / f'.gha-{args.gha_run}'
-    shutil.rmtree(staging, ignore_errors=True)  # left over from an earlier failed ingest
+    if staging.exists():
+        shutil.rmtree(staging)  # left over from an earlier failed ingest
     cmd = ['gh', 'run', 'download', str(args.gha_run), '-D', str(staging)]
     cmd += ['-R', args.repo] if args.repo else []
     proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -42,7 +48,8 @@ def main(args: argparse.Namespace) -> int:
     run_dirs = _move_runs(staging, runs_dir)
     if run_dirs is None:
         return 1
-    shutil.rmtree(staging, ignore_errors=True)  # a run may have been the staging dir itself
+    if staging.exists():  # gone already when the staging dir itself was the run dir
+        shutil.rmtree(staging)
     if args.publish:
         return publish_run_dirs(run_dirs, args)
     return 0
@@ -50,7 +57,8 @@ def main(args: argparse.Namespace) -> int:
 
 def _move_runs(staging: Path, runs_dir: Path) -> list[Path] | None:
     """Check the downloaded run dirs and move them into ``runs_dir``; None on failure."""
-    found = sorted(p.parent for p in staging.rglob('record.json'))
+    # os.walk does not follow linked directories inside the downloaded artifacts
+    found = sorted(Path(root) for root, _, files in os.walk(staging) if 'record.json' in files)
     if not found:
         print(f'no run directory (a directory with record.json) in the artifacts: {staging}')
         return None
