@@ -53,7 +53,8 @@ def test_ingest_moves_run_dirs(make_run_dir, fake_gh, runs_dir, capsys):
     ]
     assert sorted(p.name for p in runs_dir.iterdir()) == [RUN_A, RUN_B]
     record = json.loads((runs_dir / RUN_A / 'record.json').read_text())
-    assert record['run_id'] == RUN_A and (runs_dir / RUN_A / 'timing.jsonl').is_file()
+    assert record['run_id'] == RUN_A
+    assert (runs_dir / RUN_A / 'timing.jsonl').is_file()
     assert f'ingested {runs_dir / RUN_B}' in capsys.readouterr().out
 
 
@@ -78,9 +79,15 @@ def test_no_run_dir_or_bad_run_fails(make_run_dir, fake_gh, runs_dir, capsys):
     (bad / 'log.txt').unlink()
     assert cli.main(['ingest', '--gha-run', '9']) == 1
     out = capsys.readouterr().out
-    assert 'missing log.txt' in out and 'downloaded files kept in' in out
+    assert 'missing log.txt' in out
+    assert 'downloaded files kept in' in out
     assert (runs_dir / '.gha-9' / 'bench-record' / 'record.json').is_file()
     assert not (runs_dir / RUN_A).exists()
+    # Fixed upstream and downloaded again: the kept staging dir is replaced, not merged
+    (bad / 'log.txt').write_text('log\n')
+    assert cli.main(['ingest', '--gha-run', '9']) == 0
+    assert (runs_dir / RUN_A / 'log.txt').read_text() == 'log\n'
+    assert not (runs_dir / '.gha-9').exists()
 
 
 def test_gh_failure_and_missing_gh(fake_gh, runs_dir, monkeypatch, capsys):
@@ -96,6 +103,15 @@ def test_gh_failure_and_missing_gh(fake_gh, runs_dir, monkeypatch, capsys):
     assert cli.main(['ingest', '--gha-run', '10']) == 1
     assert 'https://cli.github.com' in capsys.readouterr().out
     assert len(fake_gh.calls()) == 1
+
+
+def test_invalid_config_is_reported(fake_gh, runs_dir, capsys):
+    """A broken user config gives exit 1 with the file and key, before gh runs."""
+    userconfig.config_path().write_text('[runs]\ndirectory = "/data"\n')
+    assert cli.main(['ingest', '--gha-run', '12']) == 1
+    out = capsys.readouterr().out
+    assert f'{userconfig.config_path()}: unknown key runs.directory' in out
+    assert fake_gh.calls() == []
 
 
 def test_ingest_and_publish(make_run_dir, fake_gh, runs_dir, bare_remote, capsys):

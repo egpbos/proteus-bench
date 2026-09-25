@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from proteus_bench import store
 from proteus_bench.settings import comparable, flatten, settings_hash
 from proteus_bench.testing import fake_proteus
 from proteus_bench.timing import read_events
@@ -101,9 +102,8 @@ def make_run_dir(tmp_path):
         }
         record['machine']['class'] = fields.pop('machine_class', 'habrok-vink')
         record['outcome']['status'] = fields.pop('status', 'ok')
-        record['artifacts'] = fields.pop(
-            'artifacts', {'spans': 'timing.jsonl', 'log': 'log.txt'}
-        )
+        default_artifacts = {k: v for k, v in store.ARTIFACTS.items() if (run_dir / v).exists()}
+        record['artifacts'] = fields.pop('artifacts', default_artifacts)
         assert not fields, f'unknown fields {fields}'
         (run_dir / 'record.json').write_text(json.dumps(record, indent=2))
         return run_dir

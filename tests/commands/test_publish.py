@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from proteus_bench import cli, userconfig
+from proteus_bench import cli, publishing, schema, userconfig
 
 pytestmark = [pytest.mark.smoke, pytest.mark.timeout(60)]
 
@@ -41,9 +41,11 @@ def test_invalid_record_refuses_everything(make_run_dir, bare_remote, capsys):
     (bad / 'record.json').write_text(json.dumps(record))
     code = cli.main(['publish', str(good), str(bad), '--remote', str(bare_remote)])
     out = capsys.readouterr().out
-    assert code == 1 and 'nothing published' in out
+    assert code == 1
+    assert 'nothing published' in out
     assert f"{bad / 'record.json'}: <root>: 'machine' is a required property" in out
-    assert _refs(bare_remote) == '' and not (good / '.published').exists()
+    assert _refs(bare_remote) == ''
+    assert not (good / '.published').exists()
 
 
 def test_same_run_twice_and_missing_remote(make_run_dir, bare_remote, capsys):
@@ -55,7 +57,8 @@ def test_same_run_twice_and_missing_remote(make_run_dir, bare_remote, capsys):
     assert not Path(userconfig.defaults()['store']['cache_dir']).exists()  # git never ran
     assert cli.main(['publish', str(run_dir)]) == 1
     out = capsys.readouterr().out
-    assert 'no store remote' in out and 'proteus-bench init --remote' in out
+    assert 'no store remote' in out
+    assert 'proteus-bench init --remote' in out
     assert _refs(bare_remote) == ''
 
 
@@ -100,3 +103,36 @@ def test_github_remote_without_gh_prints_command(
     out = capsys.readouterr().out
     assert 'run: gh workflow run pages.yml -R egpbos/proteus-bench' in out
     assert (run_dir / '.published').exists()
+
+
+def test_shape_not_checked_is_stated(make_run_dir, bare_remote, monkeypatch, capsys):
+    """Without jsonschema the publish proceeds and says the record shape was not checked."""
+    monkeypatch.setattr(schema, 'shape_problems', lambda kind, instance: None)
+    run_dir = make_run_dir(RUN_A)
+    assert cli.main(['publish', str(run_dir), '--remote', str(bare_remote)]) == 0
+    out = capsys.readouterr().out
+    assert f'{run_dir}: record shape not checked (install jsonschema)\n' in out
+    assert f'published {RUN_A}' in out
+
+
+def test_git_failure_and_retries_are_reported(make_run_dir, bare_remote, monkeypatch, capsys):
+    """A refused push gives exit 1 and git's reason; a won retry is mentioned on success."""
+    hook = bare_remote / 'hooks' / 'pre-receive'
+    hook.write_text('#!/bin/sh\necho "store is read-only" >&2\nexit 1\n')
+    hook.chmod(0o755)
+    run_dir = make_run_dir(RUN_A)
+    assert cli.main(['publish', str(run_dir), '--remote', str(bare_remote)]) == 1
+    out = capsys.readouterr().out
+    assert 'store is read-only' in out
+    assert out.endswith('nothing published\n')
+    hook.unlink()
+    real = publishing.publish
+
+    def one_retry(*args):
+        result = real(*args)
+        result.retries = 1
+        return result
+
+    monkeypatch.setattr(publishing, 'publish', one_retry)
+    assert cli.main(['publish', str(run_dir), '--remote', str(bare_remote)]) == 0
+    assert 'succeeded after 1 retries' in capsys.readouterr().out

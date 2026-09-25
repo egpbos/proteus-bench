@@ -2,12 +2,19 @@
 
 A series is one benchmark on one machine class. Its ``default`` lineage follows
 whatever settings the benchmark resolves to at each commit. When those settings
-change, the previous settings are run once more at the new commit (a carry-over
-run, with ``benchmark.carry_over_of`` set to the default run that moved on), so
-the old settings get one point measured with the new code. After that the old
-settings' lineage has ended.
+change, the previous settings are run once more at the new commit: a carry-over
+run, whose record has ``benchmark.lineage`` set to the previous settings hash
+and ``benchmark.carry_over_of`` to the default run that moved on. After that
+the old settings' lineage has ended.
 
-Records are run-record dicts (schema ``proteus-bench/1``). Runs are ordered by
+Only runs with resolved settings take part: runs that finished ``ok`` and have
+``settings`` (PROTEUS's ``init_coupler.toml``) and ``config`` artifacts, the
+two files a carry-over replays. A run that failed
+before PROTEUS resolved its config has a hash of the unresolved input instead,
+which says nothing about the default settings.
+
+Records are run-record dicts (schema ``proteus-bench/1``) as stored, with
+artifact paths relative to the store. Runs are ordered by
 ``trigger.started_at``, ties broken by run id.
 """
 
@@ -17,14 +24,13 @@ import datetime as dt
 from dataclasses import dataclass
 
 from proteus_bench.settings import changed_keys
-from proteus_bench.store import settings_path
 
 
 @dataclass(frozen=True)
 class SettingsChange:
     """The default settings of a series differ from the preceding default run."""
 
-    previous: dict  # the preceding default-lineage record
+    previous: dict  # the preceding resolved default-lineage record
     changed_keys: list[str]
 
 
@@ -32,11 +38,18 @@ class SettingsChange:
 class CarryOver:
     """The carry-over run to perform after a default run changed the settings."""
 
-    carry_over_of: str  # run id of the default run whose predecessor's settings to replay
-    lineage: str  # settings hash of the replayed settings; the carry-over's lineage
-    settings_toml: str  # store path of those settings
-    commit: str  # PROTEUS commit to run them at: the one the new default run measured
+    carry_over_of: str  # run id of the default run that moved to new settings
+    lineage: str  # settings hash of the replayed (previous) settings
+    settings_toml: str  # store path of the previous run's resolved settings
+    config_toml: str  # store path of the config passed to that run
+    commit: str  # PROTEUS commit to run at: the one the new default run measured
     changed_keys: list[str]
+
+
+def resolved(record: dict) -> bool:
+    """Whether the run finished ok with its resolved settings and its config stored."""
+    stored = record.get('artifacts', {})
+    return record['outcome']['status'] == 'ok' and {'settings', 'config'} <= stored.keys()
 
 
 def _order(record: dict) -> tuple[dt.datetime, str]:
@@ -50,11 +63,13 @@ def _same_series(record: dict, benchmark: str, machine_class: str) -> bool:
 
 
 def default_runs(records: list[dict], benchmark: str, machine_class: str) -> list[dict]:
-    """The default-lineage runs of one series, oldest first."""
+    """The resolved default-lineage runs of one series, oldest first."""
     runs = [
         r
         for r in records
-        if _same_series(r, benchmark, machine_class) and r['benchmark']['lineage'] == 'default'
+        if _same_series(r, benchmark, machine_class)
+        and r['benchmark']['lineage'] == 'default'
+        and resolved(r)
     ]
     return sorted(runs, key=_order)
 
@@ -62,11 +77,11 @@ def default_runs(records: list[dict], benchmark: str, machine_class: str) -> lis
 def settings_change(records: list[dict], new: dict) -> SettingsChange | None:
     """How ``new``'s settings differ from the default run before it, if they do.
 
-    None when ``new`` is not a default-lineage run, when no earlier default run
-    exists in its series, or when the settings hash is unchanged. ``records`` may
-    contain ``new`` itself.
+    None when ``new`` is not a resolved default-lineage run, when no earlier
+    resolved default run exists in its series, or when the settings hash is
+    unchanged. ``records`` may contain ``new`` itself.
     """
-    if new['benchmark']['lineage'] != 'default':
+    if new['benchmark']['lineage'] != 'default' or not resolved(new):
         return None
     series = default_runs(records, new['benchmark']['name'], new['machine']['class'])
     earlier = [r for r in series if _order(r) < _order(new)]  # excludes new itself
@@ -79,10 +94,21 @@ def settings_change(records: list[dict], new: dict) -> SettingsChange | None:
     return SettingsChange(previous, keys)
 
 
-def _has_carry_over(records: list[dict], mover: dict) -> bool:
-    bench, cls = mover['benchmark']['name'], mover['machine']['class']
+def _carry_over_exists(records: list[dict], new: dict, old_hash: str) -> bool:
+    """A carry-over for this move (series, old hash, new hash) is already recorded.
+
+    Keyed by the move rather than by the run that made it, so a late-published
+    default run with the same new settings does not ask for a second one.
+    """
+    bench, cls = new['benchmark']['name'], new['machine']['class']
+    new_hash = new['benchmark']['settings_hash']
+    # Settings hash of each possible mover; a missing or null carry_over_of maps to None
+    hashes = {r['run_id']: r['benchmark']['settings_hash'] for r in records}
+    hashes[new['run_id']] = new_hash
     return any(
-        r['benchmark'].get('carry_over_of') == mover['run_id'] and _same_series(r, bench, cls)
+        _same_series(r, bench, cls)
+        and r['benchmark']['lineage'] == old_hash
+        and hashes.get(r['benchmark'].get('carry_over_of')) == new_hash
         for r in records
     )
 
@@ -90,35 +116,22 @@ def _has_carry_over(records: list[dict], mover: dict) -> bool:
 def carry_over(records: list[dict], new: dict) -> CarryOver | None:
     """The one carry-over run D4 asks for after ``new``, or None if none is due.
 
-    Due when ``settings_change`` reports a change and no record in the series
-    already carries ``carry_over_of == new['run_id']``. A failed carry-over run
-    counts as done: D4 allows one attempt, and its record holds the error.
+    Due when ``settings_change`` reports a change and no carry-over for the
+    same move exists in the series. A failed carry-over run counts as done: D4
+    allows one attempt, and its record holds the error.
     """
     change = settings_change(records, new)
-    if change is None or _has_carry_over(records, new):
+    if change is None:
         return None
-    old_hash = change.previous['benchmark']['settings_hash']
+    previous = change.previous
+    old_hash = previous['benchmark']['settings_hash']
+    if _carry_over_exists(records, new, old_hash):
+        return None
     return CarryOver(
         carry_over_of=new['run_id'],
         lineage=old_hash,
-        settings_toml=settings_path(old_hash),
+        settings_toml=previous['artifacts']['settings'],
+        config_toml=previous['artifacts']['config'],
         commit=new['code']['proteus']['sha'],
         changed_keys=change.changed_keys,
     )
-
-
-def lineage_ended(
-    records: list[dict], benchmark: str, machine_class: str, lineage: str
-) -> bool:
-    """Whether the settings lineage ``lineage`` (a settings hash) has ended in a series.
-
-    Ended means the default runs moved off these settings and the carry-over run
-    for that move exists. False while the latest default run still uses them
-    (also after a return to them), while the carry-over is pending, and for
-    settings the default never used.
-    """
-    series = default_runs(records, benchmark, machine_class)
-    on = [i for i, r in enumerate(series) if r['benchmark']['settings_hash'] == lineage]
-    if not on or on[-1] == len(series) - 1:
-        return False
-    return _has_carry_over(records, series[on[-1] + 1])
