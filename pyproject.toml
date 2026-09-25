@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "proteus-bench"
+description = "Benchmarking and profiling harness for the PROTEUS planet evolution framework"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dynamic = ["version"]
+# The harness has no runtime dependencies: it is installed into PROTEUS
+# environments and must not constrain them.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-timeout>=2", "jsonschema>=4.18"]
+
+[project.scripts]
+proteus-bench = "proteus_bench.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "proteus_bench.__version__" }
+
+[tool.setuptools.package-data]
+"proteus_bench.schemas" = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --import-mode=importlib"
+markers = [
+    "unit: fast tests without external programs (< 100 ms each)",
+    "smoke: tests that start subprocesses such as the fake proteus stub",
+]
+
+[tool.ruff]
+src = ["src"]
+line-length = 96
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I"]
+ignore = ["E501", "E741"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["proteus_bench"]
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.format]
+quote-style = "single"
+
+# Development environment: `pixi run test`, `pixi run lint`
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64"]
+
+[tool.pixi.dependencies]
+python = "3.12.*"
+
+[tool.pixi.pypi-dependencies]
+proteus-bench = { path = ".", editable = true, extras = ["dev"] }
+
+[tool.pixi.tasks]
+test = "pytest"
+lint = "ruff check src tests && ruff format --check src tests"

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/egpbos/proteus-bench/schemas/timing-v1.schema.json",
+  "title": "PROTEUS timing.jsonl event, version 1",
+  "description": "One line of <output>/timing.jsonl, written by PROTEUS when PROTEUS_TIMING=1. Shape only: the tree rules (parents, containment, disjoint attribution) are checked by proteus_bench.timing.check_events. See docs/interface.md.",
+  "type": "object",
+  "required": ["v", "ev"],
+  "properties": {
+    "v": {"const": 1},
+    "ev": {"enum": ["run_start", "backend", "span", "run_end"]}
+  },
+  "allOf": [
+    {"if": {"properties": {"ev": {"const": "run_start"}}}, "then": {"$ref": "#/$defs/run_start"}},
+    {"if": {"properties": {"ev": {"const": "backend"}}}, "then": {"$ref": "#/$defs/backend"}},
+    {"if": {"properties": {"ev": {"const": "span"}}}, "then": {"$ref": "#/$defs/span"}},
+    {"if": {"properties": {"ev": {"const": "run_end"}}}, "then": {"$ref": "#/$defs/run_end"}}
+  ],
+  "$defs": {
+    "seconds": {"type": "number", "minimum": 0},
+    "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "run_start": {
+      "type": "object",
+      "required": ["v", "ev", "wall", "pid"],
+      "additionalProperties": false,
+      "properties": {
+        "v": true,
+        "ev": true,
+        "wall": {"type": "string", "format": "date-time", "description": "UTC wall clock at t0 = 0, ISO 8601 with at least millisecond precision."},
+        "pid": {"type": "integer", "minimum": 1},
+        "proteus_version": {"type": "string"},
+        "config_path": {"type": "string"},
+        "resume": {"type": "boolean"}
+      }
+    },
+    "backend": {
+      "type": "object",
+      "required": ["v", "ev", "t0", "submodule", "key", "value"],
+      "additionalProperties": false,
+      "description": "A choice made once per run inside a submodule, e.g. Aragog's ODE solver.",
+      "properties": {
+        "v": true,
+        "ev": true,
+        "t0": {"$ref": "#/$defs/seconds"},
+        "submodule": {"$ref": "#/$defs/name"},
+        "key": {"$ref": "#/$defs/name"},
+        "value": {"type": ["string", "number", "boolean"]}
+      }
+    },
+    "span": {
+      "type": "object",
+      "required": ["v", "ev", "id", "parent", "name", "t0", "dur"],
+      "additionalProperties": false,
+      "description": "A timed interval, written when it closes. Children close before parents.",
+      "properties": {
+        "v": true,
+        "ev": true,
+        "id": {"type": "integer", "minimum": 1, "description": "Unique per run, assigned when the span opens."},
+        "parent": {"type": ["integer", "null"], "minimum": 1},
+        "name": {"$ref": "#/$defs/name"},
+        "t0": {"$ref": "#/$defs/seconds"},
+        "dur": {"$ref": "#/$defs/seconds"},
+        "iter": {"type": "integer", "minimum": 0, "description": "Only on spans named 'iter'."},
+        "component": {"$ref": "#/$defs/name", "description": "PROTEUS wrapper bucket the time is attributed to. At most one attributed span on any root-to-leaf path."},
+        "submodule": {"$ref": "#/$defs/name", "description": "Module actually called, e.g. zalmoxis, aragog, agni, calliope, dummy."},
+        "backend": {"type": "string", "description": "Path taken inside the submodule for this call, e.g. numpy or jax."},
+        "ok": {"type": "boolean", "description": "False when the span was left by an exception. Absent means true."},
+        "extra": {"type": "object", "description": "Free-form numbers or strings, e.g. sim time for an iteration."}
+      }
+    },
+    "run_end": {
+      "type": "object",
+      "required": ["v", "ev", "t0", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "v": true,
+        "ev": true,
+        "t0": {"$ref": "#/$defs/seconds"},
+        "status": {"enum": ["ok", "error", "interrupted"]},
+        "termination": {"type": "string", "description": "Which stop criterion ended the run, e.g. iters_maximum."},
+        "n_iters": {"type": "integer", "minimum": 0},
+        "time_yr": {"type": "number"},
+        "error": {"type": "string"}
+      }
+    }
+  }
+}

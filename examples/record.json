@@ -1,0 +1,309 @@
+{
+  "schema": "proteus-bench/1",
+  "run_id": "20260925T031000Z-habrok-default-a1b2",
+  "harness": {
+    "version": "0.1.0.dev0",
+    "sha": "0123abcd"
+  },
+  "benchmark": {
+    "name": "all_options",
+    "lineage": "default",
+    "settings_hash": "sha256:4947e70d0e5eecec7515d9532882eddc87bf0182481591fe6b27ac72ce0082f4",
+    "settings": {
+      "params.out.path": "example",
+      "params.stop.iters.maximum": 6,
+      "interior_struct.module": "zalmoxis",
+      "interior_energetics.module": "aragog",
+      "interior_energetics.aragog.solver_method": "cvode",
+      "atmos_clim.module": "agni",
+      "outgas.module": "calliope"
+    },
+    "overrides": {
+      "params.stop.iters.maximum": 6
+    },
+    "config_source": "input/all_options.toml",
+    "carry_over_of": null
+  },
+  "trigger": {
+    "adapter": "slurm",
+    "started_at": "2026-09-25T03:10:00Z",
+    "user": "egpbos",
+    "slurm": {
+      "job_id": "31948135",
+      "partition": "regularshort",
+      "node": "vink15"
+    }
+  },
+  "code": {
+    "proteus": {
+      "sha": "abd4ca53",
+      "dirty": false,
+      "branch": "main"
+    },
+    "modules": {
+      "zalmoxis": {
+        "source": "pypi",
+        "version": "26.9.21"
+      },
+      "aragog": {
+        "source": "pypi",
+        "version": "26.9.18"
+      },
+      "agni": {
+        "source": "git",
+        "sha": "9f6a49a0",
+        "dirty": false
+      },
+      "socrates": {
+        "source": "git",
+        "sha": "c3296586",
+        "dirty": false
+      }
+    },
+    "packages": {
+      "numpy": "2.4.2",
+      "juliacall": "0.9.35"
+    }
+  },
+  "machine": {
+    "label": "habrok-vink",
+    "class": "habrok-vink",
+    "host": "vink15",
+    "cpu_model": "Example CPU model (illustrative)",
+    "n_cpus": 2,
+    "mem_gb": 16.0,
+    "os": "Linux-5.14 (Rocky 9)",
+    "arch": "x86_64"
+  },
+  "env": {
+    "manager": "conda",
+    "python": "3.12.14",
+    "julia": "1.13.0",
+    "threads": {
+      "OMP_NUM_THREADS": "1",
+      "JULIA_NUM_THREADS": "unset"
+    },
+    "knobs": {
+      "PROTEUS_PS_CACHE_DIR": null,
+      "jax_cache": false,
+      "profiler": "none"
+    },
+    "socrates_build": "native"
+  },
+  "checks": [
+    {
+      "name": "cvode_importable",
+      "ok": true,
+      "detail": "scikits_odes_sundials 3.1.1"
+    },
+    {
+      "name": "proteus_doctor",
+      "ok": true
+    },
+    {
+      "name": "expected_backends",
+      "ok": true,
+      "detail": "aragog.solver=cvode"
+    },
+    {
+      "name": "clean_tree",
+      "ok": true
+    }
+  ],
+  "backends": {
+    "aragog": {
+      "solver": "cvode",
+      "calls": {
+        "cvode": 6
+      }
+    },
+    "zalmoxis": {
+      "calls": {
+        "numpy": 3,
+        "jax": 2
+      }
+    }
+  },
+  "outcome": {
+    "status": "ok",
+    "exit_code": 0,
+    "termination": "iters_maximum",
+    "n_iters": 6,
+    "time_yr": 6000.0
+  },
+  "comparability": {
+    "ok": true,
+    "reasons": []
+  },
+  "timings": {
+    "wall_s": 2961.2,
+    "startup_s": 21.0,
+    "phases": {
+      "setup": null,
+      "init": 1772.0,
+      "loop": 1163.2,
+      "shutdown": 5.0
+    },
+    "components": [
+      {
+        "phase": "init",
+        "component": "structure",
+        "submodule": "zalmoxis",
+        "backend": "numpy",
+        "total_s": 1768.0,
+        "n_calls": 3
+      },
+      {
+        "phase": "init",
+        "component": "outgas",
+        "submodule": "calliope",
+        "backend": null,
+        "total_s": 2.0,
+        "n_calls": 2
+      },
+      {
+        "phase": "init",
+        "component": "stellar",
+        "submodule": "mors",
+        "backend": null,
+        "total_s": 2.0,
+        "n_calls": 1
+      },
+      {
+        "phase": "init",
+        "component": "other",
+        "submodule": null,
+        "backend": null,
+        "total_s": 0.0,
+        "n_calls": 0
+      },
+      {
+        "phase": "loop",
+        "component": "atmos",
+        "submodule": "agni",
+        "backend": null,
+        "total_s": 855.0,
+        "n_calls": 6
+      },
+      {
+        "phase": "loop",
+        "component": "structure",
+        "submodule": "zalmoxis",
+        "backend": "jax",
+        "total_s": 280.0,
+        "n_calls": 2
+      },
+      {
+        "phase": "loop",
+        "component": "interior",
+        "submodule": "aragog",
+        "backend": "cvode",
+        "total_s": 21.0,
+        "n_calls": 6
+      },
+      {
+        "phase": "loop",
+        "component": "outgas",
+        "submodule": "calliope",
+        "backend": null,
+        "total_s": 6.0,
+        "n_calls": 6
+      },
+      {
+        "phase": "loop",
+        "component": "other",
+        "submodule": null,
+        "backend": null,
+        "total_s": 1.2,
+        "n_calls": 0
+      },
+      {
+        "phase": "shutdown",
+        "component": "other",
+        "submodule": null,
+        "backend": null,
+        "total_s": 5.0,
+        "n_calls": 0
+      }
+    ],
+    "per_iter": [
+      {
+        "iter": 1,
+        "dur_s": 784.7,
+        "init_stage": true,
+        "components": {
+          "interior": 3.5,
+          "outgas": 1.0,
+          "atmos": 780.0
+        }
+      },
+      {
+        "iter": 2,
+        "dur_s": 19.7,
+        "init_stage": false,
+        "components": {
+          "interior": 3.5,
+          "outgas": 1.0,
+          "atmos": 15.0
+        }
+      },
+      {
+        "iter": 3,
+        "dur_s": 159.7,
+        "init_stage": false,
+        "components": {
+          "interior": 3.5,
+          "structure": 140.0,
+          "outgas": 1.0,
+          "atmos": 15.0
+        }
+      },
+      {
+        "iter": 4,
+        "dur_s": 19.7,
+        "init_stage": false,
+        "components": {
+          "interior": 3.5,
+          "outgas": 1.0,
+          "atmos": 15.0
+        }
+      },
+      {
+        "iter": 5,
+        "dur_s": 19.7,
+        "init_stage": false,
+        "components": {
+          "interior": 3.5,
+          "outgas": 1.0,
+          "atmos": 15.0
+        }
+      },
+      {
+        "iter": 6,
+        "dur_s": 159.7,
+        "init_stage": false,
+        "components": {
+          "interior": 3.5,
+          "structure": 140.0,
+          "outgas": 1.0,
+          "atmos": 15.0
+        }
+      }
+    ],
+    "rusage": {
+      "max_rss_mb": 2450.0,
+      "user_s": 2950.0,
+      "sys_s": 12.5
+    }
+  },
+  "fingerprint": {
+    "T_magma": 2700.0,
+    "Phi_global": 0.94,
+    "F_atm": 16666.7,
+    "P_surf": 256.0
+  },
+  "artifacts": {
+    "spans": "spans/2026/20260925T031000Z-habrok-default-a1b2.timing.jsonl.gz",
+    "log": "logs/2026/20260925T031000Z-habrok-default-a1b2.log.gz"
+  }
+}

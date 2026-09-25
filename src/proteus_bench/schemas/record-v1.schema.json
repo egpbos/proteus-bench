@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/egpbos/proteus-bench/schemas/record-v1.schema.json",
+  "title": "proteus-bench run record, version 1",
+  "description": "One JSON file per benchmark run. Raw spans live in a sidecar file (artifacts.spans); every statistic can be recomputed from them. See docs/interface.md.",
+  "type": "object",
+  "required": ["schema", "run_id", "harness", "benchmark", "trigger", "code", "machine", "env", "checks", "backends", "outcome", "comparability", "timings"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "proteus-bench/1"},
+    "run_id": {"type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z-[a-z0-9-]+$", "description": "UTC start time plus a short slug, e.g. 20260925T031000Z-gha-default-3f2a."},
+    "harness": {
+      "type": "object",
+      "required": ["version"],
+      "properties": {"version": {"type": "string"}, "sha": {"$ref": "#/$defs/sha"}}
+    },
+    "benchmark": {
+      "type": "object",
+      "required": ["name", "lineage", "settings_hash", "settings", "overrides"],
+      "properties": {
+        "name": {"type": "string"},
+        "lineage": {"type": "string", "description": "'default' for the default-settings series, otherwise a settings_hash."},
+        "settings_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "settings": {"type": "object", "description": "Flattened resolved config (dotted key to value) from init_coupler.toml, per-run fields removed.", "additionalProperties": {"$ref": "#/$defs/setting_value"}},
+        "overrides": {"type": "object", "additionalProperties": {"$ref": "#/$defs/setting_value"}},
+        "config_source": {"type": "string"},
+        "carry_over_of": {"type": ["string", "null"], "description": "run_id of the default-lineage run whose previous settings this run replays."}
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "required": ["adapter", "started_at"],
+      "properties": {
+        "adapter": {"enum": ["gha", "slurm", "local"]},
+        "started_at": {"type": "string", "format": "date-time"},
+        "user": {"type": "string"},
+        "gha": {"type": "object", "properties": {"run_url": {"type": "string"}, "run_id": {"type": "integer"}, "workflow": {"type": "string"}, "event": {"type": "string"}}},
+        "slurm": {"type": "object", "properties": {"job_id": {"type": "string"}, "partition": {"type": "string"}, "node": {"type": "string"}}}
+      }
+    },
+    "code": {
+      "type": "object",
+      "required": ["proteus", "modules"],
+      "properties": {
+        "proteus": {"$ref": "#/$defs/git_state"},
+        "modules": {"type": "object", "additionalProperties": {"$ref": "#/$defs/module_state"}},
+        "packages": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Selected pip package versions, e.g. jax, numpy, juliacall."}
+      }
+    },
+    "machine": {
+      "type": "object",
+      "required": ["label", "class", "cpu_model", "n_cpus", "os", "arch"],
+      "properties": {
+        "label": {"type": "string"},
+        "class": {"type": "string", "description": "Comparability group, e.g. gha-ubuntu-epyc7763 or habrok-vink."},
+        "host": {"type": "string"},
+        "cpu_model": {"type": "string"},
+        "n_cpus": {"type": "integer", "minimum": 1},
+        "mem_gb": {"type": "number", "minimum": 0},
+        "os": {"type": "string"},
+        "arch": {"type": "string"}
+      }
+    },
+    "env": {
+      "type": "object",
+      "required": ["manager", "python", "threads", "knobs", "socrates_build"],
+      "properties": {
+        "manager": {"enum": ["conda", "pixi", "venv", "unknown"]},
+        "python": {"type": "string"},
+        "julia": {"type": "string"},
+        "threads": {"type": "object", "additionalProperties": {"type": "string"}},
+        "knobs": {"type": "object", "description": "Settings that change timing but not physics: caches, JULIA_NUM_THREADS, profiler."},
+        "socrates_build": {"enum": ["portable", "native", "unknown"]}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "ok"],
+        "additionalProperties": false,
+        "properties": {"name": {"type": "string"}, "ok": {"type": "boolean"}, "detail": {"type": "string"}}
+      }
+    },
+    "backends": {
+      "type": "object",
+      "description": "Per submodule: backend events (key to value) and per-call backend counts from spans (key 'calls', backend to count).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "oneOf": [
+            {"type": ["string", "number", "boolean"]},
+            {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}
+          ]
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["status", "exit_code"],
+      "properties": {
+        "status": {"enum": ["ok", "failed", "timeout", "crashed"]},
+        "exit_code": {"type": ["integer", "null"]},
+        "termination": {"type": "string"},
+        "n_iters": {"type": "integer", "minimum": 0},
+        "time_yr": {"type": "number"},
+        "error": {"type": "string"}
+      }
+    },
+    "comparability": {
+      "type": "object",
+      "required": ["ok", "reasons"],
+      "properties": {"ok": {"type": "boolean"}, "reasons": {"type": "array", "items": {"type": "string"}}}
+    },
+    "timings": {
+      "type": "object",
+      "required": ["wall_s", "phases", "components", "per_iter"],
+      "properties": {
+        "wall_s": {"$ref": "#/$defs/seconds", "description": "Process wall time measured by the harness."},
+        "startup_s": {"$ref": "#/$defs/seconds", "description": "Process spawn to the timing run_start event (imports, Julia start-up)."},
+        "phases": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "setup": {"$ref": "#/$defs/seconds_or_null"},
+            "init": {"$ref": "#/$defs/seconds_or_null"},
+            "loop": {"$ref": "#/$defs/seconds_or_null"},
+            "shutdown": {"$ref": "#/$defs/seconds_or_null"}
+          }
+        },
+        "components": {
+          "type": "array",
+          "description": "Attributed time per (phase, component, submodule, backend); unattributed phase time appears with component 'other'.",
+          "items": {
+            "type": "object",
+            "required": ["phase", "component", "total_s", "n_calls"],
+            "properties": {
+              "phase": {"enum": ["setup", "init", "loop", "shutdown"]},
+              "component": {"type": "string"},
+              "submodule": {"type": ["string", "null"]},
+              "backend": {"type": ["string", "null"]},
+              "total_s": {"$ref": "#/$defs/seconds"},
+              "n_calls": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "per_iter": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["iter", "dur_s", "components"],
+            "properties": {
+              "iter": {"type": "integer", "minimum": 0},
+              "dur_s": {"$ref": "#/$defs/seconds"},
+              "init_stage": {"type": "boolean"},
+              "components": {"type": "object", "additionalProperties": {"$ref": "#/$defs/seconds"}}
+            }
+          }
+        },
+        "rusage": {
+          "type": "object",
+          "properties": {"max_rss_mb": {"type": "number", "minimum": 0}, "user_s": {"$ref": "#/$defs/seconds"}, "sys_s": {"$ref": "#/$defs/seconds"}}
+        }
+      }
+    },
+    "fingerprint": {"type": "object", "additionalProperties": {"type": "number"}, "description": "Final-state physics values from the helpfile, to spot runs that did less work."},
+    "artifacts": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Paths relative to the results store, e.g. spans, log, profile, flame."}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+    "seconds": {"type": "number", "minimum": 0},
+    "seconds_or_null": {"type": ["number", "null"], "minimum": 0},
+    "setting_value": {"type": ["string", "number", "boolean", "array", "null"]},
+    "git_state": {
+      "type": "object",
+      "required": ["sha", "dirty"],
+      "properties": {
+        "sha": {"$ref": "#/$defs/sha"},
+        "dirty": {"type": "boolean"},
+        "branch": {"type": "string"},
+        "describe": {"type": "string"}
+      }
+    },
+    "module_state": {
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "source": {"enum": ["pypi", "editable", "git", "unknown"]},
+        "version": {"type": "string"},
+        "sha": {"$ref": "#/$defs/sha"},
+        "dirty": {"type": "boolean"}
+      }
+    }
+  }
+}
