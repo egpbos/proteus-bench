@@ -103,6 +103,7 @@ def test_it_timing_log_lines_agree_with_spans(run_fake):
 def test_scenario_rejects_typos_instead_of_running_the_default():
     """A misspelt key or fail mode must fail loudly, or a test silently tests the wrong thing."""
     assert scenario({}) == FAKE_DEFAULTS
+    assert scenario({})['fail'] == 'none'  # a default run must succeed
     assert scenario({'fail': 'kill'})['fail'] == 'kill'
     with pytest.raises(ValueError, match=r"fail = 'kil'"):
         scenario({'fail': 'kil'})

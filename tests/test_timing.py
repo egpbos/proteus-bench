@@ -156,7 +156,31 @@ def test_span_ids_must_be_unique_and_parents_must_open_first(good_events):
     assert any('must have opened earlier' in p for p in check_events(self_parent))
     # The loop in attributed_totals must terminate and still count the span somewhere.
     totals = attributed_totals(self_parent)
-    assert sum(n for phase in totals.values() for _, n in phase['attributed'].values()) > 0
+    counted = sum(n for phase in totals.values() for _, n in phase['attributed'].values())
+    assert counted == sum(e['ev'] == 'span' and 'component' in e for e in self_parent)
+
+
+@pytest.mark.parametrize(
+    ('field', 'value'),
+    [('parent', '1'), ('t0', '0.0'), ('dur', None), ('id', True), ('name', 7)],
+    ids=['string_parent', 'string_t0', 'null_dur', 'bool_id', 'numeric_name'],
+)
+def test_wrong_field_types_are_reported_not_raised(good_events, field, value):
+    """Without jsonschema the checker still meets bad types; it must report, not crash."""
+    events = copy.deepcopy(good_events)
+    star = _span(events, 'star')
+    star[field] = value
+    problems = check_events(events)
+    assert any(f'wrong type for {field}' in p for p in problems)
+    # Right type, other value: no type complaint, so the type rule caused the report.
+    assert not any('wrong type' in p for p in check_events(good_events))
+
+
+def test_a_line_that_is_not_an_object_is_reported(good_events):
+    """A JSON value that is not an object (e.g. a bare number) is an event problem."""
+    problems = check_events([*good_events[:2], 5, *good_events[2:]])
+    assert problems == ['event 2: not a JSON object']
+    assert check_events(good_events) == []
 
 
 def test_run_end_may_only_close_the_file(good_events):

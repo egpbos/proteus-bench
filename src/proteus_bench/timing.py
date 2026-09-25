@@ -75,19 +75,69 @@ def check_events(events: list[dict]) -> list[str]:
     return problems
 
 
-def _check_envelope(events: list[dict]) -> list[str]:
-    """Versions, event kinds, required keys, and run_start/run_end placement."""
+_JSON_TYPES = {
+    'array': list,
+    'boolean': bool,
+    'integer': int,
+    'null': type(None),
+    'number': (int, float),
+    'object': dict,
+    'string': str,
+}
+
+
+@cache
+def _field_types() -> dict[str, dict[str, tuple[str, ...]]]:
+    """JSON types per field for each event kind, read from the bundled schema."""
+    timing_schema = schema.load('timing')
+    defs = timing_schema['$defs']
+    out = {}
+    for kind in timing_schema['properties']['ev']['enum']:
+        fields = {}
+        for name, spec in defs[kind]['properties'].items():
+            if isinstance(spec, dict) and '$ref' in spec:
+                spec = defs[spec['$ref'].rsplit('/', 1)[-1]]
+            if isinstance(spec, dict) and 'type' in spec:
+                declared = spec['type']
+                fields[name] = (declared,) if isinstance(declared, str) else tuple(declared)
+        out[kind] = fields
+    return out
+
+
+def _type_ok(value, json_types: tuple[str, ...]) -> bool:
+    # bool is an int subclass in Python but a distinct type in JSON
+    if isinstance(value, bool):
+        return 'boolean' in json_types
+    return any(isinstance(value, _JSON_TYPES[t]) for t in json_types)
+
+
+def _event_problems(i: int, ev) -> list[str]:
+    """Version, kind, required keys and field types of one event.
+
+    Checked here, not only by the optional JSON Schema, so the tree checks never
+    meet a value of the wrong type.
+    """
+    if not isinstance(ev, dict):
+        return [f'event {i}: not a JSON object']
     problems = []
-    for i, ev in enumerate(events):
-        if ev.get('v') not in SUPPORTED_VERSIONS:
-            problems.append(f'event {i}: unsupported version {ev.get("v")!r}')
-        kind = ev.get('ev')
-        if kind not in _required_keys():
-            problems.append(f'event {i}: unknown event kind {kind!r}')
-            continue
-        missing = [k for k in _required_keys()[kind] if k not in ev]
-        if missing:
-            problems.append(f'event {i} ({kind}): missing {", ".join(missing)}')
+    if ev.get('v') not in SUPPORTED_VERSIONS:
+        problems.append(f'event {i}: unsupported version {ev.get("v")!r}')
+    kind = ev.get('ev')
+    if kind not in _required_keys():
+        return [*problems, f'event {i}: unknown event kind {kind!r}']
+    missing = [k for k in _required_keys()[kind] if k not in ev]
+    if missing:
+        problems.append(f'event {i} ({kind}): missing {", ".join(missing)}')
+    types = _field_types()[kind]
+    wrong = [k for k, t in types.items() if k in ev and not _type_ok(ev[k], t)]
+    if wrong:
+        problems.append(f'event {i} ({kind}): wrong type for {", ".join(wrong)}')
+    return problems
+
+
+def _check_envelope(events: list[dict]) -> list[str]:
+    """Every event is well formed, and run_start/run_end sit at the ends."""
+    problems = [p for i, ev in enumerate(events) for p in _event_problems(i, ev)]
     if problems:
         return problems
     kinds = [ev['ev'] for ev in events]
