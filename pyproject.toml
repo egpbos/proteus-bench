@@ -34,6 +34,10 @@ markers = [
     "smoke: tests that start subprocesses such as the fake proteus stub",
 ]
 
+[tool.coverage.run]
+# coverage.xml is read by Sonar in another CI job, where absolute paths need not match
+relative_files = true
+
 [tool.ruff]
 src = ["src"]
 line-length = 96
