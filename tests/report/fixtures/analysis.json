@@ -1,0 +1,2063 @@
+{
+ "schema": "proteus-bench-analysis/1",
+ "series": [
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 2961.2,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 2978.78,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 2943.62,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 3042.01,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 2955.34,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 1798.483,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 1793.897,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 1806.273,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 1798.483,
+    "sigma": 26.9772,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "n_iters"
+   },
+   "unit": "count",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 6,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 6,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 6,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 6,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 6,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 6,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 6,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 6,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 6,
+    "sigma": 0.09,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "init"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 1772.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 1782.608,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 1761.392,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 1789.68,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 1768.464,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 605.8,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 602.2,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 606.4,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 605.8,
+    "sigma": 9.087,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "loop"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 1163.2,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 1170.172,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 1156.228,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 1226.33,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 1160.876,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 1166.683,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 1165.697,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 1173.873,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 1166.683,
+    "sigma": 17.5002,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "shutdown"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 5.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 5.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 5.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 5.0,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 5.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 5.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 5.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 5.0,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 5.0,
+    "sigma": 0.075,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "loop_per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 89.69999999999999,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 90.23700000000001,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 89.163,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 99.17999999999999,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 89.521,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 89.968,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 90.628,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 91.263,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 90.628,
+    "sigma": 1.3594,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "init.structure"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 1768.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 1778.608,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 1757.392,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 1785.68,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 1764.464,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 601.8,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 598.2,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 602.4,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 601.8,
+    "sigma": 9.027,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "submodule.zalmoxis.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 2048.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 2060.288,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 2035.712,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 2068.48,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 2043.904,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 882.64,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 877.36,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 883.52,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 882.64,
+    "sigma": 13.2396,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "init.outgas"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 2.0,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 2.0,
+    "sigma": 0.03,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "submodule.calliope.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 8.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 8.036,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 7.964,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 8.06,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 7.988,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 8.018,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 7.982,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 8.024,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 8.018,
+    "sigma": 0.1203,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "init.stellar"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 2.0,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 2.0,
+    "sigma": 0.03,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "submodule.mors.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 2.0,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 2.0,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 2.0,
+    "sigma": 0.03,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "submodule.agni.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 855.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 860.13,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 849.87,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 863.55,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 853.29,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 857.565,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 858.415,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 864.445,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 854.145,
+    "sigma": 12.8122,
+    "n": 4
+   },
+   "flags": [
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "kind": "regression",
+     "delta_rel": 0.005,
+     "delta_abs": 4.27,
+     "threshold_rel": 0.05,
+     "confirmed": false
+    }
+   ],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "submodule.aragog.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 21.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 21.126,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 20.874,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 72.72,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 20.958,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 21.06,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 20.94,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 21.084,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 20.979,
+    "sigma": 0.3147,
+    "n": 4
+   },
+   "flags": [
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "kind": "improvement",
+     "delta_rel": -0.071,
+     "delta_abs": -1.5,
+     "threshold_rel": 0.05,
+     "confirmed": false
+    }
+   ],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "loop.atmos.per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 15.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 15.09,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 14.91,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 15.15,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 14.97,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 15.045,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 16.151,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 16.265,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 14.985,
+    "sigma": 0.2248,
+    "n": 4
+   },
+   "flags": [
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "kind": "regression",
+     "delta_rel": 0.0778,
+     "delta_abs": 1.166,
+     "threshold_rel": 0.05,
+     "confirmed": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "kind": "regression",
+     "delta_rel": 0.0854,
+     "delta_abs": 1.28,
+     "threshold_rel": 0.05,
+     "confirmed": null
+    }
+   ],
+   "steps": [
+    {
+     "after_run_id": "20260923T031000Z-habrok-default-r6",
+     "before": 15.0,
+     "after": 16.2,
+     "delta_rel": 0.08
+    }
+   ],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "loop.interior.per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 3.5,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 3.521,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 3.479,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 12.12,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 3.493,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 3.51,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 3.49,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 3.514,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 3.51,
+    "sigma": 0.0526,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "loop.structure.per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 0.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 0.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 0.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 0.0,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 0.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 0.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 0.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 0.0,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 0.0,
+    "sigma": 0.0,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "habrok-vink",
+    "metric": "loop.outgas.per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260918T031000Z-habrok-default-r1",
+     "commit": "abcd0001",
+     "time": "2026-09-18T03:10:00Z",
+     "value": 1.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260919T031000Z-habrok-default-r2",
+     "commit": "abcd0002",
+     "time": "2026-09-19T03:10:00Z",
+     "value": 1.006,
+     "comparable": true
+    },
+    {
+     "run_id": "20260920T031000Z-habrok-default-r3",
+     "commit": "abcd0003",
+     "time": "2026-09-20T03:10:00Z",
+     "value": 0.994,
+     "comparable": true
+    },
+    {
+     "run_id": "20260921T031000Z-habrok-default-r4",
+     "commit": "abcd0004",
+     "time": "2026-09-21T03:10:00Z",
+     "value": 1.01,
+     "comparable": false
+    },
+    {
+     "run_id": "20260922T031000Z-habrok-default-r5",
+     "commit": "abcd0005",
+     "time": "2026-09-22T03:10:00Z",
+     "value": 0.998,
+     "comparable": true
+    },
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "commit": "abcd0006",
+     "time": "2026-09-23T03:10:00Z",
+     "value": 1.003,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T031000Z-habrok-default-r7",
+     "commit": "abcd0007",
+     "time": "2026-09-24T03:10:00Z",
+     "value": 0.997,
+     "comparable": true
+    },
+    {
+     "run_id": "20260925T031000Z-habrok-default-r8",
+     "commit": "abcd0008",
+     "time": "2026-09-25T03:10:00Z",
+     "value": 1.004,
+     "comparable": true
+    }
+   ],
+   "baseline": {
+    "median": 1.003,
+    "sigma": 0.015,
+    "n": 3
+   },
+   "flags": [],
+   "steps": [],
+   "boundaries": [
+    {
+     "run_id": "20260923T031000Z-habrok-default-r6",
+     "reason": "settings_changed",
+     "changed_keys": [
+      "interior_struct.zalmoxis.use_jax"
+     ]
+    }
+   ]
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 2961.2,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 2961.2,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "n_iters"
+   },
+   "unit": "count",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 6,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 6,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "init"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 1772.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 1772.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "loop"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 1163.2,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 1163.2,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "shutdown"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 5.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 5.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "loop_per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 89.69999999999999,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 89.69999999999999,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "init.structure"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 1768.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 1768.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "submodule.zalmoxis.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 2048.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 2048.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "init.outgas"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 2.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "submodule.calliope.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 8.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 8.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "init.stellar"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 2.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "submodule.mors.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 2.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 2.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "submodule.agni.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 855.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 855.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "submodule.aragog.total"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 21.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 21.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "loop.atmos.per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 15.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 15.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "loop.interior.per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 3.5,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 3.5,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "loop.structure.per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 0.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 0.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  },
+  {
+   "key": {
+    "benchmark": "all_options",
+    "lineage": "default",
+    "machine_class": "gha-ubuntu-epyc7763",
+    "metric": "loop.outgas.per_iter_median"
+   },
+   "unit": "s",
+   "points": [
+    {
+     "run_id": "20260921T120000Z-gha-default-g1",
+     "commit": "beef0001",
+     "time": "2026-09-21T12:00:00Z",
+     "value": 1.0,
+     "comparable": true
+    },
+    {
+     "run_id": "20260924T120000Z-gha-default-g2",
+     "commit": "beef0002",
+     "time": "2026-09-24T12:00:00Z",
+     "value": 1.0,
+     "comparable": false
+    }
+   ],
+   "baseline": null,
+   "flags": [],
+   "steps": [],
+   "boundaries": []
+  }
+ ]
+}
