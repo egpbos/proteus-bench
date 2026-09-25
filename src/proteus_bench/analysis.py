@@ -1,28 +1,30 @@
 """Timing series, noise model, regression flags and change points over run records.
 
 A series is keyed by (benchmark, lineage, machine class, metric) and holds one
-point per run record, ordered by the run's start time. All statistics are
-recomputed from the records on every call, so a better rule applies to the
-whole history.
+point per run record, ordered by the run's start time (then run id). All
+statistics are recomputed from the records on every call, so a better rule
+applies to the whole history.
 
-Rules, per series and within one settings segment (a boundary is where
-``benchmark.settings_hash`` changes between consecutive points; nothing below
-reaches across one):
+Only comparable runs (``comparability.ok``) enter the rules below. Other runs
+stay in ``points`` with ``comparable: false`` and are otherwise ignored.
 
-- Only points of comparable runs (``comparability.ok``) enter baselines,
-  flags and step detection. Other runs stay in ``points`` with
-  ``comparable: false``.
-- Baseline for a point: median of the last ``BASELINE_WINDOW`` comparable
-  points before it; sigma = ``MAD_TO_SIGMA`` x MAD, floored at the machine
-  class's relative noise times the median. No baseline with fewer than
-  ``MIN_BASELINE_POINTS`` prior points.
+- Segments: a settings boundary is where ``benchmark.settings_hash`` changes
+  between consecutive comparable runs. Baselines, flags and steps never reach
+  across a boundary.
+- Baseline for a run: median of the last ``BASELINE_WINDOW`` comparable runs
+  before it in its segment, and sigma = ``MAD_TO_SIGMA`` x MAD. No baseline
+  with fewer than ``MIN_BASELINE_POINTS`` prior runs.
 - Flag when |value - median| > max(``SIGMA_FACTOR`` x sigma,
   ``MIN_DELTA_REL`` x median) and |value - median| > the absolute floor of the
-  metric's unit. Larger is a regression, smaller an improvement. A flag is
-  confirmed when the next comparable point exceeds the same threshold in the
-  same direction.
-- Steps: asv's piecewise-constant fit over the comparable values, reported
-  between levels that each span at least ``MIN_LEVEL_POINTS`` runs.
+  metric's unit. The 5 % rule is the smallest threshold; sigma only raises it
+  for noisier series. Larger is a regression, smaller an improvement.
+  ``confirmed`` is None until the segment has a next comparable run, then
+  whether that run exceeds the same threshold in the same direction.
+- Steps: asv's piecewise-constant fit. Levels shorter than
+  ``MIN_LEVEL_POINTS`` runs are excursions, not steps: their runs are left
+  out and the fit repeated. The new level starts at the first left-out run
+  between two levels that is closer to it in value, so a step whose first run
+  is an outlier is still attributed to that run.
 """
 
 from __future__ import annotations
@@ -42,26 +44,19 @@ MIN_BASELINE_POINTS = 3
 MIN_LEVEL_POINTS = 3
 # Scale factor from MAD to the standard deviation of a normal distribution
 MAD_TO_SIGMA = 1.4826
-# Run-to-run scatter of 13 identical runs on Habrok vink nodes (1.5 %). Below
-# MIN_DELTA_REL / SIGMA_FACTOR (1.67 %) a floor never sets the flag threshold.
-DEFAULT_NOISE_FLOOR_REL = 0.015
 SIGMA_FACTOR = 3.0
 MIN_DELTA_REL = 0.05
 # Smallest absolute change that can flag, per unit: sub-second jitter never flags
 ABS_FLOOR = {'s': 1.0, 'count': 0.0}
 
-_PHASES = ('init', 'loop', 'shutdown')
 
-
-def analyse(records: list[dict], *, noise_floor_rel: dict[str, float] | None = None) -> dict:
+def analyse(records: list[dict]) -> dict:
     """Build every series from run records (schema ``proteus-bench/1``).
 
-    ``noise_floor_rel`` maps a machine class to its relative noise floor for
-    sigma; classes not listed use ``DEFAULT_NOISE_FLOOR_REL``. Returns the
-    ``proteus-bench-analysis/1`` structure (see ``docs/interface.md``).
-    Raises ``ValueError`` naming the run when a record lacks a required field.
+    Returns the analysis structure described in ``docs/interface.md``. Raises
+    ``ValueError`` naming the run when a record lacks a field or has one of the
+    wrong type.
     """
-    floors = noise_floor_rel or {}
     groups = defaultdict(list)
     for record in records:
         try:
@@ -69,28 +64,27 @@ def analyse(records: list[dict], *, noise_floor_rel: dict[str, float] | None = N
             metrics = record_metrics(record)
         except KeyError as err:
             raise ValueError(f'record {record.get("run_id")!r}: missing field {err}') from err
+        except (TypeError, ValueError) as err:
+            raise ValueError(f'record {record.get("run_id")!r}: malformed ({err})') from err
         for metric, value in metrics.items():
             groups[(*ident['key'], metric)].append((ident, value))
-    series = [
-        _series(key, rows, floors.get(key[2], DEFAULT_NOISE_FLOOR_REL))
-        for key, rows in sorted(groups.items())
-    ]
+    series = [_series(key, rows) for key, rows in sorted(groups.items())]
     return {'schema': SCHEMA, 'series': series}
 
 
 def record_metrics(record: dict) -> dict[str, float]:
     """Metric name -> value for one record; seconds, except ``n_iters`` (count).
 
-    Iterations with ``init_stage`` true are left out of the per-iteration
-    medians. ``loop.<component>.per_iter_median`` is the median over the
-    iterations in which the component ran, so a component that runs every few
-    iterations (structure re-solves) reports its cost per call, not zero.
+    Every non-null phase is a metric. Iterations with ``init_stage`` true are
+    left out of the per-iteration medians. ``loop.<component>.per_iter_median``
+    is the median over the iterations in which the component ran, so a
+    component that runs every few iterations (structure re-solves) reports its
+    cost per call, not zero. Raises ``KeyError`` for a missing field and
+    ``TypeError`` for a non-numeric value.
     """
     timings = record['timings']
     metrics = {'total': timings['wall_s']}
-    metrics |= {
-        p: timings['phases'][p] for p in _PHASES if timings['phases'].get(p) is not None
-    }
+    metrics |= {phase: s for phase, s in timings['phases'].items() if s is not None}
     if record['outcome'].get('n_iters') is not None:
         metrics['n_iters'] = record['outcome']['n_iters']
     metrics |= _steady_iteration_metrics(timings['per_iter'])
@@ -101,6 +95,11 @@ def record_metrics(record: dict) -> dict[str, float]:
         if row.get('submodule'):
             name = f'submodule.{row["submodule"]}.total'
             metrics[name] = metrics.get(name, 0.0) + row['total_s']
+    bad = [
+        m for m, v in metrics.items() if isinstance(v, bool) or not isinstance(v, int | float)
+    ]
+    if bad:
+        raise TypeError(f'non-numeric metrics: {", ".join(bad)}')
     return metrics
 
 
@@ -134,7 +133,7 @@ def _identity(record: dict) -> dict:
     }
 
 
-def _series(key: tuple, rows: list[tuple[dict, float]], noise_floor_rel: float) -> dict:
+def _series(key: tuple, rows: list[tuple[dict, float]]) -> dict:
     rows = sorted(rows, key=lambda row: row[0]['sort'])
     unit = 'count' if key[3] == 'n_iters' else 's'
     points = [
@@ -142,34 +141,36 @@ def _series(key: tuple, rows: list[tuple[dict, float]], noise_floor_rel: float) 
         | {'value': value}
         for ident, value in rows
     ]
-    boundaries, segments = _split_at_settings_changes([ident for ident, _ in rows], points)
+    comparable = [
+        (ident, p) for (ident, _), p in zip(rows, points, strict=True) if p['comparable']
+    ]
+    boundaries, segments = _split_at_settings_changes(comparable)
     flags, steps = [], []
     for segment in segments:
-        comparable = [p for p in segment if p['comparable']]
-        flags += _flags(comparable, noise_floor_rel, ABS_FLOOR[unit])
-        steps += _steps(comparable)
-    latest = [p['value'] for p in segments[-1] if p['comparable']][-BASELINE_WINDOW:]
+        flags += _flags(segment, ABS_FLOOR[unit])
+        steps += _steps(segment)
     return {
         'key': dict(zip(('benchmark', 'lineage', 'machine_class', 'metric'), key, strict=True)),
         'unit': unit,
         'points': points,
-        'baseline': baseline(latest, noise_floor_rel),
+        'baseline': baseline([p['value'] for p in segments[-1][-BASELINE_WINDOW:]]),
         'flags': flags,
         'steps': steps,
         'boundaries': boundaries,
     }
 
 
-def _split_at_settings_changes(idents: list[dict], points: list[dict]):
-    """Boundaries where the settings hash changes, and the points between them."""
-    boundaries, segments = [], [[points[0]]]
-    for (prev, cur), point in zip(pairwise(idents), points[1:], strict=True):
-        if cur['settings_hash'] != prev['settings_hash']:
+def _split_at_settings_changes(comparable: list[tuple[dict, dict]]):
+    """Boundaries where the settings hash changes, and the comparable points between them."""
+    boundaries, segments = [], [[]]
+    for i, (ident, point) in enumerate(comparable):
+        prev = comparable[i - 1][0] if i else ident
+        if ident['settings_hash'] != prev['settings_hash']:
             boundaries.append(
                 {
-                    'run_id': cur['run_id'],
+                    'run_id': ident['run_id'],
                     'reason': 'settings_changed',
-                    'changed_keys': changed_keys(prev['settings'], cur['settings']),
+                    'changed_keys': changed_keys(prev['settings'], ident['settings']),
                 }
             )
             segments.append([])
@@ -177,74 +178,90 @@ def _split_at_settings_changes(idents: list[dict], points: list[dict]):
     return boundaries, segments
 
 
-def baseline(values: list[float], noise_floor_rel: float) -> dict | None:
-    """Median and robust sigma of prior values, or None with too few of them."""
+def baseline(values: list[float]) -> dict | None:
+    """Median and robust sigma (1.4826 x MAD) of prior values; None with too few."""
     if len(values) < MIN_BASELINE_POINTS:
         return None
     mid = median(values)
     mad = median(abs(v - mid) for v in values)
-    sigma = max(MAD_TO_SIGMA * mad, noise_floor_rel * abs(mid))
-    return {'median': mid, 'sigma': sigma, 'n': len(values)}
+    return {'median': mid, 'sigma': MAD_TO_SIGMA * mad, 'n': len(values)}
 
 
-def _threshold(base: dict) -> float:
-    return max(SIGMA_FACTOR * base['sigma'], MIN_DELTA_REL * abs(base['median']))
-
-
-def _direction(value: float, base: dict, abs_floor: float) -> int:
-    """+1 above the flag threshold, -1 below it, 0 within it."""
+def _judge(value: float, base: dict, abs_floor: float) -> tuple[int, float, float]:
+    """(direction, delta, threshold): direction +1 above the threshold, -1 below, else 0."""
     delta = value - base['median']
-    if abs(delta) > _threshold(base) and abs(delta) > abs_floor:
-        return 1 if delta > 0 else -1
-    return 0
+    threshold = max(SIGMA_FACTOR * base['sigma'], MIN_DELTA_REL * abs(base['median']))
+    exceeds = abs(delta) > threshold and abs(delta) > abs_floor
+    return (1 if delta > 0 else -1) if exceeds else 0, delta, threshold
 
 
-def _flags(comparable: list[dict], noise_floor_rel: float, abs_floor: float) -> list[dict]:
+def _flags(segment: list[dict], abs_floor: float) -> list[dict]:
     """Flags for the comparable points of one settings segment, in order."""
     flags = []
-    for i, point in enumerate(comparable):
-        prior = [p['value'] for p in comparable[max(0, i - BASELINE_WINDOW) : i]]
-        base = baseline(prior, noise_floor_rel)
+    for i, point in enumerate(segment):
+        base = baseline([p['value'] for p in segment[max(0, i - BASELINE_WINDOW) : i]])
         if base is None:
             continue
-        direction = _direction(point['value'], base, abs_floor)
+        direction, delta, threshold = _judge(point['value'], base, abs_floor)
         if direction == 0:
             continue
-        nxt = comparable[i + 1] if i + 1 < len(comparable) else None
-        delta = point['value'] - base['median']
+        confirmed = None
+        if i + 1 < len(segment):
+            confirmed = _judge(segment[i + 1]['value'], base, abs_floor)[0] == direction
         flags.append(
             {
                 'run_id': point['run_id'],
                 'kind': 'regression' if direction > 0 else 'improvement',
                 'delta_rel': _relative(delta, base['median']),
                 'delta_abs': delta,
-                'threshold_rel': _relative(_threshold(base), base['median']),
-                'confirmed': nxt is not None
-                and _direction(nxt['value'], base, abs_floor) == direction,
+                'threshold_rel': _relative(threshold, base['median']),
+                'confirmed': confirmed,
             }
         )
     return flags
 
 
-def _steps(comparable: list[dict]) -> list[dict]:
-    """Level changes found by asv's step detector in one settings segment.
+def _steps(segment: list[dict]) -> list[dict]:
+    """Level changes found by asv's step detector in one settings segment."""
+    values = [p['value'] for p in segment]
+    steps = []
+    for (_, end, before), (start, _, after) in pairwise(_levels(values)):
+        # The new level starts at the first left-out run between the two that is
+        # closer to it in value
+        first = next(
+            (i for i in range(end, start) if abs(values[i] - after) < abs(values[i] - before)),
+            start,
+        )
+        steps.append(
+            {
+                'after_run_id': segment[first]['run_id'],
+                'before': before,
+                'after': after,
+                'delta_rel': _relative(after - before, before),
+            }
+        )
+    return steps
 
-    A step is reported only between two levels of at least ``MIN_LEVEL_POINTS``
-    runs each: on short or spiky stretches the detector returns one-run levels.
+
+def _levels(values: list[float]) -> list[tuple[int, int, float]]:
+    """(start, end, median) of asv's levels after leaving out excursion runs.
+
+    Runs in levels shorter than ``MIN_LEVEL_POINTS`` are passed to asv as
+    missing and the fit is repeated until every level is long enough or one
+    level remains. Each pass leaves out at least one more run, so this ends.
     """
-    if len(comparable) < 2 * MIN_LEVEL_POINTS:
-        return []
-    levels = detect_steps([p['value'] for p in comparable])
-    return [
-        {
-            'after_run_id': comparable[start]['run_id'],
-            'before': before,
-            'after': after,
-            'delta_rel': _relative(after - before, before),
-        }
-        for (prev_start, _, before, _, _), (start, end, after, _, _) in pairwise(levels)
-        if min(start - prev_start, end - start) >= MIN_LEVEL_POINTS
-    ]
+    fitted = list(values)
+    while True:
+        levels = [(start, end, level) for start, end, level, _, _ in detect_steps(fitted)]
+        short = [
+            (start, end)
+            for start, end, _ in levels
+            if sum(v is not None for v in fitted[start:end]) < MIN_LEVEL_POINTS
+        ]
+        if len(levels) <= 1 or not short:
+            return levels
+        for start, end in short:
+            fitted[start:end] = [None] * (end - start)
 
 
 def _relative(delta: float, reference: float) -> float | None:

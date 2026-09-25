@@ -34,6 +34,10 @@ markers = [
     "smoke: tests that start subprocesses such as the fake proteus stub",
 ]
 
+[tool.coverage.run]
+# Vendored third-party code is tested upstream
+omit = ["*/proteus_bench/_vendor/*"]
+
 [tool.ruff]
 src = ["src"]
 line-length = 96
