@@ -43,8 +43,9 @@ def test_slugs_and_series_paths_are_unambiguous():
     assert slug('sha256:AB12') == 'sha256-ab12'
     assert slug('a--b / c') == 'a-b-c'
     assert len(slug('x' * 100)) == 64
-    assert series_href(('a-', '-b', 'c')) == 'series/a--b--c.html'
-    assert series_href(('a', 'b--c', 'd')) != series_href(('a--b', 'c', 'd'))
+    assert series_href(('a-', '-b', 'c')).startswith('series/a--b--c--')
+    assert series_href(('A', 'b', 'c')) != series_href(('a', 'b', 'c'))  # same slug, other key
+    assert series_href(('a', 'b', 'c')) == series_href(('a', 'b', 'c'))  # stable across builds
 
 
 def test_script_json_cannot_close_the_script():

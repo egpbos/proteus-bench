@@ -5,7 +5,8 @@ It runs PROTEUS, records per-phase and per-module timings along with the exact
 versions of every module, and publishes a history dashboard.
 
 Status: early development. The interfaces (`docs/interface.md`) are drafted, and
-the runner and publishing work; the dashboard is not written yet. Design discussion:
+the runner, publishing and the dashboard (`proteus-bench report --store DIR --out
+SITE`, deployed by `.github/workflows/pages.yml`) work. Design discussion:
 [FormingWorlds/PROTEUS#916](https://github.com/FormingWorlds/PROTEUS/issues/916).
 
 ## Installation

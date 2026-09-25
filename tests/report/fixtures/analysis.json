@@ -1259,7 +1259,7 @@
      "delta_rel": 0.0778,
      "delta_abs": 1.166,
      "threshold_rel": 0.05,
-     "confirmed": false
+     "confirmed": true
     },
     {
      "run_id": "20260925T031000Z-habrok-default-r8",
@@ -1267,7 +1267,7 @@
      "delta_rel": 0.0854,
      "delta_abs": 1.28,
      "threshold_rel": 0.05,
-     "confirmed": true
+     "confirmed": null
     }
    ],
    "steps": [

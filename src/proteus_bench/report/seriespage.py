@@ -31,8 +31,9 @@ LEGEND = """<ul class="marks">
 <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4" class="dot"/></svg>comparable run</li>
 <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4" class="ring"/></svg>not comparable (not in baselines)</li>
 <li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8,3L13,12L3,12Z" class="flag bad"/></svg>regression, confirmed</li>
-<li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8,3L13,12L3,12Z" class="flag bad hollow"/></svg>regression, unconfirmed</li>
-<li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8,13L13,4L3,4Z" class="flag good"/></svg>improvement (outline: unconfirmed)</li>
+<li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8,3L13,12L3,12Z" class="flag bad hollow"/></svg>regression, not yet confirmed</li>
+<li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8,3L13,12L3,12Z" class="flag bad hollow rejected"/></svg>regression, not confirmed by the next run</li>
+<li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8,13L13,4L3,4Z" class="flag good"/></svg>improvement (same fills)</li>
 <li><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="4" width="14" height="8" class="swatch-band"/></svg>baseline median &#177; 3 sigma; dashed: &#177;5 %</li>
 <li><svg viewBox="0 0 16 16" aria-hidden="true"><line x1="8" x2="8" y1="1" y2="15" class="swatch-bnd"/></svg>settings changed (hover for keys)</li>
 <li><svg viewBox="0 0 16 16" aria-hidden="true"><line x1="8" x2="8" y1="1" y2="15" class="swatch-step"/></svg>detected step</li>
@@ -143,10 +144,12 @@ def _run_table(by_metric: dict[str, dict], records: list[dict]) -> str:
     rows = []
     for r in newest_first:
         cells = [
-            f'<a href="{ROOT}{run_href(r["run_id"])}">{esc(fmt_time(r["trigger"]["started_at"]))}</a>',
+            f'<a href="{esc(ROOT + run_href(r["run_id"]))}">{esc(fmt_time(r["trigger"]["started_at"]))}</a>',
             commit_link(r['code']['proteus']['sha']),
         ]
-        cells += [fmt_value(values[m].get(r['run_id']), by_metric[m]['unit']) for m in shown]
+        cells += [
+            esc(fmt_value(values[m].get(r['run_id']), by_metric[m]['unit'])) for m in shown
+        ]
         cells += [esc(r['outcome']['status']), comparable_mark(r['comparability']['ok'])]
         rows.append(cells)
     headers = ['Run', 'Commit', *shown, 'Status', 'Comparable']

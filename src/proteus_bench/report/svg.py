@@ -9,6 +9,8 @@ from proteus_bench.report.fmt import esc
 
 # (smallest axis maximum, divisor, unit shown) for axes in seconds
 TIME_SCALES = ((3 * 3600.0, 3600.0, 'h'), (180.0, 60.0, 'min'), (0.0, 1.0, 's'))
+# plot margins (left, right, top, bottom) [viewBox units]: tick labels left, dates below
+MARGINS = (44.0, 10.0, 26.0, 24.0)
 
 
 def axis_unit(unit: str, max_value: float) -> tuple[float, str]:
@@ -62,6 +64,11 @@ class Frame:
     def base(self) -> float:
         return self.height - self.bottom
 
+    @classmethod
+    def plot(cls, width: float, height: float, lo: float, hi: float, n: int) -> Frame:
+        """A frame with the dashboard's standard margins."""
+        return cls(width, height, *MARGINS, lo, hi, n)
+
 
 def y_grid(frame: Frame, ticks: list[float], div: float, unit: str) -> list[str]:
     """Hairline gridlines at ``ticks`` (in axis units, ``div`` data units each) and labels."""
@@ -76,8 +83,17 @@ def y_grid(frame: Frame, ticks: list[float], div: float, unit: str) -> list[str]
     return parts
 
 
-def svg_open(width: float, height: float, chart_id: str, title: str, attrs: str = '') -> str:
+def svg_open(width: float, height: float, chart_id: str, title: str) -> str:
+    """A static chart: one image to assistive technology, named by its title."""
     return (
         f'<svg viewBox="0 0 {width} {height}" role="img" aria-labelledby="{chart_id}" '
-        f'class="chart"{attrs}><title id="{chart_id}">{esc(title)}</title>'
+        f'class="chart"><title id="{chart_id}">{esc(title)}</title>'
+    )
+
+
+def svg_open_group(width: float, height: float, title: str, attrs: str = '') -> str:
+    """An interactive chart: a labelled group, so its linked marks stay reachable."""
+    return (
+        f'<svg viewBox="0 0 {width} {height}" role="group" aria-label="{esc(title)}" '
+        f'class="chart"{attrs}><title>{esc(title)}</title>'
     )

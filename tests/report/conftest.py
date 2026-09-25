@@ -5,15 +5,17 @@ Ten records derived from ``examples/record.json``:
 - group all_options / default / habrok-vink, runs r1..r8 on 2026-09-18..25:
   r4 is not comparable (CVODE missing, Radau fallback, two failed checks);
   from r6 on ``interior_struct.zalmoxis.use_jax`` is true (a settings boundary);
-  r7 and r8 have an 8 % slower atmosphere (flagged); r8 has a flame graph;
-  r2's log file is missing from the store.
+  r7 and r8 have an 8 % slower atmosphere (flagged); r8 names a flame page
+  (publisher HTML, which the site must not link); r2's log file is missing
+  from the store.
 - group all_options / default / gha-ubuntu-epyc7763, runs g1 (ok) and g2
   (failed), too few for a baseline.
 
 ``fixtures/analysis.json`` is the matching analysis output, in the
 ``proteus-bench-analysis/1`` shape of the brief. It was computed once from
 these records and is committed, so the dashboard tests do not depend on the
-analysis package.
+analysis package. Its flags cover every ``confirmed`` state: r7 atmosphere
+true, r8 atmosphere null (no later run), r7 agni and r3 aragog false.
 """
 
 from __future__ import annotations

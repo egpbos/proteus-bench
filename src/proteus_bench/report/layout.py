@@ -7,12 +7,7 @@ any base URL, including ``file://``.
 
 from __future__ import annotations
 
-from proteus_bench.report.fmt import esc, fmt_rel
-
-FONTS = (
-    'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500'
-    '&family=IBM+Plex+Sans:wght@400;500;600&display=swap'
-)
+from proteus_bench.report.fmt import confirmation, esc, fmt_rel
 
 
 def page(
@@ -27,7 +22,6 @@ def page(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{esc(title)}</title>
-<link rel="stylesheet" href="{esc(FONTS)}">
 <link rel="stylesheet" href="{root}style.css">
 </head>
 <body>
@@ -85,15 +79,14 @@ def kv_table(pairs: list[tuple[str, str]]) -> str:
 def flag_badge(flag: dict, metric: str = '') -> str:
     """Regression or improvement badge: icon, words and numbers, never colour alone."""
     regression = flag['kind'] == 'regression'
-    # filled triangle once confirmed, outline while unconfirmed; up means slower
+    # filled triangle once confirmed, outline otherwise; up means slower
     icons = ('▲', '△') if regression else ('▼', '▽')
-    icon = icons[0] if flag['confirmed'] else icons[1]
-    state = 'confirmed' if flag['confirmed'] else 'unconfirmed'
+    icon = icons[0] if flag['confirmed'] is True else icons[1]
     cls = 'bad' if regression else 'good'
     where = f'{esc(metric)} ' if metric else ''
     return (
         f'<span class="badge {cls}"><span class="icon" aria-hidden="true">{icon}</span>'
-        f'{where}{esc(flag["kind"])} {fmt_rel(flag["delta_rel"])}, {state}</span>'
+        f'{where}{esc(flag["kind"])} {fmt_rel(flag["delta_rel"])}, {confirmation(flag)}</span>'
     )
 
 

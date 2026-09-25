@@ -18,7 +18,8 @@ def test_ticks_cover_the_range_with_round_steps():
     """0..13.3 gives 0, 5, 10, 15 (step 5, not 2 or 10); 29.3..50.7 starts at or below 29.3."""
     assert nice_ticks(0.0, 13.3) == pytest.approx([0, 5, 10, 15])
     ticks = nice_ticks(29.3, 50.7)
-    assert ticks[0] <= 29.3 and ticks[-1] >= 50.7
+    assert ticks[0] <= 29.3
+    assert ticks[-1] >= 50.7
     steps = {round(b - a, 9) for a, b in zip(ticks, ticks[1:], strict=False)}
     assert steps == {10.0}  # (50.7 - 29.3) / 4 = 5.35 rounds up to 10, never to 5.35
 

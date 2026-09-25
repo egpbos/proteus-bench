@@ -13,6 +13,7 @@ from proteus_bench.report.fmt import (
     fmt_time,
     group_label,
     group_of,
+    https_link,
     series_href,
 )
 from proteus_bench.report.layout import (
@@ -30,6 +31,7 @@ from proteus_bench.report.runcharts import (
     phase_bar,
     stack_order,
 )
+from proteus_bench.report.store import Artifact
 
 ROOT = '../'
 PHASE_ORDER = ('setup', 'init', 'loop', 'shutdown')
@@ -38,18 +40,18 @@ PHASE_ORDER = ('setup', 'init', 'loop', 'shutdown')
 def render(
     record: dict,
     flags: list[tuple[str, dict]],
-    artifacts: dict[str, str | None],
+    artifacts: list[Artifact],
     previous: str | None,
 ) -> str:
     """The page for one record.
 
-    ``flags`` are (metric, flag) pairs for this run, ``artifacts`` maps artifact
-    names to site-relative paths (``None`` when missing from the store) and
-    ``previous`` is the run id before this one in its group, for the compare link.
+    ``flags`` are (metric, flag) pairs for this run, ``artifacts`` come from
+    ``store.artifacts_of`` and ``previous`` is the run id before this one in
+    its group, for the compare link.
     """
     body = (
         _problems(record)
-        + _summary(record, flags, artifacts, previous)
+        + _summary(record, flags, previous)
         + section('Phases', f'<div class="panel">{phase_bar(record)}</div>')
         + section(
             'Main-loop iterations',
@@ -85,20 +87,18 @@ def _problems(record: dict) -> str:
     if outcome['status'] != 'ok':
         error = f': {esc(outcome["error"])}' if outcome.get('error') else ''
         parts.append(
-            f'<li><b>Run {esc(outcome["status"])}</b> (exit code {esc(outcome["exit_code"])}){error}</li>'
+            f'<li><b>Run {esc(outcome["status"])}</b> (exit code {esc(outcome.get("exit_code"))}){error}</li>'
         )
     if not parts:
         return ''
     return f'<section class="callout" id="problems"><h2>Problems</h2><ul>{"".join(parts)}</ul></section>'
 
 
-def _summary(
-    record: dict, flags: list[tuple[str, dict]], artifacts: dict, previous: str | None
-) -> str:
+def _summary(record: dict, flags: list[tuple[str, dict]], previous: str | None) -> str:
     outcome, timings, group = record['outcome'], record['timings'], group_of(record)
     rusage = timings.get('rusage', {})
     pairs = [
-        ('Series', f'<a href="{ROOT}{series_href(group)}">{esc(group_label(group))}</a>'),
+        ('Series', f'<a href="{esc(ROOT + series_href(group))}">{esc(group_label(group))}</a>'),
         (
             'Status',
             f'{esc(outcome["status"])}, {esc(outcome.get("termination", "no termination recorded"))}',
@@ -125,12 +125,8 @@ def _summary(
                 '<div class="badges">' + ''.join(flag_badge(f, m) for m, f in flags) + '</div>',
             )
         )
-    if artifacts.get('flame'):
-        pairs.append(
-            ('Profile', f'<a href="{ROOT}{esc(artifacts["flame"])}"><b>Flame graph</b></a>')
-        )
     if previous:
-        href = f'{ROOT}compare.html?a={esc(previous)}&amp;b={esc(record["run_id"])}'
+        href = esc(f'{ROOT}compare.html?a={previous}&b={record["run_id"]}')
         pairs.append(('Compare', f'<a href="{href}">with the previous run of this series</a>'))
     pairs += [
         (f'Fingerprint {k}', f'{v:.6g}') for k, v in record.get('fingerprint', {}).items()
@@ -196,17 +192,12 @@ def _provenance(record: dict) -> str:
         ),
         ('Trigger', esc(f'{trigger["adapter"]}, by {trigger.get("user", "unknown user")}')),
     ]
-    if 'gha' in trigger and 'run_url' in trigger['gha']:
-        pairs.append(
-            (
-                'GitHub Actions run',
-                f'<a href="{esc(trigger["gha"]["run_url"])}">{esc(trigger["gha"]["run_url"])}</a>',
-            )
-        )
+    if 'run_url' in trigger.get('gha', {}):
+        pairs.append(('GitHub Actions run', https_link(trigger['gha']['run_url'])))
     if 'slurm' in trigger:
         pairs.append(('Slurm', esc(', '.join(f'{k} {v}' for k, v in trigger['slurm'].items()))))
     pairs += [
-        (f'module {name}', f'{esc(state["source"])}: {_version(state)}')
+        (f'module {name}', f'{esc(state.get("source", "unknown source"))}: {_version(state)}')
         for name, state in sorted(code['modules'].items())
     ]
     pairs += [
@@ -258,19 +249,26 @@ def _backends(record: dict) -> str:
     )
 
 
-def _artifacts(artifacts: dict[str, str | None]) -> str:
+def _artifact_cell(artifact: Artifact) -> str:
+    if not artifact.present:
+        return f'<code>{esc(artifact.path)}</code> <span class="warn">missing from the store</span>'
+    if artifact.name == 'flame':
+        # publisher-supplied HTML is never linked; the site will build its own flame pages
+        return f'<code>{esc(artifact.path)}</code> <span class="note">not linked</span>'
+    if artifact.url:
+        return https_link(artifact.url, artifact.path)
+    return f'<code>{esc(artifact.path)}</code>'
+
+
+def _artifacts(artifacts: list[Artifact]) -> str:
     if not artifacts:
         return '<p class="note">The record lists no artifacts.</p>'
-    rows = [
-        [
-            esc(name),
-            f'<a href="{ROOT}{esc(path)}">{esc(path.split("/")[-1])}</a>'
-            if path
-            else '<span class="warn">missing from the store</span>',
-        ]
-        for name, path in sorted(artifacts.items())
-    ]
-    return table(['Artifact', 'File'], rows)
+    rows = [[esc(a.name), _artifact_cell(a)] for a in artifacts]
+    note = (
+        'Paths are relative to the results store. They link to its branch on GitHub '
+        'when the site was built with a repository.'
+    )
+    return f'<p class="note">{note}</p>' + table(['Artifact', 'File'], rows)
 
 
 def _settings(record: dict) -> str:
