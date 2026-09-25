@@ -3,15 +3,16 @@
 Runs sit at evenly spaced x positions in time order. The chart shows the
 baseline band (median +- 3 sigma, and dashed lines at +-5 %), filled dots for
 comparable runs and rings for the others, flag triangles (up for a regression,
-down for an improvement, hollow while unconfirmed), dotted step markers and
-solid settings-change boundaries. Every mark has a ``<title>`` for hover and
-screen readers, and each dot links to its run page.
+down for an improvement; filled once confirmed, outlined until then, dashed
+when the next run did not confirm it), dotted step markers and solid
+settings-change boundaries. Every mark has a ``<title>`` for hover and screen
+readers, and each dot links to its run page.
 """
 
 from __future__ import annotations
 
-from proteus_bench.report.fmt import esc, fmt_rel, fmt_time, fmt_value, run_href, slug
-from proteus_bench.report.svg import Frame, axis_unit, nice_ticks, svg_open, y_grid
+from proteus_bench.report.fmt import confirmation, esc, fmt_rel, fmt_time, fmt_value, run_href
+from proteus_bench.report.svg import Frame, axis_unit, nice_ticks, svg_open_group, y_grid
 
 SIZES = {'large': (400, 200), 'small': (320, 170)}
 SIGMAS = 3.0
@@ -29,15 +30,13 @@ def series_chart(series: dict, root: str, size: str = 'large') -> str:
     extent = [p['value'] for p in points] + _band_extent(baseline)
     div, unit = axis_unit(series['unit'], max(extent))
     ticks = nice_ticks(min(extent) / div, max(extent) / div)
-    frame = Frame(width, height, 44, 10, 26, 24, ticks[0] * div, ticks[-1] * div, len(points))
+    frame = Frame.plot(width, height, ticks[0] * div, ticks[-1] * div, len(points))
     index = {p['run_id']: i for i, p in enumerate(points)}
     marks_at = _flags_by_index(series, index)
     title = (
         f'{metric}: {len(points)} runs, latest {fmt_value(points[-1]["value"], series["unit"])}'
     )
-    parts = [
-        svg_open(width, height, f'c-{slug(metric)}', title, f' data-metric="{esc(metric)}"')
-    ]
+    parts = [svg_open_group(width, height, title, f' data-metric="{esc(metric)}"')]
     parts += y_grid(frame, ticks, div, unit)
     parts += _band(frame, baseline, points)
     parts += [
@@ -51,7 +50,7 @@ def series_chart(series: dict, root: str, size: str = 'large') -> str:
     )
     for i, point in enumerate(points):
         mark = _point(frame, i, point, series['unit'], marks_at.get(i, []))
-        parts.append(f'<a href="{root}{run_href(point["run_id"])}">{mark}</a>')
+        parts.append(f'<a href="{esc(root + run_href(point["run_id"]))}">{mark}</a>')
     parts += _x_labels(frame, points)
     parts.append('</svg>')
     return ''.join(parts)
@@ -164,13 +163,16 @@ def _point(frame: Frame, i: int, point: dict, unit: str, flags: list[dict]) -> s
 
 
 def _flag_text(flag: dict) -> str:
-    state = 'confirmed' if flag['confirmed'] else 'unconfirmed'
     # relative values are null when the baseline median is 0
     threshold = 'n/a' if flag['threshold_rel'] is None else f'{flag["threshold_rel"]:.1%}'
     return (
-        f'{flag["kind"]} {fmt_rel(flag["delta_rel"])} ({flag["delta_abs"]:+.4g}), {state}, '
-        f'threshold {threshold}'
+        f'{flag["kind"]} {fmt_rel(flag["delta_rel"])} ({flag["delta_abs"]:+.4g}), '
+        f'{confirmation(flag)}, threshold {threshold}'
     )
+
+
+# confirmed: filled; not yet confirmed: outline; not confirmed by the next run: dashed outline
+FLAG_FILL = {True: '', None: ' hollow', False: ' hollow rejected'}
 
 
 def _triangle(x: float, y: float, flag: dict) -> str:
@@ -180,18 +182,18 @@ def _triangle(x: float, y: float, flag: dict) -> str:
         cy, tip, cls = y - gap, -s, 'bad'
     else:
         cy, tip, cls = y + gap, s, 'good'
-    fill = '' if flag['confirmed'] else ' hollow'
+    fill = FLAG_FILL.get(flag['confirmed'], ' hollow')
     path = f'M{x:.1f},{cy + tip:.1f}L{x + s:.1f},{cy - tip:.1f}L{x - s:.1f},{cy - tip:.1f}Z'
     return f'<path d="{path}" class="flag {cls}{fill}"/>'
 
 
 def _x_labels(frame: Frame, points: list[dict]) -> list[str]:
     y = frame.height - 6
-    first = f'<text x="{frame.left}" y="{y}" class="tick">{points[0]["time"][:10]}</text>'
+    first = f'<text x="{frame.left}" y="{y}" class="tick">{esc(points[0]["time"][:10])}</text>'
     if len(points) == 1:
         return [first]
     last = (
         f'<text x="{frame.width - frame.right}" y="{y}" class="tick" '
-        f'text-anchor="end">{points[-1]["time"][:10]}</text>'
+        f'text-anchor="end">{esc(points[-1]["time"][:10])}</text>'
     )
     return [first, last]

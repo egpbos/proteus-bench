@@ -36,6 +36,10 @@ def component_colour(name: str) -> str:
     return 'var(--other)'
 
 
+def phase_colour(name: str) -> str:
+    return f'var(--{PHASE_COLOURS.get(name, "other")})'
+
+
 def stack_order(names) -> list[str]:
     """Known components in slot order, then the rest alphabetically, ``other`` last."""
     known = [c for c in COMPONENT_SLOTS if c in names]
@@ -72,7 +76,7 @@ def phase_bar(record: dict) -> str:
     x = 0.0
     for name, dur in segments:
         w = usable * dur / total
-        colour = f'var(--{PHASE_COLOURS.get(name, "other")})'
+        colour = phase_colour(name)
         parts.append(
             f'<g class="seg"><title>{esc(name)}: {fmt_s(dur)} ({dur / total:.0%})</title>'
             f'<rect x="{x:.1f}" y="0" width="{max(w, 1):.1f}" height="{height}" rx="4" fill="{colour}"/></g>'
@@ -83,10 +87,7 @@ def phase_bar(record: dict) -> str:
             )
         x += w + GAP
     parts.append('</svg>')
-    items = [
-        (f'var(--{PHASE_COLOURS.get(n, "other")})', n, f'{fmt_s(d)} ({d / total:.0%})')
-        for n, d in segments
-    ]
+    items = [(phase_colour(n), n, f'{fmt_s(d)} ({d / total:.0%})') for n, d in segments]
     return ''.join(parts) + legend(items)
 
 
@@ -112,7 +113,7 @@ def iteration_stack(record: dict) -> str:
     top = max(it['dur_s'] for it in iters)
     div, unit = axis_unit('s', top)
     ticks = nice_ticks(0.0, top / div)
-    frame = Frame(440, 220, 44, 10, 26, 24, 0.0, ticks[-1] * div, len(iters))
+    frame = Frame.plot(440, 220, 0.0, ticks[-1] * div, len(iters))
     title = f'Time per main-loop iteration by component, {len(iters)} iterations'
     parts = [svg_open(440, 220, 'iter-stack', title), *y_grid(frame, ticks, div, unit)]
     for i, (it, row) in enumerate(zip(iters, rows, strict=True)):
@@ -135,7 +136,7 @@ def _bar(frame: Frame, i: int, it: dict, row: dict, names: list[str]) -> list[st
         y_top, y_bottom = frame.y(acc + row[name]), frame.y(acc)
         h = max(y_bottom - y_top - GAP, 0.5)
         parts.append(
-            f'<g class="seg"><title>iteration {it["iter"]}{stage}, {esc(name)}: {fmt_s(row[name])}'
+            f'<g class="seg"><title>iteration {esc(it["iter"])}{stage}, {esc(name)}: {fmt_s(row[name])}'
             f'</title><rect x="{x:.1f}" y="{y_top:.1f}" width="{width:.1f}" height="{h:.1f}" rx="1.5" '
             f'fill="{component_colour(name)}"/></g>'
         )
@@ -146,7 +147,7 @@ def _bar(frame: Frame, i: int, it: dict, row: dict, names: list[str]) -> list[st
 def _iter_labels(frame: Frame, iters: list[dict]) -> list[str]:
     every = max(1, -(-len(iters) // 12))  # at most 12 labels
     return [
-        f'<text x="{frame.x(i):.1f}" y="{frame.height - 8}" class="tick" text-anchor="middle">{it["iter"]}</text>'
+        f'<text x="{frame.x(i):.1f}" y="{frame.height - 8}" class="tick" text-anchor="middle">{esc(it["iter"])}</text>'
         for i, it in enumerate(iters)
         if i % every == 0 or i == len(iters) - 1
     ]

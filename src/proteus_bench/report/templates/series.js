@@ -16,7 +16,9 @@
   keySel.addEventListener('change', () => {
     valSel.replaceChildren();
     const values = index[keySel.value] || {};
-    for (const value of Object.keys(values).sort()) {
+    // numeric-aware, so values such as 2, 10 and 16 sort as numbers
+    const sorted = Object.keys(values).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+    for (const value of sorted) {
       valSel.append(new Option(`${value} (${values[value].length} runs)`, value));
     }
     valSel.disabled = add.disabled = !keySel.value;

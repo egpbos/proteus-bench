@@ -28,7 +28,21 @@
     const m = Math.round(a / 60);
     return `${sign}${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
   };
-  const cell = (text, cls) => { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; return td; };
+  const cell = (text, cls) => {
+    const td = document.createElement('td');
+    td.textContent = text;
+    if (cls) {
+      td.className = cls;
+    }
+    return td;
+  };
+  const fmtRel = rel => {
+    if (!Number.isFinite(rel)) {
+      return 'n/a';
+    }
+    const sign = rel >= 0 ? '+' : '';
+    return `${sign}${(rel * 100).toFixed(1)} %`;
+  };
   const runLink = r => { const a = document.createElement('a'); a.href = `runs/${r.id}.html`; a.textContent = r.label; return a; };
 
   function deltaCell(rel) {
@@ -62,12 +76,10 @@
     for (const name of names) {
       const va = a.totals[name], vb = b.totals[name];
       const both = va !== undefined && vb !== undefined;
-      const rel = both && va > 0 ? vb / va - 1 : NaN;
+      const rel = both && va > 0 ? vb / va - 1 : Number.NaN;
       const tr = document.createElement('tr');
       tr.append(cell(name, 'mono'), cell(fmt(va), 'num'), cell(fmt(vb), 'num'),
-        cell(both ? fmt(vb - va) : 'n/a', 'num'),
-        cell(Number.isFinite(rel) ? `${rel >= 0 ? '+' : ''}${(rel * 100).toFixed(1)} %` : 'n/a', 'num'),
-        deltaCell(rel));
+        cell(both ? fmt(vb - va) : 'n/a', 'num'), cell(fmtRel(rel), 'num'), deltaCell(rel));
       body.append(tr);
     }
     table.append(body);

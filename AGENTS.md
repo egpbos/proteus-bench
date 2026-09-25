@@ -17,6 +17,7 @@ src/proteus_bench/
   commands/         add_arguments(parser) + main(args) -> int, one module per subcommand
   schemas/          JSON Schemas (versioned interfaces, see docs/interface.md)
   timing.py         reading and checking timing.jsonl
+  report/           static dashboard: pages, inline SVG charts, templates/ (CSS, JS)
   testing/          fake proteus stub used by the tests
 tests/              mirrors src/proteus_bench/
 examples/           example timing.jsonl and run record (illustrative values)

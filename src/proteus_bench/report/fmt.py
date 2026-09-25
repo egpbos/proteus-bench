@@ -7,9 +7,11 @@ before it reaches HTML, and through ``script_json`` before it reaches a
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import re
+from urllib.parse import quote
 
 PROTEUS_COMMIT_URL = 'https://github.com/FormingWorlds/PROTEUS/commit/{sha}'
 
@@ -18,6 +20,7 @@ GroupKey = tuple[str, str, str]
 
 
 def esc(value) -> str:
+    """Escape for HTML text and attribute values; quotes always, so attributes cannot break."""
     return html.escape(str(value), quote=True)
 
 
@@ -50,6 +53,14 @@ def fmt_rel(ratio: float | None) -> str:
     return 'n/a' if ratio is None else f'{ratio * 100:+.1f} %'
 
 
+def confirmation(flag: dict) -> str:
+    """A flag's ``confirmed``: true, false (the next comparable run did not repeat
+    the change) or null (no later comparable run yet)."""
+    return {True: 'confirmed', False: 'not confirmed by the next run'}.get(
+        flag['confirmed'], 'not yet confirmed'
+    )
+
+
 def fmt_time(iso: str) -> str:
     """``2026-09-25T03:10:00Z`` -> ``2026-09-25 03:10 UTC``."""
     return iso[:16].replace('T', ' ') + ' UTC'
@@ -73,8 +84,13 @@ def group_label(group: GroupKey) -> str:
 
 
 def series_href(group: GroupKey) -> str:
-    """Site-relative path of a group's series page; ``--`` cannot occur inside a slug."""
-    return 'series/' + '--'.join(slug(part) for part in group) + '.html'
+    """Site-relative path of a group's series page.
+
+    Slugs are readable but lossy (case, punctuation, length), so a hash of the
+    exact key keeps two groups from ever sharing a page.
+    """
+    digest = hashlib.sha256(json.dumps(list(group)).encode()).hexdigest()[:10]
+    return 'series/' + '--'.join(slug(part) for part in group) + f'--{digest}.html'
 
 
 def run_href(run_id: str) -> str:
@@ -82,9 +98,16 @@ def run_href(run_id: str) -> str:
 
 
 def commit_link(sha: str) -> str:
-    return (
-        f'<a class="mono" href="{esc(PROTEUS_COMMIT_URL.format(sha=sha))}">{esc(sha[:8])}</a>'
-    )
+    url = PROTEUS_COMMIT_URL.format(sha=quote(sha, safe=''))
+    return f'<a class="mono" href="{esc(url)}">{esc(sha[:8])}</a>'
+
+
+def https_link(url: str, text: str | None = None) -> str:
+    """A link for an ``https://`` URL; any other scheme is shown as plain text, never linked."""
+    shown = esc(url if text is None else text)
+    if isinstance(url, str) and url.startswith('https://'):
+        return f'<a href="{esc(url)}">{shown}</a>'
+    return shown
 
 
 def script_json(value) -> str:

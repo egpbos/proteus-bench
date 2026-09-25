@@ -68,3 +68,23 @@ def test_missing_store_and_wrong_analysis(tmp_path, analysed, capsys):
             ['report', '--store', str(tmp_path / 'store'), '--out', str(tmp_path / 'site')]
         )
     assert not (tmp_path / 'site').exists()
+
+
+def test_repository_comes_from_the_environment(tmp_path, analysed, monkeypatch, capsys):
+    """GITHUB_REPOSITORY is the default; an explicit empty --repo turns links off; junk is refused."""
+    record = json.loads(EXAMPLE.read_text())
+    path = tmp_path / 'store' / 'records' / '2026' / f'{record["run_id"]}.json'
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(record))
+    (tmp_path / 'store' / record['artifacts']['log']).parent.mkdir(parents=True)
+    (tmp_path / 'store' / record['artifacts']['log']).write_text('log')
+    monkeypatch.setenv('GITHUB_REPOSITORY', 'o/n')
+    base = ['report', '--store', str(tmp_path / 'store'), '--out', str(tmp_path / 'site')]
+    assert cli.main(base) == 0
+    assert 'artifact links to o/n' in capsys.readouterr().out
+    run_page = (tmp_path / 'site' / 'runs' / f'{record["run_id"]}.html').read_text()
+    assert f'https://github.com/o/n/blob/results/{record["artifacts"]["log"]}' in run_page
+    assert cli.main([*base, '--repo', '']) == 0
+    assert 'no repository, so no artifact links' in capsys.readouterr().out
+    with pytest.raises(ValueError, match='owner/name'):
+        cli.main([*base, '--repo', 'javascript:x'])

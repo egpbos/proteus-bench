@@ -28,9 +28,11 @@ HOW_TO_READ = (
     'Each card is one series group: a benchmark, its settings lineage and a machine class. '
     'Runs only count towards a baseline when they are comparable (checks passed, expected '
     'backends, same settings). The baseline is the median of recent comparable runs; a run is '
-    'flagged when it differs from it by more than max(3 sigma, 5 %). A flag stays '
-    '<b>unconfirmed</b> (outline triangle) until a rerun shows the same change. Up triangles '
-    'are regressions (slower), down triangles improvements. Open a series for its trend charts.'
+    'flagged when it differs from it by more than max(3 sigma, 5 %). A flag is '
+    '<b>confirmed</b> (filled triangle) when the next comparable run shows the same change, '
+    '<b>not yet confirmed</b> (outline) until there is one, and <b>not confirmed by the next '
+    'run</b> (dashed outline) when that run did not repeat it. Up triangles are regressions '
+    '(slower), down triangles improvements. Open a series for its trend charts.'
 )
 
 
@@ -78,7 +80,7 @@ def _stat(by_metric: dict[str, dict], metric: str, label: str, run_id: str) -> s
 
 def _card(group: GroupKey, by_metric: dict[str, dict]) -> str:
     head = (
-        f'<h3><a href="{series_href(group)}">{esc(group[0])}</a></h3>'
+        f'<h3><a href="{esc(series_href(group))}">{esc(group[0])}</a></h3>'
         f'<p class="note">lineage <span class="mono">{esc(group[1])}</span> on {esc(group[2])}</p>'
     )
     if not by_metric:
@@ -99,7 +101,7 @@ def _card(group: GroupKey, by_metric: dict[str, dict]) -> str:
     return (
         f'<article class="panel card">{head}<dl class="stats">{stats}</dl>'
         f'<div class="badges">{flags_html}</div>'
-        f'<p class="note">Latest run <a href="{run_href(run_id)}">{esc(fmt_time(last["time"]))}</a>, '
+        f'<p class="note">Latest run <a href="{esc(run_href(run_id))}">{esc(fmt_time(last["time"]))}</a>, '
         f'PROTEUS {commit_link(last["commit"])}{comparable}</p></article>'
     )
 
@@ -109,8 +111,8 @@ def _recent(records: list[dict]) -> str:
         return '<p class="note">No runs in the store yet.</p>'
     rows = [
         [
-            f'<a href="{run_href(r["run_id"])}">{esc(fmt_time(r["trigger"]["started_at"]))}</a>',
-            f'<a href="{series_href(group_of(r))}">{esc(group_label(group_of(r)))}</a>',
+            f'<a href="{esc(run_href(r["run_id"]))}">{esc(fmt_time(r["trigger"]["started_at"]))}</a>',
+            f'<a href="{esc(series_href(group_of(r)))}">{esc(group_label(group_of(r)))}</a>',
             commit_link(r['code']['proteus']['sha']),
             esc(r['outcome']['status']),
             comparable_mark(r['comparability']['ok']),
