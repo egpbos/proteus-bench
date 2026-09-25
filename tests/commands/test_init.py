@@ -33,7 +33,8 @@ def test_init_writes_options_as_values(xdg, capsys):
             '--sbatch-option=--constraint=vink',
         ]
     )  # fmt: skip
-    assert code == 0 and f'wrote {xdg}' in capsys.readouterr().out
+    assert code == 0
+    assert f'wrote {xdg}' in capsys.readouterr().out
     cfg = userconfig.load()
     assert cfg['machine'] == {'label': 'vink15', 'class': 'habrok-vink'}
     assert cfg['store']['remote'] == 'git@github.com:egpbos/proteus-bench.git'
@@ -52,3 +53,22 @@ def test_existing_file_needs_force(xdg, capsys):
     assert cli.main(['init', '--runs-dir', '/data/runs', '--force']) == 0
     assert userconfig.load()['runs']['dir'] == '/data/runs'
     assert userconfig.load()['machine']['label'] == ''
+
+
+def test_awkward_values_round_trip(xdg):
+    """Quotes, backslashes, control characters, DEL and non-BMP text load back unchanged."""
+    snippet = 'eval "$(conda shell.bash hook)"\n. setenv.sh\t# C:\\path \x00\x7f 😀'
+    assert cli.main(['init', '--env-activation', snippet, '--machine-label', 'habrök']) == 0
+    cfg = userconfig.load()
+    assert cfg['slurm']['env_activation'] == snippet
+    assert cfg['machine']['label'] == 'habrök'
+    assert '\x7f' not in xdg.read_text()  # written as an escape, since TOML forbids raw DEL
+
+
+def test_invalid_value_is_refused_before_writing(xdg, capsys):
+    """A relative --cache-dir would make publishing reset the working directory: not written."""
+    assert cli.main(['init', '--cache-dir', 'store-cache']) == 1
+    out = capsys.readouterr().out
+    assert "store.cache_dir must be an absolute path, found 'store-cache'" in out
+    assert out.endswith('not written\n')
+    assert not xdg.exists()

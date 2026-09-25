@@ -57,16 +57,22 @@ def load(path: Path | None = None) -> dict:
     """Defaults overlaid with the config file at ``path`` (default ``config_path()``).
 
     Raises ValueError naming the file for invalid TOML, an unknown table or key,
-    or a value whose type differs from the default's.
+    a value whose type differs from the default's, or a ``store.cache_dir`` that
+    is not an absolute path (publishing resets that directory).
     """
     path = path or config_path()
-    merged = defaults()
     if not path.exists():
-        return merged
+        return defaults()
     try:
         user = tomllib.loads(path.read_text())
     except tomllib.TOMLDecodeError as err:
         raise ValueError(f'{path}: not valid TOML ({err})') from err
+    return merge(user, path)
+
+
+def merge(user: dict, path: Path) -> dict:
+    """Defaults overlaid with parsed config ``user``; errors as for ``load``, naming ``path``."""
+    merged = defaults()
     for table, values in user.items():
         if table not in merged:
             raise ValueError(f'{path}: unknown table [{table}]; known: {", ".join(merged)}')
@@ -75,6 +81,9 @@ def load(path: Path | None = None) -> dict:
         for key, value in values.items():
             _check_value(path, table, key, value, merged[table])
             merged[table][key] = value
+    cache = merged['store']['cache_dir']
+    if not Path(cache).expanduser().is_absolute():  # '' would become the working directory
+        raise ValueError(f'{path}: store.cache_dir must be an absolute path, found {cache!r}')
     return merged
 
 
@@ -104,8 +113,8 @@ def render(values: dict[str, dict]) -> str:
 
 
 def _toml_value(value: str | list[str]) -> str:
-    # JSON's escapes are TOML basic-string escapes; ensure_ascii=False avoids \u
-    # surrogate pairs, which TOML rejects
+    # JSON's escapes are TOML basic-string escapes. ensure_ascii=False avoids \u
+    # surrogate pairs, which TOML rejects; JSON leaves DEL raw, which TOML rejects too.
     if isinstance(value, list):
         return '[' + ', '.join(_toml_value(v) for v in value) + ']'
-    return json.dumps(value, ensure_ascii=False)
+    return json.dumps(value, ensure_ascii=False).replace('\x7f', '\\u007f')

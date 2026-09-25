@@ -8,6 +8,7 @@ the rest stay commented out at their defaults. An existing file is kept unless
 from __future__ import annotations
 
 import argparse
+import tomllib
 
 from proteus_bench import userconfig
 
@@ -49,8 +50,13 @@ def main(args: argparse.Namespace) -> int:
         value = getattr(args, dest)
         if value is not None:
             values.setdefault(table, {})[key] = value
+    text = userconfig.render(values)
+    try:
+        userconfig.merge(tomllib.loads(text), path)  # refuse values load() would reject
+    except ValueError as err:
+        print(f'{err}\nnot written')
+        return 1
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(userconfig.render(values))
-    userconfig.load(path)  # what was written must load back
+    path.write_text(text)
     print(f'wrote {path}')
     return 0
