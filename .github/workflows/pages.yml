@@ -1,0 +1,57 @@
+name: Dashboard
+# A push to the results branch cannot start a workflow that exists only on
+# main, so the dashboard rebuilds daily and on demand; `proteus-bench publish`
+# dispatches it after pushing a record.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "40 6 * * *"
+# One group for every trigger: all runs publish to the same github-pages
+# environment, so the group is deliberately not scoped by ref.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: read
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/configure-pages@v5
+      # The code: main for the schedule and for a dispatch without --ref
+      - uses: actions/checkout@v6
+      - name: Check that the results branch exists
+        id: results
+        run: |
+          if git ls-remote --exit-code --heads origin results > /dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No results branch yet, so there is no dashboard to build. Publish a run first."
+          fi
+      - if: steps.results.outputs.exists == 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: results
+          path: results
+      - if: steps.results.outputs.exists == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - if: steps.results.outputs.exists == 'true'
+        run: pip install .
+      - if: steps.results.outputs.exists == 'true'
+        run: proteus-bench report --store results --out site
+      - if: steps.results.outputs.exists == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - if: steps.results.outputs.exists == 'true'
+        uses: actions/deploy-pages@v4
+        id: deployment
