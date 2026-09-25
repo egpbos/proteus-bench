@@ -1,0 +1,12 @@
+proteus-bench
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software from asv (airspeed velocity),
+https://github.com/airspeed-velocity/asv, licensed under the 3-clause BSD licence:
+
+  src/proteus_bench/_vendor/asv_step_detect.py
+    from asv/step_detect.py at commit d33754e129c025beb5c2ca440c3c280433b264f7
+    Copyright (c) 2018-2023, asv Developers.
+    Copyright (c) 2011-2018, Michael Droettboom, Space Telescope Science Institute,
+    Pauli Virtanen
+    The full licence text is reproduced in the header of that file.
