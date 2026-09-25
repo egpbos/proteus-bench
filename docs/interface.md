@@ -5,6 +5,8 @@ Two files cross component boundaries:
 - `timing.jsonl`: written by PROTEUS, read by proteus-bench.
 - The run record: written by proteus-bench, read by the dashboard and analysis.
 
+The results store (last section) holds both, one set of files per run.
+
 The JSON Schemas in `src/proteus_bench/schemas/` fix the shape of each file.
 `proteus_bench.timing.check_events` checks the rules for `timing.jsonl` that a
 schema cannot express. The `validate` command runs both:
@@ -121,3 +123,60 @@ One JSON file per run. See `record-v1.schema.json` for every field. Key points:
 - `comparability` says whether the run may enter baselines, and if not, why.
   Examples: a failed environment check, an unexpected backend such as the Radau
   fallback, or a physics fingerprint that doesn't match the series.
+
+## Results store
+
+`proteus-bench publish` adds run directories to a git branch, `results` by
+default, of the proteus-bench repository. `proteus_bench.store` implements this
+section. `ARTIFACTS` is the artifact contract in code, and `store_path` maps each
+file to its place in the store.
+
+### Artifacts
+
+A run directory holds `record.json` plus the files below. A record's `artifacts`
+may name only these keys, each with exactly this run-directory path. When the
+run is published, `artifacts` lists every one of these files that exists, with
+its store path.
+
+| Key | Run directory | Store | Required |
+|---|---|---|---|
+| `spans` | `timing.jsonl` | `spans/<YYYY>/<run_id>.timing.jsonl.gz` | if `outcome.status` is `ok` |
+| `settings` | `init_coupler.toml` | `settings/<hex>.toml` | if `outcome.status` is `ok` |
+| `config` | `config.toml` | `configs/<YYYY>/<run_id>.toml` | always |
+| `log` | `log.txt` | `logs/<YYYY>/<run_id>.log.gz` | always |
+| `profile` | `profile/stacks.folded.gz` | `profiles/<YYYY>/<run_id>/stacks.folded.gz` | no |
+| `flame` | `profile/flame.html` | `profiles/<YYYY>/<run_id>/flame.html` | no |
+
+The record goes to `records/<YYYY>/<run_id>.json`. `<YYYY>` is the first four
+characters of the run id, which is the year of its UTC start. `<hex>` is the
+settings hash without its `sha256:` prefix. Every other file under `profile/`,
+such as raw profiler output, is copied to `profiles/<YYYY>/<run_id>/` as well.
+`timing.jsonl` and `log.txt` are gzipped with the gzip header time set to 0,
+and all other files are copied unchanged.
+
+### Rules
+
+1. **Add only.** A publish adds files and never changes existing ones, so
+   publishers on different machines don't conflict. A run already in the store
+   is skipped. The dashboard, the index and all statistics are built from these
+   files; none of them is committed.
+2. **One settings file per hash.** `settings/<hex>.toml` is the first published
+   `init_coupler.toml` with that hash. Runs with the same hash differ only in
+   per-run keys, such as the output path. The hash of `init_coupler.toml`,
+   computed with `proteus_bench.settings`, must equal the record's
+   `benchmark.settings_hash`.
+3. **Run directories are untrusted.** The store feeds a public site. Symbolic
+   links are refused, and `run_id` and `settings_hash` must fully match their
+   schema patterns because they become file names.
+4. **Resolved settings.** Only runs that finished `ok` and have `settings` and
+   `config` artifacts define a lineage's settings. A run that failed before PROTEUS wrote
+   `init_coupler.toml` is stored, but its hash is not used for lineage.
+5. **Carry-over records.** A carry-over run (decision D4) has
+   `benchmark.lineage` set to the previous settings hash and
+   `benchmark.carry_over_of` set to the default run that moved to the new
+   settings. One carry-over is run per move, where a move is identified by
+   series, previous hash and new hash.
+6. **Publication marker.** After a publish, each run directory has a
+   `.published` file with the store commit that holds the run.
+
+The branch starts as an orphan with a short `README.md` that points here.
