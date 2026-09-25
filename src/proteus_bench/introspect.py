@@ -2,9 +2,9 @@
 
 Run as a script by the target environment's Python (``python introspect.py
 NAME...``), so it must import nothing from proteus_bench and never import the
-packages it reports on: metadata only. Prints ``{"python": version, "dists":
-{name: {"version": v, "direct_url": {...} or null}}}``; names that are not
-installed are left out.
+packages it reports on: metadata only. Prints ``{"python": version, "prefix":
+sys.prefix, "dists": {name: {"version": v, "direct_url": {...} or null}}}``;
+names that are not installed are left out.
 """
 
 from __future__ import annotations
@@ -31,7 +31,8 @@ def describe(name: str) -> dict | None:
 def main(names: list[str]) -> None:
     dists = {name: describe(name) for name in names}
     found = {name: info for name, info in dists.items() if info is not None}
-    print(json.dumps({'python': platform.python_version(), 'dists': found}))
+    report = {'python': platform.python_version(), 'prefix': sys.prefix, 'dists': found}
+    print(json.dumps(report))
 
 
 if __name__ == '__main__':

@@ -5,12 +5,14 @@ detached) and dirtiness of tracked files only, and refuses directories that
 are not the top of a work tree; module entries are editable (with the
 checkout's sha), git (with the VCS commit), pypi (no direct_url) or unknown;
 AGNI is read from <proteus-root>/AGNI and SOCRATES from $RAD_DIR; the
-introspection script runs in the given interpreter and failures are errors.
+introspection script runs in the given interpreter and failures are errors;
+an empty RAD_DIR or a missing git executable is not an error.
 """
 
 from __future__ import annotations
 
 import platform
+import subprocess
 import sys
 from pathlib import Path
 
@@ -27,13 +29,15 @@ def test_git_state_of_a_checkout(tmp_path, git_repo):
     full_sha = git_repo(tmp_path)
     state = provenance.git_state(tmp_path)
     assert state['sha'] == full_sha[:8]
-    assert state['dirty'] is False and state['branch'] == 'main'
+    assert state['dirty'] is False
+    assert state['branch'] == 'main'
     (tmp_path / 'bench-runs').mkdir()
     (tmp_path / 'bench-runs' / 'record.json').write_text('{}')
     assert provenance.git_state(tmp_path)['dirty'] is False
     (tmp_path / 'a.txt').write_text('two\n')
     dirty = provenance.git_state(tmp_path)
-    assert dirty['dirty'] is True and dirty['describe'].endswith('-dirty')
+    assert dirty['dirty'] is True
+    assert dirty['describe'].endswith('-dirty')
 
 
 def test_git_state_refuses_non_toplevel_and_non_repo(tmp_path, git_repo):
@@ -106,7 +110,33 @@ def test_code_section_includes_agni_and_socrates(tmp_path, git_repo):
     assert code['packages'] == {'numpy': '2.4.2'}
     assert 'numpy' not in code['modules']
     no_rad = provenance.code_section({'sha': 'abd4ca53', 'dirty': False}, report, tmp_path, {})
-    assert 'socrates' not in no_rad['modules'] and 'agni' not in no_rad['modules']
+    assert 'socrates' not in no_rad['modules']
+    assert 'agni' not in no_rad['modules']
+    empty_rad = provenance.code_section(
+        {'sha': 'abd4ca53', 'dirty': False}, report, tmp_path, {'RAD_DIR': ''}
+    )
+    assert 'socrates' not in empty_rad['modules']  # exported empty is unset, not an error
+
+
+def test_git_missing_is_reported_as_unknown(monkeypatch, tmp_path):
+    """Without a git executable, no state is claimed."""
+
+    def no_git(argv, **kwargs):
+        raise FileNotFoundError(argv[0])
+
+    monkeypatch.setattr(subprocess, 'run', no_git)
+    assert provenance.git(tmp_path, 'status') is None
+    assert provenance.git_state(tmp_path) is None
+
+
+def test_harness_state_from_installed_metadata(monkeypatch):
+    """Installed from git (no checkout at hand), the sha comes from direct_url.json."""
+    monkeypatch.setattr(provenance, 'git_state', lambda path: None)
+    vcs = {'direct_url': {'url': 'https://x', 'vcs_info': {'commit_id': 'c0ffee' + '0' * 34}}}
+    monkeypatch.setattr(provenance.introspect, 'describe', lambda name: vcs)
+    assert provenance.harness_state() == {'version': provenance.__version__, 'sha': 'c0ffee00'}
+    monkeypatch.setattr(provenance.introspect, 'describe', lambda name: None)
+    assert provenance.harness_state() == {'version': provenance.__version__}
 
 
 def test_introspect_env_runs_the_target_interpreter():

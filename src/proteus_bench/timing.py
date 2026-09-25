@@ -92,8 +92,12 @@ def _check_envelope(events: list[dict]) -> list[str]:
     return problems
 
 
-def _ancestors(span: dict, spans: dict[int, dict]):
-    """Yield the known ancestors of a span, nearest first."""
+def ancestors(span: dict, spans: dict[int, dict]):
+    """Yield the known ancestors of a span, nearest first.
+
+    Stops at a root, at a parent missing from ``spans`` (a crashed run), or
+    where the parent chain would revisit a span (a corrupt, cyclic file).
+    """
     seen = set()
     parent = span['parent']
     while parent is not None and parent in spans and parent not in seen:
@@ -114,7 +118,7 @@ def _check_tree(spans: dict[int, dict], finished: bool) -> list[str]:
         if parent is not None and not _contains(spans[parent], span):
             problems.append(f'span {sid} ({span["name"]}) lies outside parent {parent}')
         if 'component' in span:
-            clash = next((a for a in _ancestors(span, spans) if 'component' in a), None)
+            clash = next((a for a in ancestors(span, spans) if 'component' in a), None)
             if clash is not None:
                 problems.append(
                     f'span {sid} and its ancestor {clash["id"]} both carry a component'
@@ -178,7 +182,7 @@ def _check_iterations(spans: dict[int, dict]) -> list[str]:
 
 def phase_of(span: dict, spans: dict[int, dict]) -> str | None:
     """Name of the phase (root span) a span belongs to, if known."""
-    root = [span, *_ancestors(span, spans)][-1]
+    root = [span, *ancestors(span, spans)][-1]
     return root['name'] if root['parent'] is None else None
 
 

@@ -47,7 +47,8 @@ def test_trigger_sections():
     }
     slurm = record.trigger_section('slurm', {'SLURM_JOB_ID': '7', 'SLURMD_NODENAME': 'vink15'})
     assert slurm['slurm'] == {'job_id': '7', 'node': 'vink15'}
-    assert 'gha' not in slurm and slurm['user']
+    assert 'gha' not in slurm
+    assert slurm['user']
 
 
 def test_utc_iso():
@@ -63,7 +64,7 @@ def _ctx(suite_name: str) -> record.RunContext:
     suite = {'name': suite_name, 'config': 'input/all_options.toml', 'overrides': {'a': 1},
              'expected_backends': {}}  # fmt: skip
     return record.RunContext(
-        suite, 'r', Path('.'), {}, {}, {}, {}, {}, {}, [], None, Path('.'), [], {}
+        suite, 'r', Path('.'), {}, {}, {}, {}, {}, {}, [], None, Path('.'), [], {}, None
     )
 
 
@@ -71,7 +72,8 @@ def test_benchmark_lineage_and_settings():
     """Default suite -> lineage 'default'; another suite -> its settings hash."""
     flat = {'params.out.path': 'run', 'interior_struct.module': 'zalmoxis'}
     default = record.benchmark_section(_ctx('default'), flat)
-    assert default['lineage'] == 'default' and default['name'] == 'all_options'
+    assert default['lineage'] == 'default'
+    assert default['name'] == 'all_options'
     assert default['settings'] == {'interior_struct.module': 'zalmoxis'}  # per-run key dropped
     other = record.benchmark_section(_ctx('small'), flat)
     assert other['lineage'] == other['settings_hash'] == default['settings_hash']
