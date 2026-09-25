@@ -24,6 +24,7 @@ proteus-bench = "proteus_bench.cli:main"
 version = { attr = "proteus_bench.__version__" }
 
 [tool.setuptools.package-data]
+"proteus_bench" = ["flame_template.html"]
 "proteus_bench.schemas" = ["*.json"]
 
 [tool.pytest.ini_options]

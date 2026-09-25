@@ -1,0 +1,333 @@
+{
+ "alloc_samples": 0,
+ "args": [
+  "start",
+  "-c",
+  "cfg.toml"
+ ],
+ "async_profile": false,
+ "combined_stacks": [
+  [
+   [
+    {
+     "display_name": "start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/cli.py",
+     "ip": null,
+     "kind": "py",
+     "line": 207,
+     "offset": null
+    },
+    {
+     "display_name": "Proteus.start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/proteus.py",
+     "ip": null,
+     "kind": "py",
+     "line": 472,
+     "offset": null
+    },
+    {
+     "display_name": "zalmoxis_solver",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/interior_struct/zalmoxis.py",
+     "ip": null,
+     "kind": "py",
+     "line": 300,
+     "offset": null
+    },
+    {
+     "display_name": "main",
+     "filename_or_module": "/home/u/env/lib/python3.12/site-packages/zalmoxis/solver.py",
+     "ip": null,
+     "kind": "py",
+     "line": 88,
+     "offset": null
+    },
+    {
+     "display_name": "",
+     "filename_or_module": "",
+     "ip": 4198400,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "__libc_start_main",
+     "filename_or_module": "/lib/x86_64-linux-gnu/libc.so.6",
+     "ip": 139854660,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "Py_RunMain",
+     "filename_or_module": "/home/u/env/bin/python3.12",
+     "ip": 5242880,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "_PyEval_EvalFrameDefault",
+     "filename_or_module": "/home/u/env/bin/python3.12",
+     "ip": 5243904,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "dgemm_",
+     "filename_or_module": "/home/u/env/lib/libopenblas.so.0",
+     "ip": 7340032,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    }
+   ],
+   40
+  ],
+  [
+   [
+    {
+     "display_name": "start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/cli.py",
+     "ip": null,
+     "kind": "py",
+     "line": 207,
+     "offset": null
+    },
+    {
+     "display_name": "Proteus.start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/proteus.py",
+     "ip": null,
+     "kind": "py",
+     "line": 472,
+     "offset": null
+    },
+    {
+     "display_name": "zalmoxis_solver",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/interior_struct/zalmoxis.py",
+     "ip": null,
+     "kind": "py",
+     "line": 300,
+     "offset": null
+    },
+    {
+     "display_name": "main",
+     "filename_or_module": "/home/u/env/lib/python3.12/site-packages/zalmoxis/solver.py",
+     "ip": null,
+     "kind": "py",
+     "line": 90,
+     "offset": null
+    },
+    {
+     "display_name": "",
+     "filename_or_module": "",
+     "ip": 4198400,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "__libc_start_main",
+     "filename_or_module": "/lib/x86_64-linux-gnu/libc.so.6",
+     "ip": 139854660,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "Py_RunMain",
+     "filename_or_module": "/home/u/env/bin/python3.12",
+     "ip": 5242880,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "_PyEval_EvalFrameDefault",
+     "filename_or_module": "/home/u/env/bin/python3.12",
+     "ip": 5243904,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "dgemm_",
+     "filename_or_module": "/home/u/env/lib/libopenblas.so.0",
+     "ip": 7340032,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    }
+   ],
+   25
+  ],
+  [
+   [
+    {
+     "display_name": "start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/cli.py",
+     "ip": null,
+     "kind": "py",
+     "line": 207,
+     "offset": null
+    },
+    {
+     "display_name": "Proteus.start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/proteus.py",
+     "ip": null,
+     "kind": "py",
+     "line": 472,
+     "offset": null
+    },
+    {
+     "display_name": "run_atmosphere",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/atmos_clim/agni.py",
+     "ip": null,
+     "kind": "py",
+     "line": 512,
+     "offset": null
+    },
+    {
+     "display_name": "jl_apply",
+     "filename_or_module": "/home/u/env/julia/lib/julia/libjulia-internal.so.1.11",
+     "ip": 9437184,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "",
+     "filename_or_module": "",
+     "ip": 9438000,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    },
+    {
+     "display_name": "llvm::X",
+     "filename_or_module": "/home/u/env/julia/lib/julia/libLLVM-16jl.so",
+     "ip": 9439000,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    }
+   ],
+   12
+  ],
+  [
+   [
+    {
+     "display_name": "start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/cli.py",
+     "ip": null,
+     "kind": "py",
+     "line": 207,
+     "offset": null
+    },
+    {
+     "display_name": "Proteus.start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/proteus.py",
+     "ip": null,
+     "kind": "py",
+     "line": 472,
+     "offset": null
+    },
+    {
+     "display_name": "solve",
+     "filename_or_module": "/home/u/PROTEUS/aragog/src/aragog/solver.py",
+     "ip": null,
+     "kind": "py",
+     "line": 10,
+     "offset": null
+    },
+    {
+     "display_name": "PyObject_Call",
+     "filename_or_module": "/home/u/env/bin/python3.12",
+     "ip": 5244000,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    }
+   ],
+   8
+  ],
+  [
+   [
+    {
+     "display_name": "start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/cli.py",
+     "ip": null,
+     "kind": "py",
+     "line": 207,
+     "offset": null
+    },
+    {
+     "display_name": "Proteus.start",
+     "filename_or_module": "/home/u/PROTEUS/src/proteus/proteus.py",
+     "ip": null,
+     "kind": "py",
+     "line": 472,
+     "offset": null
+    },
+    {
+     "display_name": "update_mors",
+     "filename_or_module": "/home/u/env/lib/python3.12/site-packages/mors/star.py",
+     "ip": null,
+     "kind": "py",
+     "line": 5,
+     "offset": null
+    }
+   ],
+   3
+  ],
+  [
+   [
+    {
+     "display_name": "blas_thread_server",
+     "filename_or_module": "/home/u/env/lib/libopenblas.so.0",
+     "ip": 7341000,
+     "kind": "native",
+     "line": null,
+     "offset": 16
+    }
+   ],
+   2
+  ]
+ ],
+ "combined_stacks_timeline": [
+  {
+   "count": 40,
+   "stack_index": 0,
+   "t_sec": 1.5,
+   "thread_id": 1
+  }
+ ],
+ "elapsed_time_sec": 12.5,
+ "entrypoint_dir": "/home/u/env/bin",
+ "filename": "/home/u/env/bin",
+ "files": {
+  "/home/u/PROTEUS/src/proteus/cli.py": {
+   "functions": [],
+   "imports": [],
+   "leaks": {},
+   "lines": [],
+   "percent_cpu_time": 100.0
+  }
+ },
+ "gpu": false,
+ "gpu_device": "",
+ "growth_rate": 0.0,
+ "main_thread_id": 1,
+ "max_footprint_fname": null,
+ "max_footprint_lineno": null,
+ "max_footprint_mb": 0.0,
+ "max_footprint_python_fraction": 0,
+ "memory": false,
+ "memory_stacks": [],
+ "native_allocations_mb": 0.0,
+ "program": "/home/u/env/bin/proteus",
+ "samples": [],
+ "stacks": [],
+ "start_time_absolute": 1790155655.8,
+ "start_time_perf": 100.0
+}

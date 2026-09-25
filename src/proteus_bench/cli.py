@@ -15,6 +15,7 @@ from proteus_bench import __version__
 
 # name -> (module under proteus_bench.commands, one-line help)
 COMMANDS = {
+    'flame': ('flame', 'build a flame-graph page from a scalene JSON or folded-stacks file'),
     'validate': ('validate', 'check timing.jsonl and run-record files against the schemas'),
 }
 
