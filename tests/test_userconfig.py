@@ -2,7 +2,8 @@
 
 Contract clauses: without a file the defaults apply and follow the XDG dirs
 (relative XDG values ignored); a file overlays only the keys it sets; unknown
-tables, unknown keys, wrong types and invalid TOML raise ValueError naming the
+tables, unknown keys, wrong types, invalid TOML and a relative or empty
+store.cache_dir raise ValueError naming the
 file; ``render`` output loads back to exactly the values given, with every
 other key commented out.
 """
@@ -31,7 +32,8 @@ def test_defaults_follow_xdg_dirs(xdg, monkeypatch):
     assert userconfig.config_path() == xdg / 'cfg' / 'proteus-bench' / 'config.toml'
     assert cfg['store']['branch'] == 'results'
     assert cfg['store']['cache_dir'] == str(xdg / 'cache' / 'proteus-bench' / 'store')
-    assert cfg['store']['remote'] == '' and cfg['slurm']['sbatch_options'] == []
+    assert cfg['store']['remote'] == ''
+    assert cfg['slurm']['sbatch_options'] == []
     # A relative XDG value is invalid per the spec and falls back to the home dir
     monkeypatch.setenv('XDG_CACHE_HOME', 'relative/cache')
     monkeypatch.setenv('HOME', str(xdg / 'home'))
@@ -64,6 +66,8 @@ def test_file_overlays_only_the_keys_it_sets(xdg):
         ('[slurm]\nsbatch_options = ["--nodes=1", 2]\n', 'must be a list of strings'),
         ('machine = "x"\n', 'machine must be a table'),
         ('[store\n', 'not valid TOML'),
+        ('[store]\ncache_dir = ""\n', "store.cache_dir must be an absolute path, found ''"),
+        ('[store]\ncache_dir = "cache/store"\n', 'must be an absolute path'),
     ],
 )
 def test_invalid_files_raise_with_the_path(xdg, text, expected):
