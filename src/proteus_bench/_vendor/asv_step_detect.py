@@ -1,8 +1,9 @@
 # Vendored from asv (airspeed velocity), https://github.com/airspeed-velocity/asv
 # File: asv/step_detect.py at commit d33754e129c025beb5c2ca440c3c280433b264f7
 # (main branch after the asv 0.6.6 release). The code below is unchanged except
-# for the imports: the optional C++ ``_rangemedian`` extension is not vendored,
-# so the pure-Python ``L1Dist`` is always used.
+# for the imports and the licence pointer on its first line (upstream points to
+# asv's LICENSE.rst): the optional C++ ``_rangemedian`` extension is not
+# vendored, so the pure-Python ``L1Dist`` is always used.
 #
 # asv licence (3-clause BSD), reproduced as its terms require:
 #
@@ -34,7 +35,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Licensed under a 3-clause BSD style license - see LICENSE.rst
+# Licensed under a 3-clause BSD style license - see the licence text at the top of this file
 
 import collections
 import heapq

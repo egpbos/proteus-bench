@@ -1,8 +1,8 @@
 """``proteus-bench analyse``: build timing series, flags and steps from stored records.
 
-Reads every ``records/**/*.json`` under the results store and writes the
-``proteus-bench-analysis/1`` JSON (see ``proteus_bench.analysis``). Exit code 1
-when no record is found or a record cannot be read.
+Reads every ``records/**/*.json`` (at any depth) under the results store and
+writes the analysis JSON (see ``proteus_bench.analysis``). Exit code 1 when no
+record is found or a record cannot be read or analysed.
 """
 
 from __future__ import annotations
@@ -16,26 +16,38 @@ from proteus_bench.analysis import analyse
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('records_dir', type=Path, help='results store holding records/')
-    parser.add_argument('--out', type=Path, default=Path('analysis.json'))
+    parser.add_argument('store', type=Path, help='results store holding records/')
+    parser.add_argument(
+        '--out',
+        type=Path,
+        default=Path('analysis.json'),
+        help='where to write the analysis JSON (default: %(default)s)',
+    )
 
 
 def main(args: argparse.Namespace) -> int:
-    paths = sorted((args.records_dir / 'records').glob('**/*.json'))
+    paths = sorted((args.store / 'records').glob('**/*.json'))
     if not paths:
-        print(f'no run records found under {args.records_dir / "records"}', file=sys.stderr)
+        print(f'no run records found under {args.store / "records"}', file=sys.stderr)
         return 1
     records = []
     for path in paths:
         try:
-            records.append(json.loads(path.read_text()))
+            record = json.loads(path.read_text())
         except json.JSONDecodeError as err:
             print(f'{path}: not valid JSON ({err.msg})', file=sys.stderr)
             return 1
+        if not isinstance(record, dict):
+            print(
+                f'{path}: expected a JSON object, found {type(record).__name__}',
+                file=sys.stderr,
+            )
+            return 1
+        records.append(record)
     try:
         result = analyse(records)
     except ValueError as err:
-        print(f'cannot analyse {args.records_dir}: {err}', file=sys.stderr)
+        print(f'cannot analyse {args.store}: {err}', file=sys.stderr)
         return 1
     args.out.write_text(json.dumps(result, indent=1) + '\n')
     series = result['series']

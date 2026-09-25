@@ -46,15 +46,21 @@ def _scale_times(timings: dict, factor: float) -> None:
 
 
 @pytest.fixture
-def make_records():
+def example_record():
+    """A fresh copy of examples/record.json (wall_s 2961.2 s, 6 iterations)."""
+    return json.loads(EXAMPLE_RECORD.read_text())
+
+
+@pytest.fixture
+def make_records(example_record):
     """Make a daily history from examples/record.json, one record per time factor.
 
     Run i starts i days after 2026-01-01 03:10 UTC, has run_id
-    ``<start>-run{i:03d}`` and
-    every duration multiplied by ``factors[i]``; ``edit(i, record)`` adjusts a
-    record afterwards (comparability, settings, single components).
+    ``<start>-run{i:03d}`` and every duration multiplied by ``factors[i]``;
+    ``edit(i, record)`` adjusts a record afterwards (comparability, settings,
+    single components).
     """
-    base = json.loads(EXAMPLE_RECORD.read_text())
+    base = copy.deepcopy(example_record)
     start = datetime(2026, 1, 1, 3, 10, tzinfo=UTC)
 
     def _make(factors, edit=None):

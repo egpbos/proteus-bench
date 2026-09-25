@@ -37,6 +37,8 @@ markers = [
 [tool.coverage.run]
 # coverage.xml is read by Sonar in another CI job, where absolute paths need not match
 relative_files = true
+# Vendored third-party code is tested upstream
+omit = ["*/proteus_bench/_vendor/*"]
 
 [tool.ruff]
 src = ["src"]
