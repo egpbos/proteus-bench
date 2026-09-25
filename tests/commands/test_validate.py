@@ -51,10 +51,25 @@ def test_unreadable_record_is_reported_not_raised(tmp_path, capsys):
     assert 'not valid JSON' in capsys.readouterr().out
 
 
-def test_missing_jsonschema_is_stated(monkeypatch, capsys):
-    """Without jsonschema the tree checks still run and the output says shape was skipped."""
-    monkeypatch.setattr(schema, 'shape_problems', lambda kind, instance: None)
-    code = cli.main(['validate', str(EXAMPLES / 'timing.jsonl')])
+def test_missing_jsonschema_is_stated_and_tree_rules_still_run(monkeypatch, tmp_path, capsys):
+    """Without jsonschema the output says shape was skipped, yet tree violations still fail."""
+    monkeypatch.setattr(schema, '_validator', lambda kind: None)
+    assert cli.main(['validate', str(EXAMPLES / 'timing.jsonl')]) == 0
+    assert 'shape not checked' in capsys.readouterr().out
+    events = [json.loads(line) for line in (EXAMPLES / 'timing.jsonl').read_text().splitlines()]
+    events.insert(1, events[-1])  # run_end in the middle: a tree rule, not a shape rule
+    bad = tmp_path / 'bad.jsonl'
+    bad.write_text(''.join(json.dumps(e) + '\n' for e in events))
+    assert cli.main(['validate', str(bad)]) == 1
+    assert 'run_end must be the last' in capsys.readouterr().out
+
+
+def test_corrupt_timing_line_is_reported_with_its_location(tmp_path, capsys):
+    """A torn line in the middle of timing.jsonl fails with file and line number."""
+    lines = (EXAMPLES / 'timing.jsonl').read_text().splitlines()
+    corrupt = tmp_path / 'corrupt.jsonl'
+    corrupt.write_text('\n'.join([lines[0], '{"v": 1,', *lines[1:]]) + '\n')
+    assert cli.main(['validate', str(corrupt)]) == 1
     out = capsys.readouterr().out
-    assert code == 0
-    assert 'shape not checked' in out
+    assert 'corrupt.jsonl:2: not valid JSON' in out
+    assert '1 problem(s)' in out

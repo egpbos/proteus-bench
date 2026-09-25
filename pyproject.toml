@@ -31,7 +31,7 @@ testpaths = ["tests"]
 addopts = "--strict-markers --import-mode=importlib"
 markers = [
     "unit: fast tests without external programs (< 100 ms each)",
-    "smoke: tests that start subprocesses such as the fake proteus stub",
+    "smoke: tests that need an external program or exceed the unit time budget",
 ]
 
 [tool.ruff]

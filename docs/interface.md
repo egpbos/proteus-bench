@@ -113,8 +113,10 @@ One JSON file per run. See `record-v1.schema.json` for every field. Key points:
 - Raw spans are kept in a sidecar file (`artifacts.spans`). Every statistic can
   be recomputed from them, so better analysis applies to old runs too.
 - `benchmark.settings` is the flattened resolved config read from PROTEUS's
-  `init_coupler.toml`. `settings_hash` covers it with per-run fields such as
-  paths removed. `lineage` is `default` for the default-settings series.
+  `init_coupler.toml`, without the per-run keys (`proteus_bench.settings.PER_RUN_KEYS`:
+  output name, resume and offline flags). `settings_hash` is
+  `proteus_bench.settings.settings_hash(settings)`. `lineage` is `default` for the
+  default-settings series.
 - `timings.components` has one row per (phase, component, submodule, backend).
   The phase's unattributed remainder is a row with `component = other`, so the
   rows for a phase add up to its entry in `timings.phases`.
