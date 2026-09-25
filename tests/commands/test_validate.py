@@ -39,7 +39,8 @@ def test_tree_violation_fails_with_count(tmp_path, capsys):
     code = cli.main(['validate', str(bad)])
     out = capsys.readouterr().out
     assert code == 1
-    assert 'problem(s)' in out and 'ancestor' in out
+    assert 'problem(s)' in out
+    assert 'ancestor' in out
 
 
 def test_unreadable_record_is_reported_not_raised(tmp_path, capsys):

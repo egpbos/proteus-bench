@@ -66,7 +66,8 @@ def test_bad_span_fields_are_rejected_at_the_field(example_events, field, value,
     assert schema.shape_problems('timing', span) == []
     span[field] = value
     problems = schema.shape_problems('timing', span)
-    assert problems and all(p.startswith(f'{where}:') for p in problems)
+    assert problems
+    assert all(p.startswith(f'{where}:') for p in problems)
 
 
 def test_run_end_status_is_an_enum(example_events):
@@ -126,7 +127,8 @@ def test_bad_record_fields_are_rejected(example_record, path, value, where):
         node = node[key]
     node[path[-1]] = value
     problems = schema.shape_problems('record', record)
-    assert problems and all(p.startswith(f'{where}:') for p in problems)
+    assert problems
+    assert all(p.startswith(f'{where}:') for p in problems)
 
 
 def test_record_requires_comparability_and_rejects_unknown_top_level_keys(example_record):

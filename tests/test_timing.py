@@ -47,7 +47,8 @@ def test_attributed_time_plus_other_equals_each_phase_total(good_events):
     assert init_structure[1] == 3
     # Guard: dropping the equilibration children would give 1138 s, double counting
     # the equilibrate parent would give 2398 s; both are far outside the tolerance.
-    assert abs(init_structure[0] - 1138.0) > 100 and abs(init_structure[0] - 2398.0) > 100
+    assert abs(init_structure[0] - 1138.0) > 100
+    assert abs(init_structure[0] - 2398.0) > 100
     loop = totals['loop']['attributed']
     # Re-solve every 3rd iteration: exactly one 140 s JAX solve in 4 iterations.
     assert loop[('structure', 'zalmoxis', 'jax')] == [pytest.approx(140.0), 1]
@@ -196,7 +197,8 @@ def test_spans_of_an_unclosed_phase_are_totalled_as_unknown(run_fake):
     totals = attributed_totals(crashed)
     assert 'loop' not in totals
     unknown = totals['unknown']
-    assert unknown['total'] is None and unknown['other'] is None
+    assert unknown['total'] is None
+    assert unknown['other'] is None
     # Iteration 1 atmosphere (780 s) plus the failed iteration 2 atmosphere (0 s).
     assert unknown['attributed'][('atmos', 'agni', None)] == [pytest.approx(780.0), 2]
 

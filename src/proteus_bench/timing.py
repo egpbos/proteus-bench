@@ -116,26 +116,36 @@ def _ancestors(span: dict, spans: dict[int, dict]):
 
 
 def _check_tree(spans: dict[int, dict], finished: bool) -> list[str]:
-    """Parents exist and contain children; attribution is disjoint."""
+    """Parents open first, exist and contain children; attribution is disjoint."""
     problems = []
-    for sid, span in spans.items():
-        parent = span['parent']
-        if parent is not None and parent >= sid:
-            problems.append(f'span {sid}: parent {parent} must have opened earlier (lower id)')
-            continue
-        if parent is not None and parent not in spans:
-            if finished:
-                problems.append(f'span {sid}: parent {parent} does not exist')
-            continue
-        if parent is not None and not _contains(spans[parent], span):
-            problems.append(f'span {sid} ({span["name"]}) lies outside parent {parent}')
-        if 'component' in span:
-            clash = next((a for a in _ancestors(span, spans) if 'component' in a), None)
-            if clash is not None:
-                problems.append(
-                    f'span {sid} and its ancestor {clash["id"]} both carry a component'
-                )
+    for span in spans.values():
+        problems += _parent_problems(span, spans, finished)
+        problems += _attribution_problems(span, spans)
     return problems
+
+
+def _parent_problems(span: dict, spans: dict[int, dict], finished: bool) -> list[str]:
+    """The span's parent opened earlier, exists (unless the run crashed) and contains it."""
+    sid, parent = span['id'], span['parent']
+    if parent is None:
+        return []
+    if parent >= sid:
+        return [f'span {sid}: parent {parent} must have opened earlier (lower id)']
+    if parent not in spans:
+        return [f'span {sid}: parent {parent} does not exist'] if finished else []
+    if not _contains(spans[parent], span):
+        return [f'span {sid} ({span["name"]}) lies outside parent {parent}']
+    return []
+
+
+def _attribution_problems(span: dict, spans: dict[int, dict]) -> list[str]:
+    """An attributed span has no attributed ancestor."""
+    if 'component' not in span:
+        return []
+    clash = next((a for a in _ancestors(span, spans) if 'component' in a), None)
+    if clash is None:
+        return []
+    return [f'span {span["id"]} and its ancestor {clash["id"]} both carry a component']
 
 
 def _check_attributed_overlap(spans: dict[int, dict]) -> list[str]:

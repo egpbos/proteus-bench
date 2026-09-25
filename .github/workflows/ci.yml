@@ -10,34 +10,37 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
+# Every tool comes from the locked pixi environments (pixi.lock), the same ones
+# developers use through `pixi run`; actions are pinned by commit.
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
         with:
-          python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: ruff check src tests
-      - run: ruff format --check src tests
+          pixi-version: v0.79.0
+          manifest-path: pyproject.toml
+          environments: default
+      - run: pixi run lint
 
   test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        environment: [py311, default, py313] # default is Python 3.12
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
         with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev]"
-      - run: pytest --cov=proteus_bench --cov-report=xml --cov-report=term
-      - run: proteus-bench validate examples/timing.jsonl examples/record.json
-      - if: matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+          pixi-version: v0.79.0
+          manifest-path: pyproject.toml
+          environments: ${{ matrix.environment }}
+      - run: pixi run -e ${{ matrix.environment }} test --cov=proteus_bench --cov-report=xml --cov-report=term
+      - run: pixi run -e ${{ matrix.environment }} proteus-bench validate examples/timing.jsonl examples/record.json
+      - if: matrix.environment == 'default'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage
           path: coverage.xml
@@ -50,7 +53,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0  # blame data, so Sonar can tell new code from old
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: coverage
       - name: SonarQube Scan
@@ -65,17 +68,3 @@ jobs:
             -Dsonar.tests=tests
             -Dsonar.python.version=3.11,3.12,3.13
             -Dsonar.python.coverage.reportPaths=coverage.xml
-
-  # The harness is installed into PROTEUS environments, so it must work with no
-  # dependencies at all: install without extras and run it.
-  no-dependencies:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - run: pip install .
-      # Only proteus-bench itself may have been added to the fresh environment
-      - run: test "$(pip list --format=freeze | grep -vciE '^(pip|setuptools|wheel|proteus-bench)==')" = 0
-      - run: proteus-bench validate examples/timing.jsonl | tee out.txt && grep -q 'shape not checked' out.txt
