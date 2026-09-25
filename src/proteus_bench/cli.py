@@ -20,6 +20,8 @@ COMMANDS = {
     'validate': ('validate', 'check timing.jsonl and run-record files against the schemas'),
     'analyse': ('analyse', 'build timing series, regression flags and steps from run records'),
     'init': ('init', 'write the user config file (machine, results store, Slurm defaults)'),
+    'publish': ('publish', 'add run directories to the results store and push'),
+    'ingest': ('ingest', 'download run directories from a GitHub Actions run'),
 }
 
 
