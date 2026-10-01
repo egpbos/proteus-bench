@@ -355,7 +355,7 @@ def test_series_naming_an_unknown_run_is_refused(tmp_path, records, analysis):
 
 
 def test_malformed_parts_are_reported_with_the_run(tmp_path, records, analysis):
-    """A check without 'ok', or an artifact path leaving the store, names the run."""
+    """A check without 'ok', an artifact path leaving the store or a list of artifacts names the run."""
     records[2]['checks'] = [{'name': 'cvode_importable'}]
     records[3]['artifacts']['log'] = '../outside.log'
     (tmp_path / 'store').mkdir()
@@ -364,8 +364,13 @@ def test_malformed_parts_are_reported_with_the_run(tmp_path, records, analysis):
     ):
         build_site(records, analysis, tmp_path / 'site', tmp_path / 'store')
     del records[2]
-    with pytest.raises(ValueError, match='r4: artifact path'):
+    with pytest.raises(ValueError, match='r4: malformed record, ValueError: artifact path'):
         build_site(records, analysis, tmp_path / 'site', tmp_path / 'store')
+    records[2]['artifacts'] = ['log']  # r4, after r3 was removed
+    with pytest.raises(ValueError, match='r4: malformed record, AttributeError'):
+        build_site(
+            records[2:3], analysis | {'series': []}, tmp_path / 'site', tmp_path / 'store'
+        )
 
 
 def test_zero_baseline_and_null_relative_values_render(tmp_path, records, analysis):

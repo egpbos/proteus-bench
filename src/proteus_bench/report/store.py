@@ -54,8 +54,6 @@ REQUIRED = {
 
 
 class Artifact(NamedTuple):
-    """One artifact a record names: store path, whether the store has it, its link."""
-
     name: str
     path: str
     present: bool
@@ -96,10 +94,9 @@ def _read_record(path: Path, store: Path) -> dict:
 def load_records(store: Path) -> list[dict]:
     """All records under ``store/records``, oldest first.
 
-    Raises ``ValueError`` naming the file for a symlink or a file outside the
-    store, unreadable JSON, an unknown record schema, a missing or mistyped
-    required field, a run id that is not safe as a file name, or a run id that
-    two files share.
+    Raises ``ValueError`` naming the file for any record that cannot be trusted
+    to render: a symlink or path outside the store, bad JSON or schema, a
+    missing or mistyped required field, or an unsafe or duplicated run id.
     """
     records, seen = [], {}
     for path in sorted((store / 'records').glob('**/*.json')):
@@ -124,7 +121,7 @@ def inside_store(path: Path, store: Path) -> Path:
 
 def artifact_source(store: Path, relpath: str) -> Path:
     """The store file an artifact path names; refuses paths that leave the store."""
-    parts = PurePosixPath(relpath).parts if isinstance(relpath, str) else ()
+    parts = PurePosixPath(relpath).parts
     if not parts or PurePosixPath(relpath).is_absolute() or '..' in parts:
         raise ValueError(
             f'artifact path {relpath!r} must be relative and stay inside the store'
@@ -141,15 +138,9 @@ def results_url(repo: str, relpath: str) -> str:
 
 def artifacts_of(record: dict, store: Path, repo: str | None) -> list[Artifact]:
     """The record's artifacts, sorted by name; ``url`` is ``None`` without a repository."""
-    artifacts = record.get('artifacts', {})
-    if not isinstance(artifacts, dict):
-        raise ValueError(f'run {record["run_id"]}: artifacts must be an object')
     found = []
-    for name, relpath in sorted(artifacts.items()):
-        try:
-            present = artifact_source(store, relpath).is_file()
-        except ValueError as err:
-            raise ValueError(f'run {record["run_id"]}: {err}') from err
+    for name, relpath in sorted(record.get('artifacts', {}).items()):
+        present = artifact_source(store, relpath).is_file()
         url = results_url(repo, relpath) if repo and present else None
         found.append(Artifact(name, relpath, present, url))
     return found

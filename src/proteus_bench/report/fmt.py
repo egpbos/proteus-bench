@@ -17,6 +17,11 @@ PROTEUS_COMMIT_URL = 'https://github.com/FormingWorlds/PROTEUS/commit/{sha}'
 
 # (benchmark, lineage, machine_class): one series page per group
 GroupKey = tuple[str, str, str]
+CONFIRMATION = {
+    True: 'confirmed',
+    None: 'not yet confirmed',
+    False: 'not confirmed by the next run',
+}
 
 
 def esc(value) -> str:
@@ -54,11 +59,8 @@ def fmt_rel(ratio: float | None) -> str:
 
 
 def confirmation(flag: dict) -> str:
-    """A flag's ``confirmed``: true, false (the next comparable run did not repeat
-    the change) or null (no later comparable run yet)."""
-    return {True: 'confirmed', False: 'not confirmed by the next run'}.get(
-        flag['confirmed'], 'not yet confirmed'
-    )
+    """``confirmed`` is null until a later comparable run exists."""
+    return CONFIRMATION[flag['confirmed']]
 
 
 def fmt_time(iso: str) -> str:
@@ -103,9 +105,9 @@ def commit_link(sha: str) -> str:
 
 
 def https_link(url: str, text: str | None = None) -> str:
-    """A link for an ``https://`` URL; any other scheme is shown as plain text, never linked."""
+    """A link for an ``https://`` URL; any other scheme is shown as plain text."""
     shown = esc(url if text is None else text)
-    if isinstance(url, str) and url.startswith('https://'):
+    if url.startswith('https://'):
         return f'<a href="{esc(url)}">{shown}</a>'
     return shown
 

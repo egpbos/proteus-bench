@@ -79,7 +79,7 @@ def kv_table(pairs: list[tuple[str, str]]) -> str:
 def flag_badge(flag: dict, metric: str = '') -> str:
     """Regression or improvement badge: icon, words and numbers, never colour alone."""
     regression = flag['kind'] == 'regression'
-    # filled triangle once confirmed, outline otherwise; up means slower
+    # up means slower
     icons = ('▲', '△') if regression else ('▼', '▽')
     icon = icons[0] if flag['confirmed'] is True else icons[1]
     cls = 'bad' if regression else 'good'

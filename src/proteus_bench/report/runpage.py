@@ -87,7 +87,7 @@ def _problems(record: dict) -> str:
     if outcome['status'] != 'ok':
         error = f': {esc(outcome["error"])}' if outcome.get('error') else ''
         parts.append(
-            f'<li><b>Run {esc(outcome["status"])}</b> (exit code {esc(outcome.get("exit_code"))}){error}</li>'
+            f'<li><b>Run {esc(outcome["status"])}</b> (exit code {esc(outcome["exit_code"])}){error}</li>'
         )
     if not parts:
         return ''
@@ -197,7 +197,7 @@ def _provenance(record: dict) -> str:
     if 'slurm' in trigger:
         pairs.append(('Slurm', esc(', '.join(f'{k} {v}' for k, v in trigger['slurm'].items()))))
     pairs += [
-        (f'module {name}', f'{esc(state.get("source", "unknown source"))}: {_version(state)}')
+        (f'module {name}', f'{esc(state["source"])}: {_version(state)}')
         for name, state in sorted(code['modules'].items())
     ]
     pairs += [

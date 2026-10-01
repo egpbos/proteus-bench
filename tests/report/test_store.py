@@ -129,9 +129,9 @@ def test_symlinked_records_directory_is_refused(tmp_path, records):
     assert len(list((tmp_path / 'store' / 'records').glob('**/*.json'))) == 1
 
 
-@pytest.mark.parametrize('path', ['../x.log', '/etc/passwd', 'logs/../../x', '', 7])
+@pytest.mark.parametrize('path', ['../x.log', '/etc/passwd', 'logs/../../x', ''])
 def test_artifact_paths_stay_in_the_store(tmp_path, path):
-    """Absolute paths, parent references, empty paths and non-strings are refused."""
+    """Absolute paths, parent references and empty paths are refused."""
     with pytest.raises(ValueError, match='stay inside the store'):
         artifact_source(tmp_path, path)
     assert artifact_source(tmp_path, 'logs/2026/a.log') == tmp_path / 'logs' / '2026' / 'a.log'
@@ -162,16 +162,6 @@ def test_artifact_links_need_a_repository_and_the_file(store, records):
     assert by_name['log'].present is False
     assert by_name['log'].url is None
     assert all(a.url is None for a in artifacts_of(r2, store, None))
-
-
-def test_artifact_errors_name_the_run(store, records):
-    """A bad artifact path in a record is reported with the record's run id."""
-    records[0]['artifacts'] = {'log': '../../etc/passwd'}
-    with pytest.raises(ValueError, match=records[0]['run_id']):
-        artifacts_of(records[0], store, None)
-    records[0]['artifacts'] = ['not', 'an', 'object']
-    with pytest.raises(ValueError, match='artifacts must be an object'):
-        artifacts_of(records[0], store, None)
 
 
 @pytest.mark.parametrize('repo', ['egpbos', 'a/b/c', 'javascript:alert(1)//x', 'a b/c'])
