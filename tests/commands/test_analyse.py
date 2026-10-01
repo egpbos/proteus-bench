@@ -63,6 +63,7 @@ def test_analyse_reports_missing_and_broken_input(tmp_path, make_records, capsys
     cases = [
         (b'{"run_id": ', 'torn.json: not valid UTF-8 JSON'),
         (b'{"run_id": "caf\xe9"}', 'torn.json: not valid UTF-8 JSON'),
+        (b'{"timings": {"wall_s": NaN}}', 'torn.json: not valid UTF-8 JSON (NaN is not'),
     ]
     record = make_records([1.0])[0]
     record['timings']['wall_s'] = None

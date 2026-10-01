@@ -25,6 +25,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _reject_constant(name: str):
+    # Python's json accepts NaN and Infinity, which standard JSON does not have
+    raise ValueError(f'{name} is not valid JSON')
+
+
 def main(args: argparse.Namespace) -> int:
     paths = sorted((args.store / 'records').glob('**/*.json'))
     if not paths:
@@ -33,7 +38,9 @@ def main(args: argparse.Namespace) -> int:
     records = []
     for path in paths:
         try:
-            records.append(json.loads(path.read_text(encoding='utf-8')))
+            records.append(
+                json.loads(path.read_text(encoding='utf-8'), parse_constant=_reject_constant)
+            )
         except ValueError as err:
             print(f'{path}: not valid UTF-8 JSON ({err})', file=sys.stderr)
             return 1
