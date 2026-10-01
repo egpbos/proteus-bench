@@ -3,12 +3,14 @@
 Run as a script by the target environment's Python (``python introspect.py
 NAME...``), so it must import nothing from proteus_bench and never import the
 packages it reports on: metadata only. Prints ``{"python": version, "prefix":
-sys.prefix, "dists": {name: {"version": v, "direct_url": {...} or null}}}``;
-names that are not installed are left out.
+sys.prefix, "proteus": file proteus would be imported from or null, "dists":
+{name: {"version": v, "direct_url": {...} or null}}}``; names that are not
+installed are left out.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import platform
 import sys
@@ -31,7 +33,13 @@ def describe(name: str) -> dict | None:
 def main(names: list[str]) -> None:
     dists = {name: describe(name) for name in names}
     found = {name: info for name, info in dists.items() if info is not None}
-    report = {'python': platform.python_version(), 'prefix': sys.prefix, 'dists': found}
+    spec = importlib.util.find_spec('proteus')  # locates without importing
+    report = {
+        'python': platform.python_version(),
+        'prefix': sys.prefix,
+        'proteus': spec.origin if spec else None,
+        'dists': found,
+    }
     print(json.dumps(report))
 
 

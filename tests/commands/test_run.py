@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import re
 import shlex
 import sys
@@ -54,6 +55,7 @@ def bench(tmp_path, git_repo, cvode_stub, monkeypatch, capsys):
     (tmp_path / 'socrates' / 'bin').mkdir()
     (tmp_path / 'socrates' / 'bin' / 'radlib.a').write_bytes(b'!<arch>\n')
     root = tmp_path / 'PROTEUS'
+    proteus_path = [root / 'src']  # where the proteus package is found; tests may move it
 
     def _run(fake: dict | None = None, *extra: str, cvode: bool = True, cmd: str = FAKE_CMD):
         if not root.exists():
@@ -62,8 +64,13 @@ def bench(tmp_path, git_repo, cvode_stub, monkeypatch, capsys):
             (root / 'input' / 'all_options.toml').write_text(
                 text + tomlwrite.dumps({'fake': fake or {}})
             )
+            (root / 'src' / 'proteus').mkdir(parents=True)
+            (root / 'src' / 'proteus' / '__init__.py').write_text('')
             git_repo(root)
         cvode_stub(cvode)
+        monkeypatch.setenv(
+            'PYTHONPATH', f'{proteus_path[0]}{os.pathsep}{os.environ["PYTHONPATH"]}'
+        )
         code = cli.main([
             'run', '--proteus-root', str(root), '--proteus-cmd', cmd,
             '--runs-dir', str(tmp_path / 'runs'), '--machine-label', 'test', *extra,
@@ -73,6 +80,7 @@ def bench(tmp_path, git_repo, cvode_stub, monkeypatch, capsys):
         records = list((tmp_path / 'runs').glob('*/record.json'))
         return code, json.loads(records[0].read_text()) if records else None, out
 
+    _run.proteus_path = proteus_path
     return _run
 
 
@@ -110,6 +118,7 @@ def test_ok_run_writes_a_complete_valid_record(bench):
     assert [c['name'] for c in rec['checks']] == [
         'cvode_importable',
         'env_dirs',
+        'proteus_import',
         'clean_tree',
         'timing_contract',
         'expected_backends',
@@ -171,6 +180,21 @@ def test_missing_rad_dir_stops_the_run(bench, monkeypatch, tmp_path):
     assert rec is None
     assert 'FAIL env_dirs: RAD_DIR is not set; pass them explicitly' in out
     assert list((tmp_path / 'runs').glob('*')) == []
+
+
+def test_proteus_from_another_checkout_stops_the_run(bench, tmp_path):
+    """The record must not name the git state of a checkout proteus does not run from."""
+    elsewhere = tmp_path / 'PROTEUSpixi' / 'src'
+    (elsewhere / 'proteus').mkdir(parents=True)
+    (elsewhere / 'proteus' / '__init__.py').write_text('')
+    bench.proteus_path[0] = elsewhere
+    code, rec, out = bench()
+    assert code == 2
+    assert rec is None
+    expected = (
+        f'FAIL proteus_import: proteus imports from {elsewhere}/proteus/__init__.py, not '
+    )
+    assert expected in out
 
 
 def test_failed_check_can_be_overridden(bench):

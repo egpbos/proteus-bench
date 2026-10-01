@@ -29,6 +29,19 @@ def test_describe_installed_and_missing():
     assert introspect.describe('fwl-no-such-distribution') is None
 
 
+def test_main_reports_where_proteus_would_import_from(capsys, monkeypatch, tmp_path):
+    """The proteus location comes from the path search, without importing the package."""
+    introspect.main([])
+    assert json.loads(capsys.readouterr().out)['proteus'] is None  # not in the dev env
+    package = tmp_path / 'src' / 'proteus'
+    package.mkdir(parents=True)
+    (package / '__init__.py').write_text('raise RuntimeError("imported")\n')
+    monkeypatch.syspath_prepend(str(tmp_path / 'src'))
+    introspect.main([])
+    assert json.loads(capsys.readouterr().out)['proteus'] == str(package / '__init__.py')
+    assert 'proteus' not in sys.modules
+
+
 def test_main_prints_one_json_object(capsys):
     """Missing names are omitted and the interpreter version is included."""
     introspect.main(['pytest', 'fwl-no-such-distribution'])

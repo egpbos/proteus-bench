@@ -138,6 +138,7 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
         checks=[
             checks.cvode_check(args.python, run_config),
             checks.env_dirs_check(child_env),
+            checks.proteus_import_check(env_report['proteus'], root),
             checks.clean_tree_check(proteus_git),
         ],
         timeout_s=args.timeout,

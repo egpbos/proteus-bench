@@ -97,6 +97,23 @@ def test_env_dirs_check_names_each_problem(tmp_path):
     assert 'RAD_DIR is not set' in empty['detail']
 
 
+def test_proteus_import_check(tmp_path):
+    """Only an import from inside --proteus-root passes; a sibling with a shared prefix does not."""
+    root = tmp_path / 'PROTEUS'
+    inside = root / 'src' / 'proteus' / '__init__.py'
+    assert checks.proteus_import_check(str(inside), root) == {
+        'name': 'proteus_import',
+        'ok': True,
+        'detail': str(inside),
+    }
+    other = tmp_path / 'PROTEUS-old' / 'src' / 'proteus' / '__init__.py'  # prefix of root
+    result = checks.proteus_import_check(str(other), root)
+    assert result['ok'] is False
+    assert result['detail'] == f'proteus imports from {other}, not {root}'
+    missing = checks.proteus_import_check(None, root)
+    assert missing['detail'] == f'proteus imports from nowhere, not {root}'
+
+
 def test_clean_tree_check():
     """A dirty checkout fails; the describe string (or the sha) is the detail."""
     clean = checks.clean_tree_check(

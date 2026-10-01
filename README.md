@@ -37,7 +37,8 @@ Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
 process runs with the BLAS and OpenMP thread counts set to 1, as the proteus CLI
 does itself. Environment checks must pass: CVODE importable; FWL_DATA, RAD_DIR
 and FC_DIR set to existing directories (`pixi run` does not read shell rc files,
-so pass them explicitly there); a clean PROTEUS tree. `--allow-failed-checks`
+so pass them explicitly there); `proteus` imported from the PROTEUS checkout
+being measured; a clean PROTEUS tree. `--allow-failed-checks`
 runs anyway and marks the record as not comparable.
 Suites live in `src/proteus_bench/suites.toml`.
 `proteus-bench run --help` lists the other options.
