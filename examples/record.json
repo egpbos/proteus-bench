@@ -8,9 +8,8 @@
   "benchmark": {
     "name": "all_options",
     "lineage": "default",
-    "settings_hash": "sha256:4947e70d0e5eecec7515d9532882eddc87bf0182481591fe6b27ac72ce0082f4",
+    "settings_hash": "sha256:87c510459901c73a8dee0d30870d672c2f090dbd7783fa7c8941ae46be22d57b",
     "settings": {
-      "params.out.path": "example",
       "params.stop.iters.maximum": 6,
       "interior_struct.module": "zalmoxis",
       "interior_energetics.module": "aragog",

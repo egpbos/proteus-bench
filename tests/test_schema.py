@@ -17,6 +17,7 @@ import pytest
 jsonschema = pytest.importorskip('jsonschema')
 
 from proteus_bench import schema  # noqa: E402
+from proteus_bench.settings import PER_RUN_KEYS, settings_hash  # noqa: E402
 from proteus_bench.timing import attributed_totals, read_events  # noqa: E402
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
@@ -65,7 +66,8 @@ def test_bad_span_fields_are_rejected_at_the_field(example_events, field, value,
     assert schema.shape_problems('timing', span) == []
     span[field] = value
     problems = schema.shape_problems('timing', span)
-    assert problems and all(p.startswith(f'{where}:') for p in problems)
+    assert problems
+    assert all(p.startswith(f'{where}:') for p in problems)
 
 
 def test_run_end_status_is_an_enum(example_events):
@@ -75,6 +77,16 @@ def test_run_end_status_is_an_enum(example_events):
     assert any(p.startswith('status:') for p in schema.shape_problems('timing', end))
     end['status'] = 'interrupted'
     assert schema.shape_problems('timing', end) == []
+
+
+def test_example_record_settings_hash_is_reproducible(example_record):
+    """The stored hash is what settings_hash gives, and no per-run key is stored."""
+    bench = example_record['benchmark']
+    assert settings_hash(bench['settings']) == bench['settings_hash']
+    assert not PER_RUN_KEYS & bench['settings'].keys()
+    # A per-run key sneaking back in must not change the hash, or lineages would split.
+    renamed = {**bench['settings'], 'params.out.path': 'another_run'}
+    assert settings_hash(renamed) == bench['settings_hash']
 
 
 def test_example_record_matches_schema_and_timing_example(example_record, example_events):
@@ -115,7 +127,8 @@ def test_bad_record_fields_are_rejected(example_record, path, value, where):
         node = node[key]
     node[path[-1]] = value
     problems = schema.shape_problems('record', record)
-    assert problems and all(p.startswith(f'{where}:') for p in problems)
+    assert problems
+    assert all(p.startswith(f'{where}:') for p in problems)
 
 
 def test_record_requires_comparability_and_rejects_unknown_top_level_keys(example_record):

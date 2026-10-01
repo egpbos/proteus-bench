@@ -131,11 +131,25 @@ def _dump_toml(data: dict, prefix: str = '') -> str:
     return text
 
 
+FAIL_MODES = ('none', 'error', 'kill')
+
+
+def scenario(overrides: dict) -> dict:
+    """The ``[fake]`` settings merged over FAKE_DEFAULTS; typos are errors, not no-ops."""
+    unknown = sorted(overrides.keys() - FAKE_DEFAULTS.keys())
+    if unknown:
+        raise ValueError(f'unknown [fake] keys {unknown}; allowed: {sorted(FAKE_DEFAULTS)}')
+    merged = {**FAKE_DEFAULTS, **overrides}
+    if merged['fail'] not in FAIL_MODES:
+        raise ValueError(f'[fake] fail = {merged["fail"]!r}; allowed: {FAIL_MODES}')
+    return merged
+
+
 class _Run:
     """One fake simulation: state shared by the stage functions below."""
 
     def __init__(self, cfg: dict, outdir: Path, timing_fh: TextIO | None, log_fh: TextIO):
-        self.fake = {**FAKE_DEFAULTS, **cfg.get('fake', {})}
+        self.fake = scenario(cfg.get('fake', {}))
         self.cfg = _deep_merge(RESOLVED_DEFAULTS, {k: v for k, v in cfg.items() if k != 'fake'})
         self.outdir = outdir
         self.clock = SyntheticClock(self.fake['sleep_scale'])
@@ -262,6 +276,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest='command', required=True)
     start = sub.add_parser('start')
     start.add_argument('-c', '--config', required=True, type=Path)
+    # Accepted so harness command lines match real proteus; they change nothing here.
     start.add_argument('-o', '--offline', action='store_true')
     start.add_argument('-r', '--resume', action='store_true')
     args = parser.parse_args(argv)

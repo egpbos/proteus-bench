@@ -1,17 +1,21 @@
 """Read and check PROTEUS ``timing.jsonl`` files (interface version 1).
 
 The JSON Schema in ``schemas/timing-v1.schema.json`` fixes the shape of each
-line. This module checks what a schema cannot: the span tree (parents exist
-and contain their children), the phase layout, iteration numbering, and the
-rule that at most one span on any root-to-leaf path carries a ``component``,
-so attributed times can be summed without double counting.
+line (``schema.shape_problems``, which needs the optional ``jsonschema``). This
+module checks what a schema cannot: the span tree (parents open first, exist and
+contain their children), the phase layout, iteration numbering, and the rule
+that at most one span on any root-to-leaf path carries a ``component``, so
+attributed times can be summed without double counting.
 """
 
 from __future__ import annotations
 
 import json
+from functools import cache
 from itertools import pairwise
 from pathlib import Path
+
+from proteus_bench import schema
 
 SUPPORTED_VERSIONS = frozenset({1})
 PHASES = ('setup', 'init', 'loop', 'shutdown')
@@ -19,12 +23,13 @@ PHASES = ('setup', 'init', 'loop', 'shutdown')
 # Timestamps are written rounded; allow this much slack in containment checks [s]
 TOLERANCE_S = 1e-3
 
-_REQUIRED = {
-    'run_start': ('wall', 'pid'),
-    'backend': ('t0', 'submodule', 'key', 'value'),
-    'span': ('id', 'parent', 'name', 't0', 'dur'),
-    'run_end': ('t0', 'status'),
-}
+
+@cache
+def _required_keys() -> dict[str, list[str]]:
+    """Required keys per event kind, read from the bundled schema (no second copy)."""
+    defs = schema.load('timing')['$defs']
+    kinds = schema.load('timing')['properties']['ev']['enum']
+    return {k: [f for f in defs[k]['required'] if f not in ('v', 'ev')] for k in kinds}
 
 
 def read_events(path: str | Path) -> list[dict]:
@@ -52,13 +57,22 @@ def check_events(events: list[dict]) -> list[str]:
 
     A run without a ``run_end`` event (a crash) is valid data: spans that were
     still open are missing, so references to absent parents are tolerated.
+    Events of the wrong shape are reported as one problem; ``schema.shape_problems``
+    names the fields.
     """
     if not events:
         return ['no events']
+    try:
+        return _check(events)
+    except (AttributeError, KeyError, TypeError) as err:
+        return [f'events do not match the timing schema ({type(err).__name__}: {err})']
+
+
+def _check(events: list[dict]) -> list[str]:
     problems = _check_envelope(events)
     if problems:
         return problems
-    spans = {ev['id']: ev for ev in events if ev['ev'] == 'span'}
+    spans = span_map(events)
     if len(spans) != sum(1 for ev in events if ev['ev'] == 'span'):
         problems.append('span ids are not unique')
     finished = events[-1]['ev'] == 'run_end'
@@ -69,19 +83,23 @@ def check_events(events: list[dict]) -> list[str]:
     return problems
 
 
-def _check_envelope(events: list[dict]) -> list[str]:
-    """Versions, event kinds, required keys, and run_start/run_end placement."""
+def _event_problems(i: int, ev: dict) -> list[str]:
+    """Version, kind and required keys of one event."""
     problems = []
-    for i, ev in enumerate(events):
-        if ev.get('v') not in SUPPORTED_VERSIONS:
-            problems.append(f'event {i}: unsupported version {ev.get("v")!r}')
-        kind = ev.get('ev')
-        if kind not in _REQUIRED:
-            problems.append(f'event {i}: unknown event kind {kind!r}')
-            continue
-        missing = [k for k in _REQUIRED[kind] if k not in ev]
-        if missing:
-            problems.append(f'event {i} ({kind}): missing {", ".join(missing)}')
+    if ev.get('v') not in SUPPORTED_VERSIONS:
+        problems.append(f'event {i}: unsupported version {ev.get("v")!r}')
+    kind = ev.get('ev')
+    if kind not in _required_keys():
+        return [*problems, f'event {i}: unknown event kind {kind!r}']
+    missing = [k for k in _required_keys()[kind] if k not in ev]
+    if missing:
+        problems.append(f'event {i} ({kind}): missing {", ".join(missing)}')
+    return problems
+
+
+def _check_envelope(events: list[dict]) -> list[str]:
+    """Every event is well formed, and run_start/run_end sit at the ends."""
+    problems = [p for i, ev in enumerate(events) for p in _event_problems(i, ev)]
     if problems:
         return problems
     kinds = [ev['ev'] for ev in events]
@@ -92,34 +110,54 @@ def _check_envelope(events: list[dict]) -> list[str]:
     return problems
 
 
+def span_map(events: list[dict]) -> dict[int, dict]:
+    """Spans by id."""
+    return {ev['id']: ev for ev in events if ev['ev'] == 'span'}
+
+
 def _ancestors(span: dict, spans: dict[int, dict]):
-    """Yield the known ancestors of a span, nearest first."""
-    seen = set()
-    parent = span['parent']
-    while parent is not None and parent in spans and parent not in seen:
-        seen.add(parent)
+    """Yield the known ancestors of a span, nearest first.
+
+    Parents open before their children, so ids strictly decrease along a valid
+    chain; stopping otherwise keeps a malformed file from looping forever.
+    """
+    current, parent = span['id'], span['parent']
+    while parent is not None and parent in spans and parent < current:
         yield spans[parent]
-        parent = spans[parent]['parent']
+        current, parent = parent, spans[parent]['parent']
 
 
 def _check_tree(spans: dict[int, dict], finished: bool) -> list[str]:
-    """Parents exist and contain children; attribution is disjoint."""
+    """Parents open first, exist and contain children; attribution is disjoint."""
     problems = []
-    for sid, span in spans.items():
-        parent = span['parent']
-        if parent is not None and parent not in spans:
-            if finished:
-                problems.append(f'span {sid}: parent {parent} does not exist')
-            continue
-        if parent is not None and not _contains(spans[parent], span):
-            problems.append(f'span {sid} ({span["name"]}) lies outside parent {parent}')
-        if 'component' in span:
-            clash = next((a for a in _ancestors(span, spans) if 'component' in a), None)
-            if clash is not None:
-                problems.append(
-                    f'span {sid} and its ancestor {clash["id"]} both carry a component'
-                )
+    for span in spans.values():
+        problems += _parent_problems(span, spans, finished)
+        problems += _attribution_problems(span, spans)
     return problems
+
+
+def _parent_problems(span: dict, spans: dict[int, dict], finished: bool) -> list[str]:
+    """The span's parent opened earlier, exists (unless the run crashed) and contains it."""
+    sid, parent = span['id'], span['parent']
+    if parent is None:
+        return []
+    if parent >= sid:
+        return [f'span {sid}: parent {parent} must have opened earlier (lower id)']
+    if parent not in spans:
+        return [f'span {sid}: parent {parent} does not exist'] if finished else []
+    if not _contains(spans[parent], span):
+        return [f'span {sid} ({span["name"]}) lies outside parent {parent}']
+    return []
+
+
+def _attribution_problems(span: dict, spans: dict[int, dict]) -> list[str]:
+    """An attributed span has no attributed ancestor."""
+    if 'component' not in span:
+        return []
+    clash = next((a for a in _ancestors(span, spans) if 'component' in a), None)
+    if clash is None:
+        return []
+    return [f'span {span["id"]} and its ancestor {clash["id"]} both carry a component']
 
 
 def _check_attributed_overlap(spans: dict[int, dict]) -> list[str]:
@@ -128,8 +166,13 @@ def _check_attributed_overlap(spans: dict[int, dict]) -> list[str]:
     return [
         f'attributed spans {a["id"]} and {b["id"]} overlap in time'
         for a, b in pairwise(attributed)
-        if b['t0'] < a['t0'] + a['dur'] - TOLERANCE_S
+        if _overlaps(a, b)
     ]
+
+
+def _overlaps(first: dict, second: dict) -> bool:
+    """Whether ``second`` (starting no earlier) begins before ``first`` ends."""
+    return second['t0'] < first['t0'] + first['dur'] - TOLERANCE_S
 
 
 def _contains(outer: dict, inner: dict) -> bool:
@@ -150,7 +193,7 @@ def _check_phases(spans: dict[int, dict]) -> list[str]:
     if len(set(names)) != len(names):
         problems.append(f'a phase appears more than once: {names}')
     for a, b in pairwise(roots):
-        if b['t0'] < a['t0'] + a['dur'] - TOLERANCE_S:
+        if _overlaps(a, b):
             problems.append(f'phases {a["name"]} and {b["name"]} overlap')
     return problems
 
@@ -188,8 +231,12 @@ def attributed_totals(events: list[dict]) -> dict[str, dict]:
     Returns ``{phase: {'total': s, 'attributed': {(component, submodule,
     backend): [seconds, n_calls]}, 'other': s}}``. ``other`` is the phase time
     no attributed span covers, so ``sum(attributed) + other == total``.
+
+    Attributed spans whose phase is unknown (their enclosing phase never closed,
+    as in a crash) are collected under ``'unknown'``, with ``total`` and
+    ``other`` set to None, so no time disappears silently.
     """
-    spans = {ev['id']: ev for ev in events if ev['ev'] == 'span'}
+    spans = span_map(events)
     out = {}
     for span in spans.values():
         if span['parent'] is None:
@@ -197,12 +244,15 @@ def attributed_totals(events: list[dict]) -> dict[str, dict]:
     for span in spans.values():
         if 'component' not in span:
             continue
-        phase = out.get(phase_of(span, spans))
-        if phase is None:
-            continue
+        name = phase_of(span, spans)
+        if name not in out:
+            name = 'unknown'
+            out.setdefault(name, {'total': None, 'attributed': {}, 'other': None})
+        phase = out[name]
         key = (span['component'], span.get('submodule'), span.get('backend'))
         acc = phase['attributed'].setdefault(key, [0.0, 0])
         acc[0] += span['dur']
         acc[1] += 1
-        phase['other'] -= span['dur']
+        if phase['other'] is not None:
+            phase['other'] -= span['dur']
     return out

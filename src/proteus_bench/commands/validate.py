@@ -18,39 +18,34 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('files', nargs='+', type=Path)
 
 
-def problems_for(path: Path) -> tuple[list[str], bool]:
-    """Problems found in one file, and whether the shape was checked."""
+def problems_for(path: Path) -> list[str]:
+    """Problems found in one file; shape checks are skipped when unavailable."""
     if path.suffix == '.jsonl':
         try:
             events = timing.read_events(path)
         except ValueError as err:
-            return [str(err)], True
-        found, shape_checked = [], True
-        for i, ev in enumerate(events):
-            shape = schema.shape_problems('timing', ev)
-            if shape is None:
-                shape_checked = False
-                break
-            found += [f'event {i}: {p}' for p in shape]
-        return found + timing.check_events(events), shape_checked
+            return [str(err)]
+        shape = [
+            f'event {i}: {p}'
+            for i, ev in enumerate(events)
+            for p in schema.shape_problems('timing', ev) or []
+        ]
+        return shape + timing.check_events(events)
     try:
         record = json.loads(path.read_text())
     except json.JSONDecodeError as err:
-        return [f'not valid JSON ({err.msg})'], True
-    shape = schema.shape_problems('record', record)
-    return (shape or []), shape is not None
+        return [f'not valid JSON ({err.msg})']
+    return schema.shape_problems('record', record) or []
 
 
 def main(args: argparse.Namespace) -> int:
+    if not schema.available():
+        print('note: shape not checked (install jsonschema); tree rules still apply')
     failed = False
     for path in args.files:
-        found, shape_checked = problems_for(path)
-        note = '' if shape_checked else ' (shape not checked: install jsonschema)'
-        if found:
-            failed = True
-            print(f'{path}: {len(found)} problem(s){note}')
-            for problem in found:
-                print(f'  {problem}')
-        else:
-            print(f'{path}: ok{note}')
+        found = problems_for(path)
+        failed = failed or bool(found)
+        print(f'{path}: {len(found)} problem(s)' if found else f'{path}: ok')
+        for problem in found:
+            print(f'  {problem}')
     return 1 if failed else 0
