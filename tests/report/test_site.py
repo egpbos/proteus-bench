@@ -373,6 +373,17 @@ def test_malformed_parts_are_reported_with_the_run(tmp_path, records, analysis):
         )
 
 
+def test_malformed_part_read_by_shared_pages_names_the_run(tmp_path, records, analysis):
+    """An empty component row breaks the compare page too; the run page reports it first."""
+    r5 = next(r for r in records if r['run_id'].endswith('-r5'))
+    r5['timings']['components'] = [{}]
+    (tmp_path / 'store').mkdir()
+    with pytest.raises(ValueError, match='r5: malformed record, KeyError') as err:
+        build_site(records, analysis, tmp_path / 'site', tmp_path / 'store')
+    assert "'phase'" in str(err.value)
+    assert not (tmp_path / 'site').exists()
+
+
 def test_zero_baseline_and_null_relative_values_render(tmp_path, records, analysis):
     """Baseline median 0 and a flag with null delta_rel/threshold_rel give n/a, not a crash."""
     total = next(

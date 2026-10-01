@@ -78,8 +78,8 @@ def _read_record(path: Path, store: Path) -> dict:
     inside_store(path, store)
     try:
         record = json.loads(path.read_text(encoding='utf-8'))
-    except json.JSONDecodeError as err:
-        raise ValueError(f'{path}: not valid JSON ({err.msg})') from err
+    except (json.JSONDecodeError, UnicodeDecodeError) as err:
+        raise ValueError(f'{path}: not valid UTF-8 JSON ({err})') from err
     if not isinstance(record, dict) or record.get('schema') != RECORD_SCHEMA:
         found = record.get('schema') if isinstance(record, dict) else type(record).__name__
         raise ValueError(f'{path}: expected schema {RECORD_SCHEMA!r}, found {found!r}')

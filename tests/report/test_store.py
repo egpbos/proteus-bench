@@ -44,7 +44,7 @@ def test_records_load_oldest_first(store, records):
 @pytest.mark.parametrize(
     ('content', 'message'),
     [
-        ('{"schema": ', 'not valid JSON'),
+        ('{"schema": ', 'not valid UTF-8 JSON'),
         ('[1, 2]', "found 'list'"),
         (
             '{"schema": "proteus-bench/2", "run_id": "20260101T000000Z-x"}',
@@ -58,6 +58,16 @@ def test_unreadable_records_are_refused_with_the_file(tmp_path, content, message
     bad.parent.mkdir(parents=True)
     bad.write_text(content)
     with pytest.raises(ValueError, match=message) as err:
+        load_records(tmp_path)
+    assert 'bad.json' in str(err.value)
+
+
+def test_non_utf8_record_is_refused_with_the_file(tmp_path):
+    """Bytes that are not UTF-8 give the same named error as broken JSON."""
+    bad = tmp_path / 'records' / '2026' / 'bad.json'
+    bad.parent.mkdir(parents=True)
+    bad.write_bytes(b'{"schema": "\xff"}')
+    with pytest.raises(ValueError, match='not valid UTF-8 JSON') as err:
         load_records(tmp_path)
     assert 'bad.json' in str(err.value)
 
