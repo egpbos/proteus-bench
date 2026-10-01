@@ -79,13 +79,9 @@ def render_pages(
     for record in records:
         runs_of.setdefault(group_of(record), []).append(record)
         groups.setdefault(group_of(record), {})
-    pages = {
-        'index.html': overview.render(groups, records),
-        'compare.html': comparepage.render(records),
-    }
-    for group, by_metric in groups.items():
-        pages[series_href(group)] = seriespage.render(group, by_metric, runs_of.get(group, []))
+    pages = {}
     flags = flags_by_run(analysis)
+    # run pages first: they read every part of a record, so a malformed one is named here
     for runs in runs_of.values():
         previous = None
         for record in runs:
@@ -94,6 +90,10 @@ def render_pages(
                 record, flags.get(run_id, []), store, repo, previous
             )
             previous = run_id
+    pages['index.html'] = overview.render(groups, records)
+    pages['compare.html'] = comparepage.render(records)
+    for group, by_metric in groups.items():
+        pages[series_href(group)] = seriespage.render(group, by_metric, runs_of.get(group, []))
     return pages
 
 

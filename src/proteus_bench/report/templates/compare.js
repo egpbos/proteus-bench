@@ -64,7 +64,9 @@
     history.replaceState(null, '', `?a=${encodeURIComponent(a.id)}&b=${encodeURIComponent(b.id)}`);
     const notes = missing.map(k => `Run ${params.get(k)} (${k}) is not in this site.`);
     if (a.id === b.id) notes.push('Run A and run B are the same run.');
-    if (a.group !== b.group) notes.push(`The runs are from different series: ${a.group} vs ${b.group}.`);
+    if (JSON.stringify(a.group) !== JSON.stringify(b.group)) {
+      notes.push(`The runs are from different series: ${a.group.join(' / ')} vs ${b.group.join(' / ')}.`);
+    }
     if (a.n_iters !== b.n_iters) notes.push(`Iteration counts differ: ${a.n_iters} vs ${b.n_iters}.`);
     if (!a.comparable || !b.comparable) notes.push('At least one run is not comparable (see its run page).');
     status.textContent = notes.join(' ');
