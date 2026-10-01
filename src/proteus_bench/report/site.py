@@ -90,18 +90,19 @@ def render_pages(
         previous = None
         for record in runs:
             run_id = record['run_id']
-            artifacts = artifacts_of(record, store, repo)
             pages[run_href(run_id)] = _run_page(
-                record, flags.get(run_id, []), artifacts, previous
+                record, flags.get(run_id, []), store, repo, previous
             )
             previous = run_id
     return pages
 
 
-def _run_page(record: dict, flags: list, artifacts: list, previous: str | None) -> str:
-    """The run page, with a malformed optional part reported against its run id."""
+def _run_page(
+    record: dict, flags: list, store: Path, repo: str | None, previous: str | None
+) -> str:
+    """The run page; any malformed part of the record is reported with its run id."""
     try:
-        return runpage.render(record, flags, artifacts, previous)
+        return runpage.render(record, flags, artifacts_of(record, store, repo), previous)
     except (KeyError, TypeError, ValueError, AttributeError, IndexError) as err:
         raise ValueError(
             f'run {record["run_id"]}: malformed record, {type(err).__name__}: {err}'

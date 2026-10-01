@@ -171,7 +171,6 @@ def _flag_text(flag: dict) -> str:
     )
 
 
-# confirmed: filled; not yet confirmed: outline; not confirmed by the next run: dashed outline
 FLAG_FILL = {True: '', None: ' hollow', False: ' hollow rejected'}
 
 
@@ -182,7 +181,7 @@ def _triangle(x: float, y: float, flag: dict) -> str:
         cy, tip, cls = y - gap, -s, 'bad'
     else:
         cy, tip, cls = y + gap, s, 'good'
-    fill = FLAG_FILL.get(flag['confirmed'], ' hollow')
+    fill = FLAG_FILL[flag['confirmed']]
     path = f'M{x:.1f},{cy + tip:.1f}L{x + s:.1f},{cy - tip:.1f}L{x - s:.1f},{cy - tip:.1f}Z'
     return f'<path d="{path}" class="flag {cls}{fill}"/>'
 
