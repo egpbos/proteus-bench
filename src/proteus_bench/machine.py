@@ -1,7 +1,7 @@
-"""Machine fingerprint and environment of a run: CPU, memory, threads, knobs, build flags.
+"""Machine fingerprint and environment of a run.
 
-Runs compare only within one machine class, so the class must separate CPU
-models; the default class is ``<os>-<arch>-<cpu model>`` as a slug.
+Runs compare only within one machine class, so the default class,
+``<os>-<arch>-<cpu model>``, must separate CPU models.
 """
 
 from __future__ import annotations
@@ -14,9 +14,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-# Thread counts the proteus CLI sets to 1 at import (PROTEUS src/proteus/cli.py).
-# The harness sets them to 1 for the child as well, so the benchmark stays
-# single-threaded whatever the site exports.
+# Set to 1 for the child, as the proteus CLI does at import (src/proteus/cli.py)
 THREAD_VARS = (
     'OMP_NUM_THREADS',
     'MKL_NUM_THREADS',
@@ -24,8 +22,7 @@ THREAD_VARS = (
     'NUMEXPR_NUM_THREADS',
     'VECLIB_MAXIMUM_THREADS',
 )
-# Variables that change timing but not physics (caches, JIT, diagnostics, and
-# Julia threads, which PROTEUS leaves alone)
+# Variables that change timing but not physics
 KNOB_VARS = (
     'JULIA_NUM_THREADS',
     'PROTEUS_PS_CACHE_DIR',
@@ -36,13 +33,11 @@ KNOB_VARS = (
     'JAX_PLATFORMS',
     'XLA_FLAGS',
 )
-# Flag spellings from PROTEUS tools/get_socrates.sh: SOCRATES_PORTABLE_FLAGS=1
-# rewrites '-Ofast -march=native' to this portable form, and these patterns
-# mark a host-specific build.
+# Flag spellings from PROTEUS tools/get_socrates.sh
 PORTABLE_FLAGS = '-O2 -fno-fast-math'
 NONPORTABLE_FLAGS = re.compile(r'-march=|-mcpu=native|-Ofast|-xHost|-ax[A-Z]')
 GIB = 2**30
-JULIA_TIMEOUT_S = 10  # a juliaup launcher may be slow to start, never minutes
+JULIA_TIMEOUT_S = 10
 
 
 def slug(text: str) -> str:
@@ -50,38 +45,29 @@ def slug(text: str) -> str:
     return re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
 
 
-def _sysctl(name: str) -> str | None:
-    try:
-        proc = subprocess.run(['sysctl', '-n', name], capture_output=True, text=True)
-    except FileNotFoundError:
-        return None
-    return proc.stdout.strip() if proc.returncode == 0 else None
+def _sysctl(name: str) -> str:
+    proc = subprocess.run(['sysctl', '-n', name], capture_output=True, text=True, check=True)
+    return proc.stdout.strip()
 
 
 def proc_field(path: str, field: str) -> str | None:
     """Value of the first ``field : value`` line of a /proc file, if any."""
-    try:
-        text = Path(path).read_text()
-    except OSError:
-        return None
-    match = re.search(rf'^{field}\s*:\s*(.+)$', text, re.MULTILINE)
+    match = re.search(rf'^{field}\s*:\s*(.+)$', Path(path).read_text(), re.MULTILINE)
     return match.group(1).strip() if match else None
 
 
 def cpu_model() -> str | None:
-    """CPU brand string, or None where the OS does not report one (ARM Linux)."""
+    """CPU brand string; None on ARM Linux, whose /proc/cpuinfo has no model name."""
     if platform.system() == 'Darwin':
         return _sysctl('machdep.cpu.brand_string')
     return proc_field('/proc/cpuinfo', 'model name')
 
 
-def mem_gb() -> float | None:
+def mem_gb() -> float:
     """Physical memory in GiB."""
     if platform.system() == 'Darwin':
-        size = _sysctl('hw.memsize')
-        return int(size) / GIB if size else None
-    total = proc_field('/proc/meminfo', 'MemTotal')  # e.g. '16318540 kB'
-    return int(total.split()[0]) * 1024 / GIB if total else None
+        return int(_sysctl('hw.memsize')) / GIB
+    return int(proc_field('/proc/meminfo', 'MemTotal').split()[0]) * 1024 / GIB  # 'N kB'
 
 
 def usable_cpus() -> int:
@@ -95,7 +81,7 @@ def machine_section(label: str, machine_class: str | None) -> dict:
     """The record's ``machine`` section.
 
     Raises ``ValueError`` when the CPU model is unknown and no ``machine_class``
-    is given: a default class would then lump different CPUs together.
+    is given, since a default class would lump different CPUs together.
     """
     cpu = cpu_model()
     if cpu is None and not machine_class:
@@ -103,7 +89,7 @@ def machine_section(label: str, machine_class: str | None) -> dict:
             'the CPU model cannot be read on this host; '
             'pass --machine-class to name the comparability group'
         )
-    section = {
+    return {
         'label': label,
         'class': machine_class or slug(f'{platform.system()}-{platform.machine()}-{cpu}'),
         'host': platform.node(),
@@ -111,18 +97,15 @@ def machine_section(label: str, machine_class: str | None) -> dict:
         'n_cpus': usable_cpus(),
         'os': f'{platform.system()}-{platform.release()}',
         'arch': platform.machine(),
+        'mem_gb': round(mem_gb(), 2),
     }
-    mem = mem_gb()
-    if mem is not None:
-        section['mem_gb'] = round(mem, 2)
-    return section
 
 
 def socrates_build(rad_dir: str | None) -> str:
     """``portable``, ``native`` or ``unknown`` from the SOCRATES Mk_cmd flags.
 
-    ``bin/Mk_cmd`` is the file make read; get_socrates.sh notes that per-host
-    templates may replace it after ``make/Mk_cmd`` was written, so it wins.
+    ``bin/Mk_cmd`` wins: it is what make read, and a per-host template may have
+    replaced it after ``make/Mk_cmd`` was written (get_socrates.sh).
     """
     if not rad_dir:
         return 'unknown'
@@ -146,11 +129,8 @@ def env_manager(env: dict) -> str:
 
 
 def julia_version(env: dict) -> str | None:
-    """Version of the ``julia`` on the child's PATH, e.g. '1.13.0'.
-
-    None when there is no julia; 'unknown' when it does not answer in time or
-    its output is not ``julia version X``.
-    """
+    """Version of the ``julia`` on the child's PATH; None without one, else 'unknown'
+    when it does not answer ``julia version X`` in time."""
     julia = shutil.which('julia', path=env.get('PATH'))
     if julia is None:
         return None
@@ -166,11 +146,7 @@ def julia_version(env: dict) -> str | None:
 
 
 def pixi_lock(prefix: str) -> Path | None:
-    """``<project>/pixi.lock`` of a pixi environment at ``<project>/.pixi/envs/<name>``.
-
-    pixi 0.79 sets ``CONDA_PREFIX`` to that environment directory under
-    ``pixi run``; the target interpreter's ``sys.prefix`` is the same path.
-    """
+    """``<project>/pixi.lock`` for an environment ``prefix`` of ``<project>/.pixi/envs/<name>``."""
     env_dir = Path(prefix)
     if env_dir.parent.name != 'envs' or env_dir.parent.parent.name != '.pixi':
         return None
@@ -181,10 +157,8 @@ def pixi_lock(prefix: str) -> Path | None:
 def env_section(env: dict, env_report: dict, profiler: str, profiler_env: dict) -> dict:
     """The record's ``env`` section for the environment given to the proteus process.
 
-    ``env_report`` is the target interpreter's introspection report (``python``,
-    ``prefix``). ``profiler_env`` holds the variables the profiler hook added;
-    they are knobs. A pixi environment also records its lock file's sha256, since
-    each checkout resolves its own lock and pixi.lock is not committed.
+    pixi environments record the sha256 of their pixi.lock: PROTEUS does not
+    commit it, so each checkout resolves its own.
     """
     manager = env_manager(env)
     knobs = {var: env.get(var) for var in KNOB_VARS} | profiler_env | {'profiler': profiler}

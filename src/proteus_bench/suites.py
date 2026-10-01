@@ -1,9 +1,4 @@
-"""Benchmark suites (``proteus_bench/suites.toml``) and the run config they define.
-
-A suite names a PROTEUS config file relative to the PROTEUS checkout, dotted
-overrides applied to it, and the backends the run is expected to report. The
-file ships inside the package, so it is there however the harness is installed.
-"""
+"""Benchmark suites (``proteus_bench/suites.toml``) and the run config they define."""
 
 from __future__ import annotations
 
@@ -23,11 +18,8 @@ _DOTTED = re.compile(r'[^.]+(\.[^.]+)*')
 def load_suite(name: str, source: Traversable | Path = SUITES) -> dict:
     """Return ``{name, config, overrides, expected_backends}`` for one suite.
 
-    Raises ``ValueError`` when the file is missing, has no such suite, or the
-    suite is malformed, so a bad suite fails before a run rather than after it.
+    Raises ``ValueError`` for an unknown or malformed suite, so it fails before a run.
     """
-    if not source.is_file():
-        raise ValueError(f'suites file {source} not found')
     suites = tomllib.loads(source.read_text()).get('suite', {})
     if name not in suites:
         raise ValueError(f'unknown suite {name!r} in {source}; known: {sorted(suites)}')

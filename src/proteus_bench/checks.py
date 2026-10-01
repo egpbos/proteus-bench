@@ -1,11 +1,7 @@
-"""Environment checks and the comparability rule for a run.
+"""Environment checks, each ``{name, ok, detail}``, and the comparability rule.
 
-Each check returns ``{name, ok, detail}``. Pre-run checks (CVODE, data and
-library directories, clean tree) can stop a run before it is timed; post-run
-checks (timing contract, expected backends) only affect comparability. A run may enter
-baselines only when every check passed, the run finished ok, and nothing
-else (a profiler, a missing resolved config, a non-finite fingerprint) marks
-its timings as unlike the series.
+Pre-run checks can stop a run before it is timed; post-run checks only affect
+comparability.
 """
 
 from __future__ import annotations
@@ -49,10 +45,7 @@ def cvode_check(python: str, config: dict) -> dict:
 
 
 def env_dirs_check(env: dict) -> dict:
-    """The data and library directories PROTEUS needs are set and exist in the child env.
-
-    ``pixi run`` does not source shell rc files, so exports made there are missing.
-    """
+    """The directories PROTEUS needs exist; ``pixi run`` does not read shell rc files."""
     problems = []
     for var, marker in REQUIRED_DIRS:
         value = env.get(var, '')
@@ -101,10 +94,7 @@ def expected_backends_check(backends: dict, expected: dict) -> dict:
 
 
 def comparability(checks: list[dict], status: str, profiler: str, notes: list[str]) -> dict:
-    """``{ok, reasons}``: whether the run may enter baselines, and why not.
-
-    ``notes`` are reasons found while collecting results.
-    """
+    """``{ok, reasons}``: whether the run may enter baselines, and why not."""
     reasons = [f'check {c["name"]} failed: {c["detail"]}' for c in checks if not c['ok']]
     if status != 'ok':
         reasons.append(f'outcome is {status}')

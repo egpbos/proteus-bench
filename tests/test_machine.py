@@ -49,7 +49,6 @@ def test_proc_fields_and_linux_memory(tmp_path, monkeypatch):
     )
     assert machine.proc_field(str(cpuinfo), 'model name') == 'AMD EPYC 7763 64-Core Processor'
     assert machine.proc_field(str(cpuinfo), 'flags') is None
-    assert machine.proc_field(str(tmp_path / 'absent'), 'model name') is None
     monkeypatch.setattr(platform, 'system', lambda: 'Linux')
     monkeypatch.setattr(machine, 'proc_field', lambda path, field: '16777216 kB')
     assert machine.mem_gb() == pytest.approx(16.0, rel=1e-12)  # 2**24 KiB = 16 GiB
@@ -60,7 +59,9 @@ def test_machine_section_defaults_class_to_os_arch_cpu(monkeypatch):
     monkeypatch.setattr(machine, 'cpu_model', lambda: 'AMD EPYC 7763 64-Core Processor')
     monkeypatch.setattr(platform, 'system', lambda: 'Linux')
     monkeypatch.setattr(platform, 'machine', lambda: 'x86_64')
+    monkeypatch.setattr(machine, 'mem_gb', lambda: 15.6234)
     section = machine.machine_section('gha', None)
+    assert section['mem_gb'] == pytest.approx(15.62, abs=1e-9)
     assert section['class'] == 'linux-x86-64-amd-epyc-7763-64-core-processor'
     assert section['label'] == 'gha'
     assert section['n_cpus'] >= 1
@@ -139,18 +140,21 @@ def test_unknown_cpu_needs_an_explicit_class(monkeypatch):
 
 
 def test_cpu_model_per_os(monkeypatch):
-    """macOS asks sysctl; Linux reads /proc/cpuinfo; a missing sysctl gives None."""
+    """macOS asks sysctl (hw.memsize in bytes); Linux reads /proc; ARM Linux has no model."""
     monkeypatch.setattr(platform, 'system', lambda: 'Linux')
     monkeypatch.setattr(machine, 'proc_field', lambda path, field: f'{path}:{field}')
     assert machine.cpu_model() == '/proc/cpuinfo:model name'
-    monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
-
-    def no_sysctl(argv, **kwargs):
-        raise FileNotFoundError(argv[0])
-
-    monkeypatch.setattr(subprocess, 'run', no_sysctl)
+    monkeypatch.setattr(machine, 'proc_field', lambda path, field: None)
     assert machine.cpu_model() is None
-    assert machine.mem_gb() is None
+    monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
+    answers = {'machdep.cpu.brand_string': 'Apple M5 Pro\n', 'hw.memsize': '68719476736\n'}
+
+    def fake_sysctl(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 0, answers[argv[-1]], '')
+
+    monkeypatch.setattr(subprocess, 'run', fake_sysctl)
+    assert machine.cpu_model() == 'Apple M5 Pro'
+    assert machine.mem_gb() == pytest.approx(64.0, rel=1e-12)  # 2**36 bytes
 
 
 def test_usable_cpus_prefers_the_affinity_mask(monkeypatch):
