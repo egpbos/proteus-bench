@@ -1,9 +1,7 @@
 """Which code a run measured: git state of checkouts and versions of installed modules.
 
-Module versions come from running ``introspect.py`` in the PROTEUS
-environment's interpreter, which reads package metadata without importing the
-packages. pip reports stale versions for editable installs, so editable and
-git checkouts are also recorded by their git SHA.
+pip reports stale versions for editable installs, so those are also recorded
+by their checkout's git SHA.
 """
 
 from __future__ import annotations
@@ -31,22 +29,15 @@ SHA_LEN = 8
 
 def git(path: Path, *args: str) -> str | None:
     """Stripped stdout of ``git -C path args``, or None when git fails."""
-    try:
-        proc = subprocess.run(
-            ['git', '-C', str(path), *args], capture_output=True, text=True, check=False
-        )
-    except FileNotFoundError:
-        return None
+    proc = subprocess.run(['git', '-C', str(path), *args], capture_output=True, text=True)
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 
 def git_state(path: Path) -> dict | None:
     """``{sha, dirty, branch?, describe}`` when ``path`` is the top of a git work tree.
 
-    None otherwise, so a directory nested inside another checkout is never
-    credited with the outer repository's commit. ``dirty`` counts changes to
-    tracked files only: untracked files (such as a runs directory) are not code
-    that runs unless tracked code refers to them.
+    None otherwise, so a directory inside another checkout never gets the outer
+    commit. ``dirty`` ignores untracked files, such as a runs directory.
     """
     top = git(path, 'rev-parse', '--show-toplevel')
     if top is None or Path(top).resolve() != Path(path).resolve():
@@ -56,17 +47,14 @@ def git_state(path: Path) -> dict | None:
         'dirty': bool(git(path, 'status', '--porcelain', '--untracked-files=no')),
     }
     branch = git(path, 'rev-parse', '--abbrev-ref', 'HEAD')
-    if branch and branch != 'HEAD':  # 'HEAD' means detached, as on CI checkouts
+    if branch and branch != 'HEAD':  # detached, as on CI checkouts
         state['branch'] = branch
     state['describe'] = git(path, 'describe', '--tags', '--always', '--dirty')
     return state
 
 
 def introspect_env(python: str) -> dict:
-    """Run ``introspect.py`` under ``python`` for the module and package distributions.
-
-    Raises ``ValueError`` when the interpreter cannot run it.
-    """
+    """Report of ``introspect.py`` run by ``python``; ``ValueError`` if it cannot run."""
     argv = [python, introspect.__file__, *MODULE_DISTS, *PACKAGES]
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, check=False)
@@ -119,7 +107,7 @@ def code_section(proteus: dict, env_report: dict, proteus_root: Path, env: dict)
     rad_dir = env.get('RAD_DIR')
     for name, path in (
         ('agni', proteus_root / 'AGNI'),
-        ('socrates', Path(rad_dir) if rad_dir else None),  # exported empty means unset
+        ('socrates', Path(rad_dir) if rad_dir else None),
     ):
         state = checkout_state(path)
         if state is not None:

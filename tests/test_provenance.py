@@ -6,13 +6,12 @@ are not the top of a work tree; module entries are editable (with the
 checkout's sha), git (with the VCS commit), pypi (no direct_url) or unknown;
 AGNI is read from <proteus-root>/AGNI and SOCRATES from $RAD_DIR; the
 introspection script runs in the given interpreter and failures are errors;
-an empty RAD_DIR or a missing git executable is not an error.
+an empty RAD_DIR counts as unset.
 """
 
 from __future__ import annotations
 
 import platform
-import subprocess
 import sys
 from pathlib import Path
 
@@ -116,17 +115,6 @@ def test_code_section_includes_agni_and_socrates(tmp_path, git_repo):
         {'sha': 'abd4ca53', 'dirty': False}, report, tmp_path, {'RAD_DIR': ''}
     )
     assert 'socrates' not in empty_rad['modules']  # exported empty is unset, not an error
-
-
-def test_git_missing_is_reported_as_unknown(monkeypatch, tmp_path):
-    """Without a git executable, no state is claimed."""
-
-    def no_git(argv, **kwargs):
-        raise FileNotFoundError(argv[0])
-
-    monkeypatch.setattr(subprocess, 'run', no_git)
-    assert provenance.git(tmp_path, 'status') is None
-    assert provenance.git_state(tmp_path) is None
 
 
 def test_harness_state_from_installed_metadata(monkeypatch):

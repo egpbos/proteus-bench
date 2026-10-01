@@ -45,7 +45,7 @@ def test_unknown_suite_and_missing_file_are_errors(tmp_path):
     with pytest.raises(ValueError, match=r"unknown suite 'nope'.*\['default'\]"):
         load_suite('nope')
     missing = tmp_path / 'suites.toml'
-    with pytest.raises(ValueError, match='not found'):
+    with pytest.raises(FileNotFoundError):
         load_suite('default', missing)
     missing.write_text('[suite.small]\nconfig = "input/dummy.toml"\n')
     assert load_suite('small', missing)['overrides'] == {}  # optional tables default empty

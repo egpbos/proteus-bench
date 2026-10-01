@@ -1,9 +1,4 @@
-"""Turn the files a proteus run leaves behind into run-record sections.
-
-Inputs: the timing.jsonl events, ``init_coupler.toml`` and
-``runtime_helpfile.csv``. Every duration here is derived from the raw spans,
-through ``timing.attributed_totals`` for the phase split.
-"""
+"""Run-record sections from the files a proteus run leaves behind."""
 
 from __future__ import annotations
 
@@ -21,11 +16,9 @@ ROUND = 6  # timing.jsonl resolution is one microsecond
 
 
 def component_rows(events: list[dict]) -> list[dict]:
-    """One row per (phase, component, submodule, backend), largest first, 'other' last.
+    """One row per (phase, component, submodule, backend), largest first.
 
-    Rows of a phase add up to the phase total: 'other' is the unattributed rest.
-    Only closed phases get rows. Spans of a phase that never closed (a crash)
-    have no phase total to add up to; they still appear in ``per_iter_rows``.
+    Each closed phase ends with an 'other' row, so its rows add up to its total.
     """
     totals_by_phase = attributed_totals(events)
     rows = []
@@ -33,7 +26,7 @@ def component_rows(events: list[dict]) -> list[dict]:
         totals = totals_by_phase[phase]
         attributed = sorted(totals['attributed'].items(), key=lambda kv: -kv[1][0])
         rows += [_row(phase, key, total_s, n_calls) for key, (total_s, n_calls) in attributed]
-        # Rounding can leave a remainder of -1e-7 s where nothing is unattributed
+        # Children may overrun their phase by the checker's 1 ms slack
         rows.append(_row(phase, ('other', None, None), max(0.0, totals['other']), 0))
     return rows
 
@@ -119,7 +112,7 @@ def outcome(events: list[dict], exit_code: int, timed_out: bool, timeout_s) -> d
 def fingerprint(helpfile: Path) -> tuple[dict, list[str]]:
     """Final-row physics values from runtime_helpfile.csv, and notes on unusable ones.
 
-    Non-finite values are left out (JSON has no NaN) and reported as notes.
+    Non-finite values are left out, since JSON has no NaN.
     """
     if not helpfile.is_file():
         return {}, ['runtime_helpfile.csv missing, no physics fingerprint']

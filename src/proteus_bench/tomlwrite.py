@@ -1,9 +1,6 @@
 """Write TOML from the values ``tomllib`` returns, so ``tomllib.loads(dumps(x)) == x``.
 
-The standard library reads TOML but cannot write it. This covers every type
-``tomllib`` produces: tables, arrays (written inline, including arrays of
-tables as arrays of inline tables), strings, integers, floats (with ``inf``
-and ``nan``), booleans, and offset or local dates and times.
+Arrays, including arrays of tables, are written inline.
 """
 
 from __future__ import annotations
@@ -49,8 +46,7 @@ def _value(value) -> str:
     if isinstance(value, bool):
         return 'true' if value else 'false'
     if isinstance(value, float):
-        # repr is the shortest round-tripping form ('1e-07', '1e+16', 'inf', 'nan',
-        # '0.1'), and every one is a valid TOML float; integral values keep '.0'
+        # repr forms ('1e-07', 'inf', 'nan', '1.0') are all valid TOML floats
         return repr(value)
     if isinstance(value, str):
         return _string(value)

@@ -70,7 +70,7 @@ def main(args: argparse.Namespace) -> int:
 def _discard_empty(run_dir: Path) -> None:
     """Remove the directories of a run that did not start, if they are still empty."""
     for path in (run_dir / PROFILE_DIR, run_dir):
-        with contextlib.suppress(OSError):  # absent, or not empty: keep it
+        with contextlib.suppress(OSError):  # absent or not empty
             path.rmdir()
 
 
@@ -167,9 +167,8 @@ def child_environment(run_dir: Path) -> dict:
 def command(args: argparse.Namespace, run_dir: Path):
     """``(argv, env, profiler_env, profiling module or None)`` for the proteus process.
 
-    ``argv[0]`` is resolved on the child's PATH, so a missing command fails here,
-    before anything is written. Raises ``ValueError`` for a missing command and
-    for profiler support that cannot be imported or used.
+    Raises ``ValueError`` for a command not on the child's PATH and for profiler
+    support that cannot be imported or used.
     """
     env = child_environment(run_dir)
     words = shlex.split(args.proteus_cmd)
