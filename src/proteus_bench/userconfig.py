@@ -49,7 +49,6 @@ def _fields() -> dict[str, dict[str, tuple[object, str]]]:
 
 
 def defaults() -> dict:
-    """The settings used when the config file sets nothing."""
     return {t: {k: d for k, (d, _) in keys.items()} for t, keys in _fields().items()}
 
 
