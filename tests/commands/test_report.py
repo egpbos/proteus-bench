@@ -79,12 +79,12 @@ def test_repository_comes_from_the_environment(tmp_path, analysed, monkeypatch, 
     (tmp_path / 'store' / record['artifacts']['log']).parent.mkdir(parents=True)
     (tmp_path / 'store' / record['artifacts']['log']).write_text('log')
     monkeypatch.setenv('GITHUB_REPOSITORY', 'o/n')
-    base = ['report', '--store', str(tmp_path / 'store'), '--out', str(tmp_path / 'site')]
-    assert cli.main(base) == 0
+    base = ['report', '--store', str(tmp_path / 'store'), '--out']
+    assert cli.main([*base, str(tmp_path / 'site')]) == 0
     assert 'artifact links to o/n' in capsys.readouterr().out
     run_page = (tmp_path / 'site' / 'runs' / f'{record["run_id"]}.html').read_text()
     assert f'https://github.com/o/n/blob/results/{record["artifacts"]["log"]}' in run_page
-    assert cli.main([*base, '--repo', '']) == 0
+    assert cli.main([*base, str(tmp_path / 'plain'), '--repo', '']) == 0
     assert 'no repository, so no artifact links' in capsys.readouterr().out
     with pytest.raises(ValueError, match='owner/name'):
-        cli.main([*base, '--repo', 'javascript:x'])
+        cli.main([*base, str(tmp_path / 'bad'), '--repo', 'javascript:x'])

@@ -156,15 +156,17 @@ def test_no_store_file_reaches_the_site(site):
     assert 'not linked' in section_text((site / R8).read_text(), 'Artifacts')
 
 
-def test_artifacts_link_to_the_results_branch(site, tmp_path, records, analysis):
+def test_artifacts_link_to_the_results_branch(site, tmp_path, store, analysis):
     """With a repository, present artifacts link to its results branch; missing ones say so."""
     r2 = parsed(site, R2)
     base = 'https://github.com/egpbos/proteus-bench/blob/results/'
     assert f'{base}spans/2026/20260919T031000Z-habrok-default-r2.timing.jsonl.gz' in r2.links
     assert [link for link in r2.links if link.endswith('.log.gz')] == []
     assert 'missing from the store' in section_text((site / R2).read_text(), 'Artifacts')
-    (tmp_path / 'norepo').mkdir()
-    plain = build(tmp_path / 'norepo', records, analysis)  # no repository: paths as text only
+    plain = tmp_path / 'plain'
+    build_site(load_records(store), analysis, plain, store, None)
+    spans = 'spans/2026/20260919T031000Z-habrok-default-r2.timing.jsonl.gz'
+    assert f'<code>{spans}</code>' in section_text((plain / R2).read_text(), 'Artifacts')
     assert [link for link in parsed(plain, R2).links if 'blob/results' in link] == []
 
 
@@ -322,25 +324,16 @@ def test_groups_differing_only_in_case_get_their_own_pages(tmp_path, records, an
     assert series_href(('All_Options', 'default', 'habrok-vink')) != HABROK
 
 
-def test_rebuild_removes_deleted_runs_but_never_foreign_files(tmp_path, records, analysis):
-    """A second build without the gha runs drops their pages; a non-site directory is kept."""
+def test_output_directory_must_be_new_or_empty(tmp_path, records, analysis):
+    """A build into an earlier site or any non-empty directory is refused and deletes nothing."""
     site = build(tmp_path, records, analysis)
-    (site / 'stale.txt').write_text('left over')
-    habrok = [r for r in records if r['machine']['class'] == 'habrok-vink']
-    analysis['series'] = [
-        s for s in analysis['series'] if s['key']['machine_class'] == 'habrok-vink'
-    ]
-    build(tmp_path, habrok, analysis)
-    assert not (site / 'runs' / '20260924T120000Z-gha-default-g2.html').exists()
-    assert not (site / GHA).exists()
-    assert not (site / 'stale.txt').exists()
+    with pytest.raises(ValueError, match='not empty'):
+        build(tmp_path, records[:1], analysis)
     assert (site / R8).is_file()
-    foreign = tmp_path / 'home'
-    foreign.mkdir()
-    (foreign / 'notes.txt').write_text('keep me')
-    with pytest.raises(ValueError, match='refusing to clear'):
-        build_site(records, analysis, foreign, tmp_path / 'store')
-    assert (foreign / 'notes.txt').read_text() == 'keep me'
+    empty = tmp_path / 'empty'
+    empty.mkdir()
+    build_site(records, analysis, empty, tmp_path / 'store')
+    assert (empty / 'index.html').is_file()
 
 
 def test_analysis_of_another_schema_is_refused(tmp_path, records):

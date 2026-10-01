@@ -253,7 +253,7 @@ def _artifact_cell(artifact: Artifact) -> str:
     if not artifact.present:
         return f'<code>{esc(artifact.path)}</code> <span class="warn">missing from the store</span>'
     if artifact.name == 'flame':
-        # publisher-supplied HTML is never linked; the site will build its own flame pages
+        # publisher-supplied HTML is never linked
         return f'<code>{esc(artifact.path)}</code> <span class="note">not linked</span>'
     if artifact.url:
         return https_link(artifact.url, artifact.path)

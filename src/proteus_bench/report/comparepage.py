@@ -32,6 +32,7 @@ def compare_data(records: list[dict]) -> dict:
                 f'{group_label(group_of(r))}'
             ),
             'comparable': r['comparability']['ok'],
+            'group': group_label(group_of(r)),
             'n_iters': r['outcome'].get('n_iters'),
             'totals': run_totals(r),
         }

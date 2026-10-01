@@ -28,9 +28,9 @@ pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
     ],
 )
 def test_section_of(metric, section):
-    """Names map to sections; an unknown metric still gets a chart, among the phases."""
+    """Names map to sections by prefix; the dot is part of the prefix."""
     assert section_of(metric) == section
-    assert section_of(metric) in {'headline', 'phases', 'components', 'submodules'}
+    assert section_of(metric.replace('.', '_', 1)) in {'headline', 'phases'}
 
 
 def test_size_prefers_the_baseline_median():
