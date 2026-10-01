@@ -58,6 +58,16 @@ def test_ingest_moves_run_dirs(make_run_dir, fake_gh, runs_dir, capsys):
     assert f'ingested {runs_dir / RUN_B}' in capsys.readouterr().out
 
 
+def test_same_run_id_twice_is_refused(make_run_dir, fake_gh, runs_dir, capsys):
+    """Two artifacts holding one run id: nothing is moved, both copies stay in staging."""
+    _upload(make_run_dir, fake_gh, 'bench-record', RUN_A)
+    _upload(make_run_dir, fake_gh, 'bench-record-retry', RUN_A)
+    assert cli.main(['ingest', '--gha-run', '13']) == 1
+    assert f'run ids given more than once: {RUN_A}' in capsys.readouterr().out
+    assert not (runs_dir / RUN_A).exists()
+    assert len(list((runs_dir / '.gha-13').glob('*/record.json'))) == 2
+
+
 def test_existing_run_dir_is_kept(make_run_dir, fake_gh, runs_dir, capsys):
     """Ingesting the same GHA run twice keeps the first copy and still succeeds."""
     _upload(make_run_dir, fake_gh, 'bench-record', RUN_A)

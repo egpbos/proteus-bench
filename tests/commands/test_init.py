@@ -62,7 +62,9 @@ def test_awkward_values_round_trip(xdg):
     cfg = userconfig.load()
     assert cfg['slurm']['env_activation'] == snippet
     assert cfg['machine']['label'] == 'habrök'
-    assert '\x7f' not in xdg.read_text()  # written as an escape, since TOML forbids raw DEL
+    written = xdg.read_bytes()
+    assert b'\x7f' not in written  # written as an escape, since TOML forbids raw DEL
+    assert 'label = "habrök"'.encode() in written  # TOML files are UTF-8
 
 
 def test_invalid_value_is_refused_before_writing(xdg, capsys):

@@ -85,7 +85,7 @@ def check_run(run_dir: Path) -> tuple[dict | None, list[str], bool]:
     if not record_file.is_file():
         return None, [f'{run_dir}: no record.json, so not a run directory'], True
     try:
-        record = json.loads(record_file.read_text())
+        record = json.loads(record_file.read_text(encoding='utf-8'))
     except json.JSONDecodeError as err:
         return None, [f'{record_file}: not valid JSON ({err.msg}, line {err.lineno})'], True
     if not isinstance(record, dict):
@@ -142,7 +142,7 @@ def _settings_problems(run_dir: Path, record: dict) -> list[str]:
     if not path.is_file():
         return []
     try:
-        actual = settings_hash(flatten(tomllib.loads(path.read_text())))
+        actual = settings_hash(flatten(tomllib.loads(path.read_text(encoding='utf-8'))))
     except tomllib.TOMLDecodeError as err:
         return [f'{path}: not valid TOML ({err})']
     claimed = record['benchmark']['settings_hash']
@@ -198,10 +198,13 @@ def stage_run(run_dir: Path, record: dict, tree: Path) -> dict:
     stored = {**record, 'artifacts': stored_artifacts(run_dir, record)}
     target = tree / record_path(record['run_id'])
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(stored, indent=2, ensure_ascii=False) + '\n')
+    target.write_text(json.dumps(stored, indent=2) + '\n')
     return stored
 
 
 def read_records(tree: Path) -> list[dict]:
-    """All run records in a store tree, in path order."""
-    return [json.loads(p.read_text()) for p in sorted(tree.glob('records/*/*.json'))]
+    """All run records in a store tree, in path order; ValueError if ``tree`` is no directory."""
+    if not tree.is_dir():
+        raise ValueError(f'{tree} is not a directory, so not a store checkout')
+    paths = sorted(tree.glob('records/*/*.json'))
+    return [json.loads(p.read_text(encoding='utf-8')) for p in paths]
