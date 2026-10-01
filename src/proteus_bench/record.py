@@ -58,7 +58,8 @@ class RunContext:
 
 
 def utc_iso(moment: dt.datetime) -> str:
-    return moment.astimezone(dt.UTC).isoformat(timespec='seconds').replace('+00:00', 'Z')
+    """UTC with fixed-width microseconds, so string order is time order."""
+    return moment.astimezone(dt.UTC).isoformat(timespec='microseconds').replace('+00:00', 'Z')
 
 
 def detect_adapter(env: dict) -> str:

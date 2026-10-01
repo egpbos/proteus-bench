@@ -40,9 +40,18 @@ def test_default_suite_from_the_packaged_file():
     assert SUITES.is_file()
 
 
+def test_dummy_suite_is_the_cheap_smoke_suite():
+    """All-dummy modules, a cap above PROTEUS's default minimum of 5, no backend to expect."""
+    suite = load_suite('dummy')
+    assert suite['config'] == 'input/dummy.toml'
+    assert suite['overrides'] == {'params.stop.iters.maximum': 6}
+    assert suite['overrides']['params.stop.iters.maximum'] > 5  # else PROTEUS rejects it
+    assert suite['expected_backends'] == {}
+
+
 def test_unknown_suite_and_missing_file_are_errors(tmp_path):
     """Asking for a suite that does not exist names the known ones or the missing path."""
-    with pytest.raises(ValueError, match=r"unknown suite 'nope'.*\['default'\]"):
+    with pytest.raises(ValueError, match=r"unknown suite 'nope'.*\['default', 'dummy'\]"):
         load_suite('nope')
     missing = tmp_path / 'suites.toml'
     with pytest.raises(FileNotFoundError):

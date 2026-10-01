@@ -54,12 +54,27 @@ def test_trigger_sections():
 
 
 def test_utc_iso():
-    """Offsets are converted to UTC and written with Z, to the second."""
+    """Offsets become UTC with Z; microseconds are always six digits, even when zero."""
     cet = dt.timezone(dt.timedelta(hours=2))
     assert record.utc_iso(dt.datetime(2026, 9, 25, 5, 10, 0, 999, tzinfo=cet)) == (
-        '2026-09-25T03:10:00Z'
+        '2026-09-25T03:10:00.000999Z'
     )
-    assert record.utc_iso(dt.datetime(2026, 1, 1, tzinfo=dt.UTC)) == '2026-01-01T00:00:00Z'
+    assert record.utc_iso(dt.datetime(2026, 1, 1, tzinfo=dt.UTC)) == (
+        '2026-01-01T00:00:00.000000Z'
+    )
+
+
+def test_runs_within_one_second_sort_by_start():
+    """Two runs 0.3 s apart in the same second sort in start order as strings."""
+    first = dt.datetime(2026, 9, 25, 3, 10, 0, 900000, tzinfo=dt.UTC)
+    stamps = [record.utc_iso(first + dt.timedelta(seconds=s)) for s in (0.3, 0.0, 0.05)]
+    assert sorted(stamps) == [
+        '2026-09-25T03:10:00.900000Z',
+        '2026-09-25T03:10:00.950000Z',
+        '2026-09-25T03:10:01.200000Z',
+    ]
+    # String order agrees with datetime order, which a variable-width form breaks
+    assert sorted(stamps) == sorted(stamps, key=dt.datetime.fromisoformat)
 
 
 def _ctx(suite_name: str) -> record.RunContext:
