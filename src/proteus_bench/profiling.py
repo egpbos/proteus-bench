@@ -25,9 +25,8 @@ from typing import NamedTuple
 STACKS_FILE = 'stacks.folded.gz'
 FLAME_FILE = 'flame.html'
 
-# Python packages of the PROTEUS ecosystem whose frames scalene records. scalene's
-# --profile-only keeps a file when its path contains one of these directories, so
-# modules installed from PyPI are covered as well as editable checkouts.
+# Packages whose directories go into scalene's --profile-only, so PyPI installs are
+# covered as well as editable checkouts.
 ECOSYSTEM_PACKAGES = (
     'aragog',
     'boreas',
@@ -39,12 +38,10 @@ ECOSYSTEM_PACKAGES = (
     'zalmoxis',
     'zephyrus',
 )
-# Components with their own colour on the flame page; other Python is 'other'.
 COLOURED_PACKAGES = frozenset({'aragog', 'proteus', 'zalmoxis'})
 NATIVE_BLOCK = '[native code]'
 NATIVE_JULIA_BLOCK = '[native code: Julia]'
 
-# Regular packages only: a single-file module has no search locations and is skipped.
 _FIND_PACKAGES = """
 import importlib.util, json, sys
 found = {}
@@ -57,17 +54,17 @@ print(json.dumps(found))
 
 
 class Profiler(NamedTuple):
-    output: str  # file the profiler writes into the profile directory
+    output: str
     build: Callable[[list[str], Path], tuple[list[str], dict[str, str]]]
 
 
 def _scalene_command(argv: list[str], output: Path) -> tuple[list[str], dict[str, str]]:
     # scalene runs a Python file, not a command on PATH, so it needs the script path.
-    script = shutil.which(argv[0])
-    if script is None:
+    found = shutil.which(argv[0])
+    if found is None:
         raise RuntimeError(f'{argv[0]!r} not found; scalene needs the proteus console script')
-    # Run scalene with the interpreter of proteus's environment, the one probed here.
-    python = Path(script).parent / 'python'
+    script = Path(found).resolve()  # a symlink on PATH would point at the wrong env
+    python = script.parent / 'python'
     dirs = package_dirs(python, (*ECOSYSTEM_PACKAGES, 'scalene'))
     if dirs.pop('scalene', None) is None:
         raise RuntimeError(f'scalene is not installed in the environment of {script}')
@@ -81,11 +78,10 @@ def _scalene_command(argv: list[str], output: Path) -> tuple[list[str], dict[str
         '--profile-only', only,
         '--profile-exclude', '.jl,.julia',  # tracing Julia files through juliacall crashes
         '-o', str(output),
-        script, '---', *argv[1:],
+        str(script), '---', *argv[1:],
     ]  # fmt: skip
-    # scalene 2.3.0 disables JAX JIT only with --disable-jit; the pin guards against
-    # builds that disable it by default. A JIT-disabled Zalmoxis run failed on the
-    # cluster under scalene (TracerArrayConversionError; cause not verified).
+    # Guards against scalene builds that disable JAX JIT (2.3.0 only does so with
+    # --disable-jit); Zalmoxis failed under a JIT-disabled scalene run on the cluster.
     return command, {'JAX_DISABLE_JIT': '0'}
 
 
@@ -135,10 +131,10 @@ def profiler_of(path: Path) -> str | None:
 
 
 def package_dirs(python: Path, names: tuple[str, ...]) -> dict[str, str]:
-    """Package name -> source directory, as seen by ``python``, for the installed ones.
+    """Source directory of each installed regular package, as ``python`` sees it.
 
-    Uses ``importlib.util.find_spec`` in a subprocess, which locates a package
-    without importing it. Raises RuntimeError if the interpreter fails.
+    ``find_spec`` locates a package without importing it. Raises RuntimeError if
+    the interpreter fails.
     """
     # -P: do not put the current directory first, as the console script does not either.
     cmd = [str(python), '-P', '-c', _FIND_PACKAGES, *names]
@@ -182,8 +178,8 @@ def scalene_to_folded(profile: dict) -> list[str]:
     labelled stacks are merged; the sum of counts equals the sum of hits. Raises
     ValueError when there is nothing to draw.
     """
-    if 'combined_stacks' not in profile:
-        raise ValueError(f'not a scalene profile: no combined_stacks (keys: {sorted(profile)})')
+    if not isinstance(profile, dict) or 'combined_stacks' not in profile:
+        raise ValueError('not a scalene profile: no combined_stacks')
     counts: Counter[str] = Counter()
     python_samples = 0
     for frames, hits in profile['combined_stacks']:
@@ -210,7 +206,10 @@ def read_folded(path: Path) -> list[str]:
     """Non-empty lines of a ``.folded`` or ``.folded.gz`` file, each checked."""
     data = path.read_bytes()
     if path.suffix == '.gz':
-        data = gzip.decompress(data)
+        try:
+            data = gzip.decompress(data)
+        except (EOFError, gzip.BadGzipFile) as err:
+            raise ValueError(f'not a valid gzip file ({err})') from None
     lines = [line for line in data.decode().splitlines() if line.strip()]
     for i, line in enumerate(lines, 1):
         try:
@@ -331,17 +330,16 @@ def collect(profile_dir: Path, meta: dict | None = None) -> dict[str, str]:
     output of more than one profiler exists or the output holds no samples.
     """
     found = [name for name, spec in PROFILERS.items() if (profile_dir / spec.output).exists()]
-    outputs = [PROFILERS[name].output for name in found]
     if not found:
         expected = ' or '.join(spec.output for spec in PROFILERS.values())
         raise FileNotFoundError(f'no profiler output in {profile_dir}: expected {expected}')
     if len(found) > 1:
-        raise ValueError(f'{profile_dir} holds output of several profilers: {outputs}')
-    source = profile_dir / outputs[0]
+        raise ValueError(f'{profile_dir} holds output of several profilers: {found}')
+    source = profile_dir / PROFILERS[found[0]].output
     try:
         lines = load_stacks(source)
         write_flame_page(
-            lines, profile_dir / FLAME_FILE, {'profiler': found[0], **(meta or {})}
+            lines, profile_dir / FLAME_FILE, {**(meta or {}), 'profiler': found[0]}
         )
     except ValueError as err:
         raise ValueError(f'{source}: {err}') from None

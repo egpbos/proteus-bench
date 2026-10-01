@@ -81,11 +81,25 @@ def test_scalene_command_follows_the_recipe(tools, tmp_path):
     assert argv[sep - 1] == script
     assert argv[sep + 1 :] == ['start', '-c', 'x.toml']
     assert profile_dir.is_dir()
-    # The interpreter that runs scalene is the one probed, and it is asked for scalene too.
     assert calls[0][0] == Path(python)
     assert 'scalene' in calls[0][1]
-    # Limit: no proteus arguments still ends with the separator.
     assert profiling.wrap_command('scalene', ['proteus'], profile_dir)[0][-1] == '---'
+
+
+def test_scalene_follows_a_symlinked_script_to_its_env(tools, monkeypatch, tmp_path):
+    """A proteus script reached through a symlink is probed with its own env's Python."""
+    _, calls, _ = tools
+    real = tmp_path / 'env2' / 'bin' / 'proteus'
+    real.parent.mkdir(parents=True)
+    real.write_text('')
+    link = tmp_path / 'links' / 'proteus'
+    link.parent.mkdir()
+    link.symlink_to(real)
+    monkeypatch.setattr(profiling.shutil, 'which', {'proteus': str(link)}.get)
+    argv, _ = profiling.wrap_command('scalene', ['proteus', 'start'], tmp_path / 'p')
+    assert calls[-1][0] == real.resolve().parent / 'python'
+    assert argv[0] == str(real.resolve().parent / 'python')
+    assert argv[argv.index('---') - 1] == str(real.resolve())
 
 
 def test_scalene_refuses_what_it_cannot_profile(tools, tmp_path):
@@ -109,7 +123,7 @@ def test_unknown_profiler_raises(tools, tmp_path):
     for name in ('none', 'Scalene', 'pyspy', ''):
         with pytest.raises(ValueError, match='unknown profiler'):
             profiling.wrap_command(name, ['proteus', 'start'], tmp_path / 'p')
-    assert not (tmp_path / 'p').exists()  # nothing is created for a refused profiler
+    assert not (tmp_path / 'p').exists()
 
 
 def test_pyspy_command_and_its_limits(tools, monkeypatch, tmp_path):
@@ -184,8 +198,9 @@ def test_empty_scalene_profiles_are_refused(profiles):
     native_only = profile | {'combined_stacks': profile['combined_stacks'][-1:]}
     with pytest.raises(ValueError, match='no samples in PROTEUS code'):
         profiling.scalene_to_folded(native_only)
-    with pytest.raises(ValueError, match='not a scalene profile'):
-        profiling.scalene_to_folded({'files': {}})
+    for not_profile in ({'files': {}}, None, [], 'combined_stacks'):
+        with pytest.raises(ValueError, match='not a scalene profile'):
+            profiling.scalene_to_folded(not_profile)
 
 
 def test_collapse_merges_native_runs():
@@ -321,8 +336,8 @@ def test_meta_values_are_escaped(tmp_path):
     assert 'run <code>&lt;img src=x&gt;</code>' in text
     assert 'PROTEUS <code>a&amp;b</code>' in text
     assert '<img' not in text
-    assert 'profiler ' not in text  # empty value omitted
-    assert '<h1>PROTEUS CPU flame graph</h1>' in text  # default title
+    assert 'profiler ' not in text
+    assert '<h1>PROTEUS CPU flame graph</h1>' in text
 
 
 def test_flame_page_survives_hostile_names_and_refuses_empty(tmp_path):
@@ -347,8 +362,9 @@ def test_real_slice_matches_the_reference_counts(profiles):
     assert len(nodes(tree)) == 69 + 1
     assert names(tree).count('[native code]') == 10
     assert names(tree).count('[native code: Julia]') == 1
+    count_cut_off = [lines[0].rsplit(' ', 1)[0]]
     with pytest.raises(ValueError, match='expected "frame;frame'):
-        profiling.flame_tree([lines[0].rsplit(' ', 1)[0]])  # count cut off
+        profiling.flame_tree(count_cut_off)
 
 
 def test_read_folded_rejects_malformed_lines(tmp_path):
@@ -360,7 +376,7 @@ def test_read_folded_rejects_malformed_lines(tmp_path):
             profiling.read_folded(bad)
     gz = tmp_path / 'ok.folded.gz'
     gz.write_bytes(gzip.compress(b'a;b 3\n\n'))
-    assert profiling.read_folded(gz) == ['a;b 3']  # blank lines skipped
+    assert profiling.read_folded(gz) == ['a;b 3']
 
 
 def test_collect_scalene_profile_dir(tmp_path, profiles):
@@ -368,7 +384,8 @@ def test_collect_scalene_profile_dir(tmp_path, profiles):
     profile_dir = tmp_path / 'run' / 'profile'
     profile_dir.mkdir(parents=True)
     (profile_dir / 'scalene-profile.json').write_text(profiles.scalene.read_text())
-    artifacts = profiling.collect(profile_dir, {'run_id': 'r7'})
+    # The detected profiler wins over a stale one in the caller's metadata.
+    artifacts = profiling.collect(profile_dir, {'run_id': 'r7', 'profiler': 'py-spy'})
     assert artifacts == {'profile': 'profile/stacks.folded.gz', 'flame': 'profile/flame.html'}
     stacks = gzip.decompress((tmp_path / 'run' / artifacts['profile']).read_bytes()).decode()
     assert (
@@ -377,6 +394,7 @@ def test_collect_scalene_profile_dir(tmp_path, profiles):
     )
     page = (tmp_path / 'run' / artifacts['flame']).read_text()
     assert 'profiler scalene' in page
+    assert 'profiler py-spy' not in page
     assert 'run <code>r7</code>' in page
     # gzip header bytes 4-7 hold the mtime; zero keeps equal stacks byte-identical.
     assert (profile_dir / 'stacks.folded.gz').read_bytes()[4:8] == bytes(4)

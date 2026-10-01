@@ -25,9 +25,8 @@ def main(args: argparse.Namespace) -> int:
     try:
         lines = profiling.load_stacks(args.input)
         total = profiling.write_flame_page(lines, args.out, meta)
-    except OSError as err:  # a missing file names itself; a corrupt gzip does not
-        where, reason = err.filename or args.input, err.strerror or err
-        print(f'proteus-bench flame: {where}: {reason}', file=sys.stderr)
+    except OSError as err:  # names its own file
+        print(f'proteus-bench flame: {err}', file=sys.stderr)
         return 1
     except ValueError as err:
         print(f'proteus-bench flame: {args.input}: {err}', file=sys.stderr)

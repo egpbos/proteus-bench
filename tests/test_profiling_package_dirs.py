@@ -38,7 +38,7 @@ def test_locates_packages_only_and_ignores_the_current_directory(site):
     names = ('pkg_a', 'pkg_b', 'mod_c', 'missing')
     found = package_dirs(Path(sys.executable), names)
     assert found == {'pkg_a': str(site / 'pkg_a')}  # located, not imported (it would exit)
-    assert 'pkg_a_extra' not in found  # only the names asked for
+    assert 'pkg_a_extra' not in found
 
 
 def test_interpreter_failures_raise(site, tmp_path):

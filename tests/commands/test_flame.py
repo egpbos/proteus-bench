@@ -37,7 +37,7 @@ def test_each_input_type_gives_a_page(tmp_path, capsys, profiles):
         if marker:
             assert marker in page
         else:
-            assert 'profiler ' not in page  # a folded file does not say which profiler
+            assert 'profiler ' not in page
 
 
 def test_default_output_name(tmp_path, monkeypatch, capsys, profiles):
@@ -47,7 +47,9 @@ def test_default_output_name(tmp_path, monkeypatch, capsys, profiles):
     assert 'PROTEUS CPU flame graph' in (tmp_path / 'flame.html').read_text()
     missing_dir = tmp_path / 'no' / 'flame.html'
     assert cli.main(['flame', str(profiles.slice), '--out', str(missing_dir)]) == 1
-    assert f'{missing_dir}: No such file' in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert str(missing_dir) in err
+    assert 'No such file' in err
 
 
 def test_empty_profiles_fail_clearly(tmp_path, capsys, profiles):
@@ -67,18 +69,24 @@ def test_empty_profiles_fail_clearly(tmp_path, capsys, profiles):
 
 
 def test_unreadable_inputs_fail_clearly(tmp_path, capsys):
-    """Missing files, broken JSON or gzip and malformed lines exit 1, naming the input once."""
+    """Missing, broken, truncated or non-profile input exits 1, naming the input once."""
     broken = tmp_path / 'broken.json'
     broken.write_text('{"combined_stacks": ')
     malformed = tmp_path / 'bad.folded'
     malformed.write_text('a;b 1\na;b\n')
     corrupt = tmp_path / 'bad.folded.gz'
     corrupt.write_bytes(b'not gzip')
+    truncated = tmp_path / 'cut.folded.gz'
+    truncated.write_bytes(gzip.compress(b'a;b 1\n')[:-6])
+    null = tmp_path / 'null.json'
+    null.write_text('null')
     cases = (
         (tmp_path / 'missing.folded', 'No such file'),
         (broken, 'not valid JSON'),
         (malformed, 'line 2'),
         (corrupt, 'Not a gzipped file'),
+        (truncated, 'not a valid gzip file'),
+        (null, 'not a scalene profile'),
     )
     for source, reason in cases:
         assert cli.main(['flame', str(source), '--out', str(tmp_path / 'x.html')]) == 1

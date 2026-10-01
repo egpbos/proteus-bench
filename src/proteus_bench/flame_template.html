@@ -83,6 +83,7 @@ function render() {
   chart = flamegraph.default()
     .width(Math.max(el.clientWidth, 640)).cellHeight(18).minFrameSize(1).transitionDuration(250)
     .selfValue(true).inverted(inverted).sort(true).tooltip(tip)
+    .setSearchMatch((d, term) => d.data.name.toLowerCase().includes(term.toLowerCase()))
     .setColorMapper(d => d.highlight ? hl : colour(d.data.k || 'native'));
   d3.select('#chart').datum(DATA).call(chart);
   const q = document.getElementById('q').value.trim(); if (q) chart.search(q);
