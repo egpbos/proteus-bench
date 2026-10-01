@@ -58,8 +58,11 @@ def test_unchanged_settings_need_nothing(make_run_dir, tmp_path, capsys):
     new = make_run_dir(RUN_2)
     assert cli.main(['lineage-check', str(new), '--store', str(tree)]) == 0
     assert capsys.readouterr().out == 'carry_over=none\n'
-    # An empty store (first run ever) needs nothing either
+    # An empty store (first run ever) needs nothing; a mistyped store path is an error
+    (tmp_path / 'empty').mkdir()
     assert cli.main(['lineage-check', str(new), '--store', str(tmp_path / 'empty')]) == 0
+    assert cli.main(['lineage-check', str(new), '--store', str(tmp_path / 'typo')]) == 1
+    assert 'typo is not a directory' in capsys.readouterr().out
 
 
 def test_failed_run_between_equal_settings(make_run_dir, tmp_path, capsys):

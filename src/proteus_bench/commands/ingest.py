@@ -16,8 +16,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from proteus_bench import store, userconfig
-from proteus_bench.commands.publish import add_store_arguments, publish_run_dirs
+from proteus_bench import userconfig
+from proteus_bench.commands.publish import add_store_arguments, check_runs, publish_run_dirs
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -62,18 +62,13 @@ def _move_runs(staging: Path, runs_dir: Path) -> list[Path] | None:
     if not found:
         print(f'no run directory (a directory with record.json) in the artifacts: {staging}')
         return None
-    checked = []
-    for run_dir in found:
-        record, problems, _ = store.check_run(run_dir)
-        for problem in problems:
-            print(problem)
-        if problems:
-            print(f'not ingested; downloaded files kept in {staging}')
-            return None
-        checked.append((run_dir, record['run_id']))
+    runs = check_runs(found)
+    if runs is None:
+        print(f'not ingested; downloaded files kept in {staging}')
+        return None
     moved = []
-    for run_dir, run_id in checked:
-        target = runs_dir / run_id
+    for run_dir, record in runs:
+        target = runs_dir / record['run_id']
         if target.exists():
             print(f'{target} exists; kept it and dropped the downloaded copy')
         else:

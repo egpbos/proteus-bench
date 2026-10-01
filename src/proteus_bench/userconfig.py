@@ -64,7 +64,7 @@ def load(path: Path | None = None) -> dict:
     if not path.exists():
         return defaults()
     try:
-        user = tomllib.loads(path.read_text())
+        user = tomllib.loads(path.read_text(encoding='utf-8'))
     except tomllib.TOMLDecodeError as err:
         raise ValueError(f'{path}: not valid TOML ({err})') from err
     return merge(user, path)
