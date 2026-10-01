@@ -52,10 +52,9 @@ jobs:
   sonarqube:
     name: SonarQube
     needs: test
+    # Pull requests from forks get no secrets
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    # Pull requests from forks get no secrets; skip the scan there instead of failing
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -65,8 +64,9 @@ jobs:
         with:
           name: coverage
       - name: SonarQube Scan
-        if: env.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.organization=egpbos

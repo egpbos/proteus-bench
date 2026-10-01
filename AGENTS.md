@@ -49,6 +49,8 @@ for the reader, human or model, who has to understand and change the code later.
 1. **Small is the default.** Write the least code that does the job. No speculative
    options, parameters, hooks or abstractions "for later". No defensive branches for
    states that cannot occur. More lines are a cost that needs a reason.
+   Prefer removing problematic code over adding edge-case handling around it: check why
+   the code was introduced (git log, the commit message) and fix the cause instead.
 2. **Complexity limits.** McCabe complexity <= 10 per function (ruff `C90`, enforced);
    cognitive complexity <= 15 (SonarCloud). Functions aim for < 40 lines, files for
    < 400. Past that, split along a real concern boundary, not arbitrarily.
@@ -60,10 +62,10 @@ for the reader, human or model, who has to understand and change the code later.
 5. **Names carry meaning.** Use the domain words (span, phase, lineage, attributed,
    baseline), not generic ones (data, info, process, handle, manager, util). Units go in
    the name when not obvious: `dur_s`, `mem_gb`.
-6. **Comments explain why, never what.** Good: a constraint, a unit, a source, a
-   non-obvious choice, a known trap. Bad: restating the code, narrating history, or
-   describing how the change was made. Docstrings state the contract: inputs, outputs,
-   errors, units.
+6. **Quiet code.** Comments explain why, never what, and only when the why is not
+   obvious: a constraint, a unit, a source, a known trap. Leave out the rest, including
+   restated code, history and how the change was made. Docstrings state the contract
+   briefly: inputs, outputs, errors, units.
 7. **Errors are loud and actionable.** No bare `except`, no `except Exception: pass`.
    Messages say what was expected, what was found, and where.
 8. **No dead code.** No commented-out code (ruff `ERA`), no unused parameters, no
@@ -87,7 +89,7 @@ reason is worse than none.
    (e.g. "without the equilibration solves the total would be 1138 s, not 1768 s").
 4. Mutation check: for rule-like code (validators, checkers, detectors, flag logic),
    disabling any single rule must make at least one test fail. Check every rule, not a
-   sample, and list the results in the pull request. Run the check with
+   sample. Run the check with
    `PYTHONDONTWRITEBYTECODE=1` after clearing `__pycache__`: a restored file can match the
    mutant's size and modification second, and Python would then run stale bytecode.
 5. No float `==`; use `pytest.approx` with a stated tolerance. Unit tests < 100 ms.
@@ -97,7 +99,8 @@ reason is worse than none.
 
 Commit messages, PR titles and bodies, docs, comments and log strings describe the
 outcome, not the process. Do not mention AI tools or how a change was produced. No em
-dashes or en dashes. Do not hard-wrap PR or issue bodies.
+dashes or en dashes. Do not hard-wrap PR or issue bodies. Keep PR descriptions short:
+the bare change, no history and no result tables.
 
 ## Review
 

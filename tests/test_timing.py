@@ -161,25 +161,22 @@ def test_span_ids_must_be_unique_and_parents_must_open_first(good_events):
 
 
 @pytest.mark.parametrize(
-    ('field', 'value'),
-    [('parent', '1'), ('t0', '0.0'), ('dur', None), ('id', True), ('name', 7)],
-    ids=['string_parent', 'string_t0', 'null_dur', 'bool_id', 'numeric_name'],
+    'malform',
+    [
+        lambda ev: _span(ev, 'star').update(parent='1'),
+        lambda ev: _span(ev, 'star').update(dur=None),
+        lambda ev: ev[1].update(ev=[]),
+        lambda ev: ev.insert(2, 5),
+    ],
+    ids=['string_parent', 'null_dur', 'list_kind', 'bare_number'],
 )
-def test_wrong_field_types_are_reported_not_raised(good_events, field, value):
-    """Without jsonschema the checker still meets bad types; it must report, not crash."""
+def test_malformed_events_give_one_problem_instead_of_raising(good_events, malform):
+    """Without jsonschema the checker meets wrong shapes; it reports them, never crashes."""
     events = copy.deepcopy(good_events)
-    star = _span(events, 'star')
-    star[field] = value
+    malform(events)
     problems = check_events(events)
-    assert any(f'wrong type for {field}' in p for p in problems)
-    # Right type, other value: no type complaint, so the type rule caused the report.
-    assert not any('wrong type' in p for p in check_events(good_events))
-
-
-def test_a_line_that_is_not_an_object_is_reported(good_events):
-    """A JSON value that is not an object (e.g. a bare number) is an event problem."""
-    problems = check_events([*good_events[:2], 5, *good_events[2:]])
-    assert problems == ['event 2: not a JSON object']
+    assert len(problems) == 1
+    assert problems[0].startswith('events do not match the timing schema')
     assert check_events(good_events) == []
 
 

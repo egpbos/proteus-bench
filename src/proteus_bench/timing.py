@@ -1,12 +1,11 @@
 """Read and check PROTEUS ``timing.jsonl`` files (interface version 1).
 
 The JSON Schema in ``schemas/timing-v1.schema.json`` fixes the shape of each
-line. This module adds a minimal envelope check (versions, event kinds and
-required keys, the latter read from that schema) so it works without
-``jsonschema``, and then checks what a schema cannot: the span tree (parents
-open first, exist, and contain their children), the phase layout, iteration
-numbering, and the rule that at most one span on any root-to-leaf path carries
-a ``component``, so attributed times can be summed without double counting.
+line (``schema.shape_problems``, which needs the optional ``jsonschema``). This
+module checks what a schema cannot: the span tree (parents open first, exist and
+contain their children), the phase layout, iteration numbering, and the rule
+that at most one span on any root-to-leaf path carries a ``component``, so
+attributed times can be summed without double counting.
 """
 
 from __future__ import annotations
@@ -58,9 +57,18 @@ def check_events(events: list[dict]) -> list[str]:
 
     A run without a ``run_end`` event (a crash) is valid data: spans that were
     still open are missing, so references to absent parents are tolerated.
+    Events of the wrong shape are reported as one problem; ``schema.shape_problems``
+    names the fields.
     """
     if not events:
         return ['no events']
+    try:
+        return _check(events)
+    except (AttributeError, KeyError, TypeError) as err:
+        return [f'events do not match the timing schema ({type(err).__name__}: {err})']
+
+
+def _check(events: list[dict]) -> list[str]:
     problems = _check_envelope(events)
     if problems:
         return problems
@@ -75,50 +83,8 @@ def check_events(events: list[dict]) -> list[str]:
     return problems
 
 
-_JSON_TYPES = {
-    'array': list,
-    'boolean': bool,
-    'integer': int,
-    'null': type(None),
-    'number': (int, float),
-    'object': dict,
-    'string': str,
-}
-
-
-@cache
-def _field_types() -> dict[str, dict[str, tuple[str, ...]]]:
-    """JSON types per field for each event kind, read from the bundled schema."""
-    timing_schema = schema.load('timing')
-    defs = timing_schema['$defs']
-    out = {}
-    for kind in timing_schema['properties']['ev']['enum']:
-        fields = {}
-        for name, spec in defs[kind]['properties'].items():
-            if isinstance(spec, dict) and '$ref' in spec:
-                spec = defs[spec['$ref'].rsplit('/', 1)[-1]]
-            if isinstance(spec, dict) and 'type' in spec:
-                declared = spec['type']
-                fields[name] = (declared,) if isinstance(declared, str) else tuple(declared)
-        out[kind] = fields
-    return out
-
-
-def _type_ok(value, json_types: tuple[str, ...]) -> bool:
-    # bool is an int subclass in Python but a distinct type in JSON
-    if isinstance(value, bool):
-        return 'boolean' in json_types
-    return any(isinstance(value, _JSON_TYPES[t]) for t in json_types)
-
-
-def _event_problems(i: int, ev) -> list[str]:
-    """Version, kind, required keys and field types of one event.
-
-    Checked here, not only by the optional JSON Schema, so the tree checks never
-    meet a value of the wrong type.
-    """
-    if not isinstance(ev, dict):
-        return [f'event {i}: not a JSON object']
+def _event_problems(i: int, ev: dict) -> list[str]:
+    """Version, kind and required keys of one event."""
     problems = []
     if ev.get('v') not in SUPPORTED_VERSIONS:
         problems.append(f'event {i}: unsupported version {ev.get("v")!r}')
@@ -128,10 +94,6 @@ def _event_problems(i: int, ev) -> list[str]:
     missing = [k for k in _required_keys()[kind] if k not in ev]
     if missing:
         problems.append(f'event {i} ({kind}): missing {", ".join(missing)}')
-    types = _field_types()[kind]
-    wrong = [k for k, t in types.items() if k in ev and not _type_ok(ev[k], t)]
-    if wrong:
-        problems.append(f'event {i} ({kind}): wrong type for {", ".join(wrong)}')
     return problems
 
 
