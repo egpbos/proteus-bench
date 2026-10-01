@@ -9,6 +9,8 @@ lineage is 'default', others use the settings hash; settings drop per-run keys.
 from __future__ import annotations
 
 import datetime as dt
+import json
+import math
 from pathlib import Path
 
 import pytest
@@ -78,3 +80,32 @@ def test_benchmark_lineage_and_settings():
     other = record.benchmark_section(_ctx('small'), flat)
     assert other['lineage'] == other['settings_hash'] == default['settings_hash']
     assert other['lineage'].startswith('sha256:')
+
+
+def test_non_finite_settings_become_null_but_keep_their_hash():
+    """TOML allows inf and nan; the record holds null, the hash still tells them apart."""
+    flat = {
+        'a.inf': math.inf,
+        'a.list': [1.0, -math.inf],
+        'a.rows': [{'x': math.nan}],
+        'b': 2.5,
+    }
+    section = record.benchmark_section(_ctx('default'), flat)
+    assert section['settings'] == {
+        'a.inf': None,
+        'a.list': [1.0, None],
+        'a.rows': [{'x': None}],
+        'b': 2.5,
+    }
+    assert json.loads(json.dumps(section, allow_nan=False))['settings']['b'] == 2.5
+    nan_instead = record.benchmark_section(_ctx('default'), {**flat, 'a.inf': math.nan})
+    assert nan_instead['settings_hash'] != section['settings_hash']
+
+
+def test_record_with_a_non_finite_value_is_refused(tmp_path):
+    """NaN is not JSON: writing it fails instead of leaving an unreadable record."""
+    with pytest.raises(ValueError, match='not JSON compliant'):
+        record.write_record(tmp_path, {'timings': {'wall_s': math.nan}})
+    assert not (tmp_path / 'record.json').exists()
+    path = record.write_record(tmp_path, {'timings': {'wall_s': 1.5}})
+    assert json.loads(path.read_text()) == {'timings': {'wall_s': 1.5}}

@@ -14,6 +14,7 @@ four-iteration fake run, not read back from the implementation.
 from __future__ import annotations
 
 import datetime as dt
+import math
 
 import pytest
 
@@ -178,6 +179,8 @@ def test_outcome_precedence(good_events, run_fake):
     assert crashed['status'] == 'crashed'
     assert crashed['n_iters'] == 4
     assert collect.outcome([], 0, False, None)['error'] == 'no timing.jsonl events'
+    diverged = [*good_events[:-1], {**good_events[-1], 'time_yr': math.nan}]
+    assert 'time_yr' not in collect.outcome(diverged, 0, False, None)  # JSON has no NaN
     _, _, error_events = run_fake({'fail': 'error', 'fail_at_iter': 2}, iters=4)
     failed = collect.outcome(error_events, 1, False, None)
     assert failed['status'] == 'failed'

@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 import getpass
 import json
+import math
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -94,13 +95,24 @@ def copy_outputs(ctx: RunContext) -> None:
             shutil.copy2(source, ctx.run_dir / ARTIFACTS[key])
 
 
+def finite_or_null(value):
+    """``value`` with TOML's inf and nan, which JSON cannot hold, replaced by None."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, list):
+        return [finite_or_null(v) for v in value]
+    if isinstance(value, dict):
+        return {k: finite_or_null(v) for k, v in value.items()}
+    return value
+
+
 def benchmark_section(ctx: RunContext, flat: dict) -> dict:
     digest = settings.settings_hash(flat)
     return {
         'name': Path(ctx.suite['config']).stem,
         'lineage': 'default' if ctx.suite['name'] == 'default' else digest,
         'settings_hash': digest,
-        'settings': settings.comparable(flat),
+        'settings': finite_or_null(settings.comparable(flat)),
         'overrides': ctx.suite['overrides'],
         'config_source': ctx.suite['config'],
         'carry_over_of': None,
@@ -163,5 +175,5 @@ def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, li
 
 def write_record(run_dir: Path, record: dict) -> Path:
     path = run_dir / 'record.json'
-    path.write_text(json.dumps(record, indent=2) + '\n')
+    path.write_text(json.dumps(record, indent=2, allow_nan=False) + '\n')
     return path

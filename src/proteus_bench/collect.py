@@ -96,7 +96,9 @@ def outcome(events: list[dict], exit_code: int, timed_out: bool, timeout_s) -> d
     end = events[-1] if events and events[-1]['ev'] == 'run_end' else {}
     n_iters = end.get('n_iters', sum(1 for ev in events if ev.get('name') == 'iter'))
     out = {'exit_code': exit_code, 'n_iters': n_iters}
-    out |= {k: end[k] for k in ('termination', 'time_yr', 'error') if k in end}
+    out |= {k: end[k] for k in ('termination', 'error') if k in end}
+    if math.isfinite(end.get('time_yr', math.nan)):  # a diverged run can end at NaN years
+        out['time_yr'] = end['time_yr']
     if timed_out:
         out |= {'status': 'timeout', 'error': f'killed after the {timeout_s} s timeout'}
     elif not end:
