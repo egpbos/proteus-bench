@@ -33,7 +33,7 @@ def test_default_suite_from_the_packaged_file():
     assert suite == {
         'name': 'default',
         'config': 'input/all_options.toml',
-        'overrides': {'params.stop.iters.maximum': 16},
+        'overrides': {'params.stop.iters.maximum': 16, 'params.stop.time.minimum': 0.0},
         'expected_backends': {'aragog.solver': 'cvode'},
     }
     assert SUITES.name == 'suites.toml'
@@ -44,7 +44,10 @@ def test_dummy_suite_is_the_cheap_smoke_suite():
     """All-dummy modules, a cap above PROTEUS's default minimum of 5, no backend to expect."""
     suite = load_suite('dummy')
     assert suite['config'] == 'input/dummy.toml'
-    assert suite['overrides'] == {'params.stop.iters.maximum': 6}
+    assert suite['overrides'] == {
+        'params.stop.iters.maximum': 6,
+        'params.stop.time.minimum': 0.0,
+    }
     assert suite['overrides']['params.stop.iters.maximum'] > 5  # else PROTEUS rejects it
     assert suite['expected_backends'] == {}
 
@@ -119,6 +122,8 @@ def test_run_config_from_a_proteus_checkout(tmp_path):
     suite = load_suite('default')
     cfg = build_run_config(tmp_path, suite, '20260925T031000Z-x-default-a1b2')
     assert cfg['params']['stop']['iters']['maximum'] == 16  # was 9000 in the file
+    assert cfg['params']['stop']['time']['minimum'] == pytest.approx(0.0, abs=0)  # was 1e3
+    assert cfg['params']['stop']['time']['maximum'] == pytest.approx(6e9)  # sibling kept
     assert cfg['params']['out']['path'] == '20260925T031000Z-x-default-a1b2'  # was 'auto'
     assert cfg['params']['out']['logging'] == 'INFO'
     with pytest.raises(ValueError, match='all_options.toml not found'):

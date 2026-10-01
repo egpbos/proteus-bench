@@ -176,7 +176,8 @@ def command(args: argparse.Namespace, run_dir: Path):
     if exe is None:
         raise ValueError(f'--proteus-cmd {args.proteus_cmd!r}: command not found on PATH')
     config = str(run_dir / record.ARTIFACTS['config'])
-    argv = [os.path.abspath(exe), *words[1:], 'start', '-c', config]
+    # Offline, so a download never lands inside the timing; missing data fails the run
+    argv = [os.path.abspath(exe), *words[1:], 'start', '--offline', '-c', config]
     if args.profiler == 'none':
         return argv, env, {}, None
     profiling = _profiling_module(args.profiler)

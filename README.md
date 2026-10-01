@@ -42,6 +42,12 @@ runs anyway and marks the record as not comparable.
 Suites live in `src/proteus_bench/suites.toml`.
 `proteus-bench run --help` lists the other options.
 
+proteus runs with `--offline`, so no download is ever timed and missing data
+fails the run. Fetch the data once beforehand: `proteus get reference` covers
+the `dummy` suite; the `default` suite also needs the data `proteus get` fetches
+for its modules (`stellar`, `spectral`, `surfaces`, and
+`interiordata --config-path input/all_options.toml`).
+
 ## Development
 
 ```bash

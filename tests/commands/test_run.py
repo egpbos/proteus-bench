@@ -265,7 +265,7 @@ def test_profiler_wraps_the_command_and_its_artifacts_are_recorded(bench, monkey
     assert code == 0
     profiler, argv, profile_dir = hook.wrapped[0]
     assert profiler == 'scalene'
-    assert argv[-3:-1] == ['start', '-c']
+    assert argv[-4:-1] == ['start', '--offline', '-c']
     assert profile_dir == _run_dir(out) / 'profile'
     assert hook.collected == [
         (profile_dir, {'run_id': rec['run_id'], 'commit': rec['code']['proteus']['sha']})

@@ -8,10 +8,11 @@
 [suite.default]
 config = "input/all_options.toml"
 # all_options.toml runs up to 9000 iterations; the cap keeps a run within a CI job.
-overrides = { "params.stop.iters.maximum" = 16 }
+# PROTEUS ignores the cap until params.stop.time.minimum is reached, so that is 0.
+overrides = { "params.stop.iters.maximum" = 16, "params.stop.time.minimum" = 0.0 }
 expected_backends = { "aragog.solver" = "cvode" }
 
 [suite.dummy]
 config = "input/dummy.toml"
-# Must exceed params.stop.iters.minimum, which defaults to 5
-overrides = { "params.stop.iters.maximum" = 6 }
+# The cap must exceed params.stop.iters.minimum, which defaults to 5
+overrides = { "params.stop.iters.maximum" = 6, "params.stop.time.minimum" = 0.0 }
