@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -88,7 +89,7 @@ def test_scalene_command_follows_the_recipe(tools, tmp_path):
 
 def test_scalene_follows_a_symlinked_script_to_its_env(tools, monkeypatch, tmp_path):
     """A proteus script reached through a symlink is probed with its own env's Python."""
-    _, calls, _ = tools
+    _, calls, dirs = tools
     real = tmp_path / 'env2' / 'bin' / 'proteus'
     real.parent.mkdir(parents=True)
     real.write_text('')
@@ -100,6 +101,9 @@ def test_scalene_follows_a_symlinked_script_to_its_env(tools, monkeypatch, tmp_p
     assert calls[-1][0] == real.resolve().parent / 'python'
     assert argv[0] == str(real.resolve().parent / 'python')
     assert argv[argv.index('---') - 1] == str(real.resolve())
+    del dirs['scalene']
+    with pytest.raises(RuntimeError, match=re.escape(f'environment of {real.resolve()}')):
+        profiling.wrap_command('scalene', ['proteus', 'start'], tmp_path / 'p')
 
 
 def test_scalene_refuses_what_it_cannot_profile(tools, tmp_path):
