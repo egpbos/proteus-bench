@@ -12,7 +12,6 @@ on GitHub, because store files come from publishers and the site is public.
 
 from __future__ import annotations
 
-import shutil
 from importlib import resources
 from pathlib import Path
 
@@ -46,28 +45,27 @@ def flags_by_run(analysis: dict) -> dict[str, list[tuple[str, dict]]]:
 def build_site(
     records: list[dict], analysis: dict, out_dir: Path, store: Path, repo: str | None = None
 ) -> list[Path]:
-    """Write the site to ``out_dir``, replacing an earlier site there; return the pages.
+    """Write the site to ``out_dir``, which must be new or empty; return the pages.
 
     ``records`` are oldest first (``store.load_records``). ``repo`` (owner/name)
     makes artifact links point at its results branch; without it the store
     paths are shown as text. Raises ``ValueError`` for an analysis of another
-    schema, and refuses to clear an ``out_dir`` that holds something other
-    than an earlier site.
+    schema or a non-empty ``out_dir``.
     """
     if analysis.get('schema') != ANALYSIS_SCHEMA:
         raise ValueError(
             f'expected analysis schema {ANALYSIS_SCHEMA!r}, found {analysis.get("schema")!r}'
         )
     pages = render_pages(records, analysis, store, repo)
-    _clear(out_dir)
+    _prepare(out_dir)
     for name in ASSETS:
         template = resources.files('proteus_bench.report.templates').joinpath(name)
-        (out_dir / name).write_text(template.read_text())
+        (out_dir / name).write_text(template.read_text(encoding='utf-8'), encoding='utf-8')
     written = []
     for relpath, html in pages.items():
         path = out_dir / relpath
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(html)
+        path.write_text(html, encoding='utf-8')
         written.append(path)
     return written
 
@@ -110,12 +108,10 @@ def _run_page(record: dict, flags: list, artifacts: list, previous: str | None) 
         ) from err
 
 
-def _clear(out_dir: Path) -> None:
-    """Remove an earlier site so deleted runs disappear; never remove anything else."""
-    if out_dir.exists():
-        if any(out_dir.iterdir()) and not (out_dir / 'index.html').is_file():
-            raise ValueError(
-                f'{out_dir} is not empty and holds no earlier site; refusing to clear it'
-            )
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True)
+def _prepare(out_dir: Path) -> None:
+    """An empty output directory, so no page of a deleted run survives; nothing is deleted."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if any(out_dir.iterdir()):
+        raise ValueError(
+            f'{out_dir} is not empty; build the site into a new or empty directory'
+        )

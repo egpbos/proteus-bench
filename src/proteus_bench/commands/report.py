@@ -1,7 +1,7 @@
 """``proteus-bench report``: build the static dashboard from a results store.
 
 Reads ``<store>/records/**/*.json``, runs the analysis over all of them and
-writes the site to ``--out``, replacing an earlier site there. An empty store
+writes the site to ``--out``, which must be new or empty. An empty store
 gives a site that says so. Artifact links point at the ``results`` branch of
 ``--repo`` (default: ``$GITHUB_REPOSITORY``, set in GitHub Actions); without a
 repository the store paths are shown as text.
