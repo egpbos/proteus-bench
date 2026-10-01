@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import resource
 import signal
+import subprocess
 import sys
 import time
 
@@ -148,3 +149,13 @@ def test_interrupt_kills_the_run_and_propagates(tmp_path, monkeypatch):
     assert time.monotonic() - t0 < 20
     assert len(pids) == 1
     assert not _alive(pids[0])  # reaped by the harness after the kill
+
+
+def test_unwritable_log_fails_before_anything_starts(tmp_path, monkeypatch):
+    """The log opens before the spawn, so a bad log path cannot strand a running child."""
+    started = []
+    monkeypatch.setattr(subprocess, 'Popen', lambda *a, **kw: started.append(a))
+    with pytest.raises(FileNotFoundError):
+        spawn(['proteus'], tmp_path, {}, tmp_path / 'absent' / 'log.txt', None)
+    assert started == []
+    assert not (tmp_path / 'absent').exists()

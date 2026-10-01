@@ -68,7 +68,7 @@ def main(args: argparse.Namespace) -> int:
 
 
 def _discard_empty(run_dir: Path) -> None:
-    """Remove the directories a profiler hook created for a run that did not start."""
+    """Remove the directories of a run that did not start, if they are still empty."""
     for path in (run_dir / PROFILE_DIR, run_dir):
         with contextlib.suppress(OSError):  # absent, or not empty: keep it
             path.rmdir()
@@ -76,7 +76,6 @@ def _discard_empty(run_dir: Path) -> None:
 
 def execute(ctx: record.RunContext) -> dict:
     """Write the config, run proteus, collect its outputs and write the record."""
-    ctx.run_dir.mkdir(parents=True, exist_ok=True)  # the profiler hook may have made it
     (ctx.run_dir / record.ARTIFACTS['config']).write_text(tomlwrite.dumps(ctx.run_config))
     result = runner.spawn(
         ctx.argv,
@@ -105,8 +104,8 @@ def collect_profile(ctx: record.RunContext) -> tuple[dict, list[str]]:
 def prepare(args: argparse.Namespace) -> record.RunContext:
     """Everything up to the spawn; raises ``ValueError`` when the run cannot start.
 
-    The profiler hook, which may create the profile directory, runs last, so
-    no earlier failure leaves a directory behind.
+    The run directory is created here, exclusively, so a run id is never reused;
+    the profiler hook needs it to exist.
     """
     root = (args.proteus_root or Path(os.environ.get('PROTEUS_DIR') or '.')).resolve()
     suite = suites.load_suite(args.suite)
@@ -120,7 +119,12 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
         raise ValueError(f'--proteus-root {root} is not the top of a git checkout')
     env_report = provenance.introspect_env(args.python)
     machine_section = machine.machine_section(label, args.machine_class)
-    argv, child_env, profiler_env, profiling = command(args, run_dir)
+    run_dir.mkdir(parents=True)
+    try:
+        argv, child_env, profiler_env, profiling = command(args, run_dir)
+    except ValueError:
+        _discard_empty(run_dir)
+        raise
     return record.RunContext(
         suite=suite,
         run_id=run_id,

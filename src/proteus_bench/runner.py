@@ -69,15 +69,17 @@ def spawn(argv: list[str], cwd: Path, env: dict, log_path: Path, timeout_s: floa
     When the child exits, whatever it left running in its process group is
     killed: such descendants would otherwise hold the output pipe open forever.
     """
-    started_at = dt.datetime.now(dt.UTC)
-    t_start = time.monotonic()
-    proc = subprocess.Popen(
-        argv, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )  # fmt: skip
-    fired = threading.Event()
-    timer = threading.Timer(timeout_s, _on_timeout, (proc.pid, fired)) if timeout_s else None
     with open(log_path, 'wb') as log:
+        started_at = dt.datetime.now(dt.UTC)
+        t_start = time.monotonic()
+        proc = subprocess.Popen(
+            argv, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )  # fmt: skip
+        fired = threading.Event()
+        timer = (
+            threading.Timer(timeout_s, _on_timeout, (proc.pid, fired)) if timeout_s else None
+        )
         tee = threading.Thread(target=_tee, args=(proc.stdout, log), daemon=True)
         tee.start()
         if timer:
