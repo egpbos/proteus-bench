@@ -16,7 +16,6 @@ from proteus_bench import cli, schema
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 
-# Store layouts at three depths: records/, records/<year>/, records/<year>/<month>/
 _DIRS = ('', '2026', '2026/01')
 
 

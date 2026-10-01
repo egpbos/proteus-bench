@@ -217,7 +217,6 @@ def test_three_percent_step_is_below_the_five_percent_rule(make_records, noisy_f
     one flag in 58 of them, and found the step at run 30 in 22.
     """
     factors = noisy_factors(50, step_at=30, step_rel=0.03)
-    # The step is in the data: mean after / mean before is 1.03 within noise.
     ratio = statistics.mean(factors[30:]) / statistics.mean(factors[:30])
     assert ratio == pytest.approx(1.03, abs=0.01)
     total = _series(analyse(make_records(factors)), 'total')
@@ -263,8 +262,7 @@ def test_non_comparable_runs_stay_out_of_baselines(make_records, noisy_factors):
     # Had they entered the baseline, run 15 would sit below a median near 1.25 x level.
     assert total['flags'] == []
     assert total['steps'] == []
-    # The reported baseline is runs 15-24; the last 10 points (5 of them slow) would
-    # give a median near 1.25 x level.
+    # Reported baseline: runs 15-24, not the last 10 points, of which 5 are slow.
     assert total['baseline']['n'] == 10
     assert total['baseline']['median'] == pytest.approx(TOTAL_S, rel=0.02)
 

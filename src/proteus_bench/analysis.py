@@ -116,7 +116,6 @@ def _steady_iteration_metrics(per_iter: list[dict]) -> dict[str, float]:
 
 
 def _identity(record: dict) -> dict:
-    """Series key parts and point fields shared by all metrics of one record."""
     bench = record['benchmark']
     started_at = record['trigger']['started_at']
     started = datetime.fromisoformat(started_at)
@@ -162,7 +161,6 @@ def _series(key: tuple, rows: list[tuple[dict, float]]) -> dict:
 
 
 def _split_at_settings_changes(comparable: list[tuple[dict, dict]]):
-    """Boundaries where the settings hash changes, and the comparable points between them."""
     boundaries, segments = [], [[]]
     for i, (ident, point) in enumerate(comparable):
         prev = comparable[i - 1][0] if i else ident
@@ -198,7 +196,6 @@ def _judge(value: float, base: dict, abs_floor: float) -> tuple[int, float, floa
 
 
 def _flags(segment: list[dict], abs_floor: float) -> list[dict]:
-    """Flags for the comparable points of one settings segment, in order."""
     flags = []
     for i, point in enumerate(segment):
         base = baseline([p['value'] for p in segment[max(0, i - BASELINE_WINDOW) : i]])
@@ -224,7 +221,6 @@ def _flags(segment: list[dict], abs_floor: float) -> list[dict]:
 
 
 def _steps(segment: list[dict]) -> list[dict]:
-    """Level changes found by asv's step detector in one settings segment."""
     values = [p['value'] for p in segment]
     steps = []
     for (_, end, before), (start, _, after) in pairwise(_levels(values)):
