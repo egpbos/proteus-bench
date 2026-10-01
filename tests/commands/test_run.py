@@ -27,6 +27,7 @@ from pathlib import Path
 import pytest
 
 from proteus_bench import cli, machine, schema, tomlwrite
+from proteus_bench.commands import run as run_command
 from proteus_bench.commands.run import make_run_id
 
 pytestmark = [pytest.mark.smoke, pytest.mark.timeout(60)]
@@ -157,7 +158,7 @@ def test_failed_check_stops_the_run(bench, tmp_path):
     code, rec, out = bench(cvode=False)
     assert code == 2
     assert rec is None
-    assert not (tmp_path / 'runs').exists()
+    assert list((tmp_path / 'runs').glob('*')) == []
     assert 'FAIL cvode_importable' in out
     assert '--allow-failed-checks' in out
 
@@ -169,7 +170,7 @@ def test_missing_rad_dir_stops_the_run(bench, monkeypatch, tmp_path):
     assert code == 2
     assert rec is None
     assert 'FAIL env_dirs: RAD_DIR is not set; pass them explicitly' in out
-    assert not (tmp_path / 'runs').exists()
+    assert list((tmp_path / 'runs').glob('*')) == []
 
 
 def test_failed_check_can_be_overridden(bench):
@@ -220,7 +221,7 @@ def test_missing_proteus_command_is_a_setup_error(bench, tmp_path):
     code, rec, out = bench(cmd='no-such-proteus-binary start')
     assert code == 2
     assert rec is None
-    assert not (tmp_path / 'runs').exists()
+    assert list((tmp_path / 'runs').glob('*')) == []
     assert "'no-such-proteus-binary start': command not found on PATH" in out
 
 
@@ -294,7 +295,7 @@ def test_profiled_run_that_fails_checks_leaves_nothing_behind(bench, monkeypatch
     code, rec, _ = bench(None, '--profiler', 'scalene', cvode=False)
     assert code == 2
     assert rec is None
-    assert list((tmp_path / 'runs').iterdir()) == []
+    assert list((tmp_path / 'runs').glob('*')) == []
 
 
 def test_unusable_profiler_is_a_setup_error(bench, monkeypatch):
@@ -305,6 +306,20 @@ def test_unusable_profiler_is_a_setup_error(bench, monkeypatch):
     assert code == 2
     assert rec is None
     assert '--profiler scalene: scalene is not installed' in out
+
+
+def test_a_run_id_is_never_reused(bench, monkeypatch, tmp_path):
+    """A colliding run id must not let a new run write into an earlier run's directory."""
+    monkeypatch.setattr(
+        run_command, 'make_run_id', lambda *a: '20260925T031000Z-test-default-a1b2'
+    )
+    earlier = tmp_path / 'runs' / '20260925T031000Z-test-default-a1b2'
+    earlier.mkdir(parents=True)
+    (earlier / 'record.json').write_text('{"run": "earlier"}')
+    with pytest.raises(FileExistsError):
+        bench()
+    assert (earlier / 'record.json').read_text() == '{"run": "earlier"}'
+    assert [p.name for p in earlier.iterdir()] == ['record.json']
 
 
 def test_non_git_root_is_refused(tmp_path, capsys):

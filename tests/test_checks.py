@@ -35,10 +35,12 @@ def test_cvode_check_runs_the_import_in_the_target_interpreter(monkeypatch):
     """
     calls = []
 
+    returncode = 1
+
     def fake_run(argv, **kwargs):
         calls.append(argv)
         failed = 'Traceback\nImportError: stub: SUNDIALS library not found\n'
-        return subprocess.CompletedProcess(argv, 1, '', failed)
+        return subprocess.CompletedProcess(argv, returncode, '', failed)
 
     monkeypatch.setattr(subprocess, 'run', fake_run)
     missing = checks.cvode_check('/envs/proteus/bin/python', {})
@@ -48,17 +50,16 @@ def test_cvode_check_runs_the_import_in_the_target_interpreter(monkeypatch):
         'ok': False,
         'detail': '/envs/proteus/bin/python: ImportError: stub: SUNDIALS library not found',
     }
-    monkeypatch.setattr(
-        subprocess, 'run', lambda argv, **kw: subprocess.CompletedProcess(argv, 0)
-    )
+    returncode = 0
     assert checks.cvode_check('python', {})['ok'] is True
+    assert len(calls) == 2
     skipped = checks.cvode_check('python', {'interior_energetics': {'module': 'dummy'}})
     assert skipped == {
         'name': 'cvode_importable',
         'ok': True,
         'detail': 'not required by this config',
     }
-    assert len(calls) == 1  # the dummy interior needs no import at all
+    assert len(calls) == 2  # the dummy interior needs no import at all
 
 
 def _dirs(tmp_path, radlib: bool = True) -> dict:
