@@ -1,9 +1,10 @@
 # Vendored from asv (airspeed velocity), https://github.com/airspeed-velocity/asv
 # File: asv/step_detect.py at commit d33754e129c025beb5c2ca440c3c280433b264f7
-# (main branch after the asv 0.6.6 release). The code below is unchanged except
-# for the imports and the licence pointer on its first line (upstream points to
-# asv's LICENSE.rst): the optional C++ ``_rangemedian`` extension is not
-# vendored, so the pure-Python ``L1Dist`` is always used.
+# (main branch after the asv 0.6.6 release). Changes from upstream: the optional
+# C++ ``_rangemedian`` extension is not imported, so the pure-Python ``L1Dist``
+# is always used; the licence pointer on the first line names this header
+# instead of asv's LICENSE.rst; the matplotlib debug helper ``_plot_potts`` is
+# removed.
 #
 # asv licence (3-clause BSD), reproduced as its terms require:
 #
@@ -704,18 +705,3 @@ def golden_search(f, a, b, xatol=1e-6, ftol=1e-8, expand_bounds=False):
         return x2
     else:
         return x1
-
-
-def _plot_potts(x, sol):
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    t = np.arange(len(x))
-
-    plt.clf()
-    plt.plot(t, x, 'k.')
-
-    l = 0
-    for r, v in zip(sol[0], sol[1]):
-        plt.plot([l, r - 1], [v, v], 'b-o', hold=1)
-        l = r

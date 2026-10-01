@@ -95,9 +95,7 @@ def record_metrics(record: dict) -> dict[str, float]:
         if row.get('submodule'):
             name = f'submodule.{row["submodule"]}.total'
             metrics[name] = metrics.get(name, 0.0) + row['total_s']
-    bad = [
-        m for m, v in metrics.items() if isinstance(v, bool) or not isinstance(v, int | float)
-    ]
+    bad = [m for m, v in metrics.items() if not isinstance(v, int | float)]
     if bad:
         raise TypeError(f'non-numeric metrics: {", ".join(bad)}')
     return metrics
@@ -121,12 +119,15 @@ def _identity(record: dict) -> dict:
     """Series key parts and point fields shared by all metrics of one record."""
     bench = record['benchmark']
     started_at = record['trigger']['started_at']
+    started = datetime.fromisoformat(started_at)
+    if started.tzinfo is None:
+        raise ValueError(f'trigger.started_at {started_at!r} has no UTC offset')
     return {
         'key': (bench['name'], bench['lineage'], record['machine']['class']),
         'run_id': record['run_id'],
         'commit': record['code']['proteus'].get('sha'),
         'time': started_at,
-        'sort': (datetime.fromisoformat(started_at), record['run_id']),
+        'sort': (started, record['run_id']),
         'comparable': record['comparability']['ok'] is True,
         'settings_hash': bench['settings_hash'],
         'settings': bench['settings'],
@@ -191,8 +192,9 @@ def _judge(value: float, base: dict, abs_floor: float) -> tuple[int, float, floa
     """(direction, delta, threshold): direction +1 above the threshold, -1 below, else 0."""
     delta = value - base['median']
     threshold = max(SIGMA_FACTOR * base['sigma'], MIN_DELTA_REL * abs(base['median']))
-    exceeds = abs(delta) > threshold and abs(delta) > abs_floor
-    return (1 if delta > 0 else -1) if exceeds else 0, delta, threshold
+    if abs(delta) <= max(threshold, abs_floor):
+        return 0, delta, threshold
+    return (1 if delta > 0 else -1), delta, threshold
 
 
 def _flags(segment: list[dict], abs_floor: float) -> list[dict]:
@@ -226,8 +228,6 @@ def _steps(segment: list[dict]) -> list[dict]:
     values = [p['value'] for p in segment]
     steps = []
     for (_, end, before), (start, _, after) in pairwise(_levels(values)):
-        # The new level starts at the first left-out run between the two that is
-        # closer to it in value
         first = next(
             (i for i in range(end, start) if abs(values[i] - after) < abs(values[i] - before)),
             start,

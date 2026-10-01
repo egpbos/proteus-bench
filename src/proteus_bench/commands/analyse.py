@@ -2,7 +2,7 @@
 
 Reads every ``records/**/*.json`` (at any depth) under the results store and
 writes the analysis JSON (see ``proteus_bench.analysis``). Exit code 1 when no
-record is found or a record cannot be read or analysed.
+record is found or a record is not valid UTF-8 JSON or cannot be analysed.
 """
 
 from __future__ import annotations
@@ -33,17 +33,10 @@ def main(args: argparse.Namespace) -> int:
     records = []
     for path in paths:
         try:
-            record = json.loads(path.read_text())
-        except json.JSONDecodeError as err:
-            print(f'{path}: not valid JSON ({err.msg})', file=sys.stderr)
+            records.append(json.loads(path.read_text(encoding='utf-8')))
+        except ValueError as err:
+            print(f'{path}: not valid UTF-8 JSON ({err})', file=sys.stderr)
             return 1
-        if not isinstance(record, dict):
-            print(
-                f'{path}: expected a JSON object, found {type(record).__name__}',
-                file=sys.stderr,
-            )
-            return 1
-        records.append(record)
     try:
         result = analyse(records)
     except ValueError as err:

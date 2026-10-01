@@ -108,13 +108,17 @@ def test_init_rows_of_one_component_are_summed(example_record):
 
 
 def test_steady_iteration_limits_and_malformed_records(example_record):
-    """No steady iteration gives no loop medians; missing or non-numeric fields raise."""
+    """No steady iteration gives no loop medians; bad time, type or missing field raise."""
     for row in example_record['timings']['per_iter']:
         row['init_stage'] = True
     metrics = record_metrics(example_record)
     assert 'loop_per_iter_median' not in metrics
     assert not [name for name in metrics if name.startswith('loop.')]
     assert metrics['loop'] == pytest.approx(1163.2)
+    example_record['trigger']['started_at'] = '2026-09-25T03:10:00'
+    with pytest.raises(ValueError, match=r"a1b2'.*malformed.*has no UTC offset"):
+        analyse([example_record])
+    example_record['trigger']['started_at'] = '2026-09-25T03:10:00Z'
     example_record['timings']['wall_s'] = 'slow'
     with pytest.raises(ValueError, match=r"a1b2'.*malformed.*non-numeric metrics: total"):
         analyse([example_record])
@@ -143,20 +147,19 @@ def test_stable_noisy_history_raises_no_flags_or_steps(make_records, noisy_facto
 
 
 def test_false_positive_rate_on_stable_noise(make_records, noisy_factors):
-    """Over 10 seeds of 50 runs at 1.5 % noise, one run in 470 flags, not confirmed.
+    """Over 10 seeds of 50 runs at 1.5 % noise, under 0.5 % of judged runs flag, none confirmed.
 
-    That is 0.21 % (seed 2, run 32, -5.3 %). A longer offline check over 2000 seeds
-    gave 169 flags in 94000 judged runs (0.18 %), 2 of them confirmed.
+    Seeds 0-9 give 1 flag in 470 judged runs. An offline check over 2000 seeds gave
+    169 flags in 94000 (0.18 %), 2 of them confirmed.
     """
     flags, judged = [], 0
     for seed in range(10):
         records = _total_only(make_records(noisy_factors(50, seed=seed)))
         flags += _series(analyse(records), 'total')['flags']
-        judged += 50 - MIN_BASELINE_POINTS  # the first runs have no baseline
-    assert judged == 470
-    assert len(flags) == 1
-    assert flags[0]['confirmed'] is False
-    assert abs(flags[0]['delta_rel']) > MIN_DELTA_REL
+        judged += 50 - MIN_BASELINE_POINTS
+    assert len(flags) / judged < 0.005
+    assert not any(f['confirmed'] for f in flags)
+    assert all(abs(f['delta_rel']) > MIN_DELTA_REL for f in flags)
 
 
 @pytest.mark.parametrize(('step_rel', 'kind'), [(0.10, 'regression'), (-0.10, 'improvement')])

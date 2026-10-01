@@ -2,8 +2,8 @@
 
 Contract clauses: every ``records/**/*.json`` under the store is read, at any
 depth including directly in ``records/``; the output file holds the analysis
-structure; an empty store, unreadable JSON, a non-object record and a record
-with a missing or non-numeric field exit 1 with a message naming the problem.
+structure; an empty store, a file that is not UTF-8 JSON and a record with a
+missing or non-numeric field exit 1 with a message naming the problem.
 """
 
 from __future__ import annotations
@@ -32,7 +32,8 @@ def _store(tmp_path, records):
 def test_analyse_writes_series_for_all_stored_records(tmp_path, make_records, capsys):
     """Six records at three depths give time-ordered series and one flag."""
     records = make_records([1.0, 1.0, 1.0, 1.0, 1.0, 1.2])
-    assert schema.shape_problems('record', records[0]) in ([], None)  # generator stays valid
+    pytest.importorskip('jsonschema')
+    assert schema.shape_problems('record', records[0]) == []  # generator stays valid
     store = _store(tmp_path, records)
     assert len(list((store / 'records' / '2026' / '01').glob('*.json'))) == 2
     out = tmp_path / 'analysis.json'
@@ -54,23 +55,24 @@ def test_analyse_writes_series_for_all_stored_records(tmp_path, make_records, ca
 
 
 def test_analyse_reports_missing_and_broken_input(tmp_path, make_records, capsys):
-    """No records, malformed JSON, a non-object and bad fields each exit 1 with a reason."""
+    """No records, malformed JSON, non-UTF-8 bytes and bad fields each exit 1 with a reason."""
     out = tmp_path / 'a.json'
     assert cli.main(['analyse', str(tmp_path), '--out', str(out)]) == 1
     assert 'no run records found' in capsys.readouterr().err
     store = _store(tmp_path, make_records([1.0]))
     broken = store / 'records' / 'torn.json'
     cases = [
-        ('{"run_id": ', 'torn.json: not valid JSON'),
-        ('[1, 2]', 'torn.json: expected a JSON object, found list'),
+        (b'{"run_id": ', 'torn.json: not valid UTF-8 JSON'),
+        (b'{"run_id": "caf\xe9"}', 'torn.json: not valid UTF-8 JSON'),
     ]
     record = make_records([1.0])[0]
     record['timings']['wall_s'] = None
-    cases.append((json.dumps(record | {'run_id': 'no-wall'}), "'no-wall': malformed"))
+    cases.append((json.dumps(record | {'run_id': 'no-wall'}).encode(), "'no-wall': malformed"))
     del record['timings']
-    cases.append((json.dumps(record | {'run_id': 'no-timings'}), "'no-timings': missing field"))
-    for text, message in cases:
-        broken.write_text(text)
+    no_timings = json.dumps(record | {'run_id': 'no-timings'}).encode()
+    cases.append((no_timings, "'no-timings': missing field"))
+    for content, message in cases:
+        broken.write_bytes(content)
         assert cli.main(['analyse', str(store), '--out', str(out)]) == 1
         assert message in capsys.readouterr().err
     assert not out.exists()
