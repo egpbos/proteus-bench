@@ -1,13 +1,10 @@
 """Publishing checked runs to the results store, a branch on a git remote.
 
-Everything goes through the ``git`` CLI, so the user's own git configuration
-and credentials apply; this module never sees a token. The local checkout is a
-cache that each attempt resets to the remote tip (``git clean -fdx``), so it
-must be a directory this module created: it carries the ``MARKER`` git config
-key, and any other existing directory is refused. A rejected push means
-another publisher got there first; the next attempt fetches the new tip and
-stages again, which for add-only commits is the same as a rebase and also
-notices runs the other publisher already added.
+All git access goes through the ``git`` CLI with the user's own configuration
+and credentials. The local checkout is a cache that every attempt resets to the
+remote tip, so only a directory carrying ``MARKER`` is reused. After a rejected
+push the next attempt stages the runs again on the new tip, which for add-only
+commits equals a rebase and also notices runs another publisher added.
 """
 
 from __future__ import annotations
@@ -33,21 +30,18 @@ GITHUB_REMOTE = re.compile(
 
 
 class PublishError(RuntimeError):
-    """A git step failed or the checkout is unsafe; the message says which and why."""
+    pass
 
 
 @dataclass
 class Published:
-    """Outcome of one ``publish`` call."""
-
-    commit: str | None = None  # store commit that added the runs; None if nothing new
+    commit: str | None = None  # None when nothing was new
     added: list[str] = field(default_factory=list)
     skipped: dict[str, str] = field(default_factory=dict)  # run_id -> commit that has it
-    retries: int = 0  # pushes rejected because another publisher pushed first
+    retries: int = 0
 
 
 def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
-    """Run git in ``repo``; raise PublishError on failure when ``check``."""
     proc = subprocess.run(['git', *args], cwd=repo, capture_output=True, text=True)
     if check and proc.returncode:
         raise PublishError(
@@ -66,11 +60,7 @@ def _is_own_checkout(checkout: Path) -> bool:
 
 
 def check_checkout(checkout: Path) -> None:
-    """Refuse a checkout path that publishing must not reset.
-
-    Allowed: an absolute path that does not exist, an empty directory, or a
-    checkout carrying ``MARKER``. Raises PublishError otherwise.
-    """
+    """Raise PublishError unless ``checkout`` is absolute and missing, empty or marked."""
     if not checkout.is_absolute():
         raise PublishError(f'store checkout must be an absolute path, not {str(checkout)!r}')
     if not checkout.exists() or (checkout.is_dir() and not any(checkout.iterdir())):
@@ -87,18 +77,14 @@ def update_checkout(checkout: Path, remote: str, branch: str) -> bool:
     """Make ``checkout`` a clean copy of ``branch`` on ``remote``.
 
     Returns False when the remote has no such branch; the checkout is then an
-    empty orphan branch of that name, ready for the first commit. Raises
-    PublishError for an unsafe checkout path (see ``check_checkout``).
+    empty orphan branch of that name.
     """
     check_checkout(checkout)
     if not _is_own_checkout(checkout):
         checkout.mkdir(parents=True, exist_ok=True)
         git(checkout, 'init', '-q')
         git(checkout, 'config', MARKER, 'true')
-    if git(checkout, 'remote', 'get-url', 'origin', check=False).returncode:
-        git(checkout, 'remote', 'add', 'origin', remote)
-    else:
-        git(checkout, 'remote', 'set-url', 'origin', remote)
+    git(checkout, 'config', 'remote.origin.url', remote)
     probe = git(checkout, 'ls-remote', '--exit-code', '--heads', 'origin', branch, check=False)
     if probe.returncode not in (0, 2):  # 2: reachable, but no such branch
         raise PublishError(f'cannot read {remote}: {probe.stderr.strip()}')
@@ -116,8 +102,7 @@ def update_checkout(checkout: Path, remote: str, branch: str) -> bool:
 
 @contextmanager
 def locked(checkout: Path):
-    """Hold the machine-wide lock of a store checkout (checked first, see check_checkout)."""
-    # Two publishers on one machine (e.g. Slurm jobs ending together) share the cache
+    """Hold the lock of a store checkout, shared by publishers on one machine."""
     check_checkout(checkout)
     checkout.parent.mkdir(parents=True, exist_ok=True)
     with open(checkout.parent / f'{checkout.name}.lock', 'w') as lock:
@@ -128,13 +113,10 @@ def locked(checkout: Path):
 def publish(
     runs: list[tuple[Path, dict]], remote: str, branch: str, checkout: Path
 ) -> Published:
-    """Add checked runs (run dir, record) to the store in one commit and push it.
+    """Add checked runs with distinct ids to the store in one commit and push it.
 
-    Run ids must be distinct (the publish command checks that). Runs already in
-    the store are skipped. Every run dir, added or skipped, gets a
-    ``.published`` file holding the store commit that has it. Raises
-    PublishError when git fails or the push is still rejected after
-    ``ATTEMPTS`` tries.
+    Runs already in the store are skipped. Every run dir gets ``.published``
+    holding the store commit that has the run.
     """
     retries = 0
     with locked(checkout):
@@ -151,7 +133,6 @@ def publish(
 
 
 def _commit_runs(runs, remote: str, branch: str, checkout: Path) -> Published:
-    """Stage the runs not yet in the store on the remote tip and commit them."""
     result = Published()
     if not update_checkout(checkout, remote, branch):
         (checkout / 'README.md').write_text(store.README)
@@ -180,9 +161,8 @@ def _pushed(checkout: Path, branch: str, commit: str) -> bool:
     """Push ``commit``; True when it is on the remote, False when rejected as behind.
 
     ``--porcelain`` prints ``<flag>\\t<from>:<to>\\t<summary>`` per ref (git-push(1),
-    OUTPUT); flag ``!`` with summary ``[rejected]`` means the remote moved on. Any
-    other failure is checked against the remote tip, because a push can land
-    while git still exits non-zero (e.g. the connection dropped afterwards).
+    OUTPUT). Other failures are checked against the remote tip, because a push
+    can land while git exits non-zero (the connection dropped afterwards).
     """
     proc = _push(checkout, branch)
     if proc.returncode == 0:
@@ -200,17 +180,15 @@ def _pushed(checkout: Path, branch: str, commit: str) -> bool:
 
 
 def github_repo(remote: str) -> str | None:
-    """``owner/name`` for a github.com remote URL, else None."""
     match = GITHUB_REMOTE.fullmatch(remote)
     return match.group(1) if match else None
 
 
 def trigger_dashboard(remote: str) -> str:
-    """Start the Pages workflow of the store's repository; return what happened.
+    """Dispatch the store repository's Pages workflow with gh; return what happened.
 
-    A push to the store branch cannot start the workflow itself (it lives on
-    main), so it is dispatched with ``gh`` when available. Never raises: the
-    runs are already published, and the workflow also runs daily.
+    A push to the store branch cannot start that workflow, which lives on main.
+    Never raises: the runs are already published and the workflow also runs daily.
     """
     repo = github_repo(remote)
     if repo is None:

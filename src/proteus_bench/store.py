@@ -1,9 +1,7 @@
 """Results store: artifact contract, run-directory checks and staging runs.
 
-The store layout and the artifact contract are specified in ``docs/interface.md``,
-section "Results store". ``ARTIFACTS`` and ``store_path`` implement it. Run
-directories are treated as untrusted input, since the store feeds a public
-site. Nothing here runs git; see ``proteus_bench.publishing``.
+Implements ``docs/interface.md``, section "Results store". Run directories are
+untrusted input, since the store feeds a public site.
 """
 
 from __future__ import annotations
@@ -19,8 +17,7 @@ from pathlib import Path
 from proteus_bench import schema
 from proteus_bench.settings import flatten, settings_hash
 
-# Artifact key -> file in the run directory. The runner and the profiler write
-# these names; the stored record's ``artifacts`` maps the same keys to store paths.
+# Artifact key -> run-directory file; a stored record maps the same keys to store paths
 ARTIFACTS = {
     'spans': 'timing.jsonl',
     'settings': 'init_coupler.toml',
@@ -29,7 +26,6 @@ ARTIFACTS = {
     'profile': 'profile/stacks.folded.gz',
     'flame': 'profile/flame.html',
 }
-# Top-level run-dir file -> store path template; files under profile/ go to PROFILE_DIR
 _TOP_LEVEL = {
     'timing.jsonl': 'spans/{year}/{run_id}.timing.jsonl.gz',
     'init_coupler.toml': 'settings/{hex}.toml',
@@ -37,7 +33,7 @@ _TOP_LEVEL = {
     'log.txt': 'logs/{year}/{run_id}.log.gz',
 }
 PROFILE_DIR = 'profiles/{year}/{run_id}/'
-REQUIRED = ('log', 'config')  # every run directory has these
+REQUIRED = ('log', 'config')
 REQUIRED_IF_OK = ('spans', 'settings')  # a run that failed in setup may lack these
 
 _RECORD_SCHEMA = schema.load('record')['properties']
@@ -70,17 +66,11 @@ def store_path(run_dir_path: str, record: dict) -> str:
 
 
 def record_path(run_id: str) -> str:
-    """Store path of a run's record."""
     return f'records/{run_id[:4]}/{run_id}.json'
 
 
 def check_run(run_dir: Path) -> tuple[dict | None, list[str], bool]:
-    """Load and check a run directory before publishing.
-
-    Returns (record or None, problems, whether the record shape was checked).
-    The shape needs jsonschema; the fields that become paths or decide which
-    files are required are checked either way. Symbolic links are refused.
-    """
+    """(record or None, problems, whether jsonschema checked the record shape)."""
     record_file = run_dir / 'record.json'
     if not record_file.is_file():
         return None, [f'{run_dir}: no record.json, so not a run directory'], True
@@ -110,16 +100,18 @@ def check_run(run_dir: Path) -> tuple[dict | None, list[str], bool]:
 
 def _symlinks(run_dir: Path) -> list[Path]:
     # os.walk does not descend into linked directories, so a link to / stays cheap
-    found = [run_dir] if run_dir.is_symlink() else []
-    for root, dirs, files in os.walk(run_dir):
-        found += [Path(root, n) for n in dirs + files if Path(root, n).is_symlink()]
-    return found
+    return [
+        Path(root, name)
+        for root, dirs, files in os.walk(run_dir)
+        for name in dirs + files
+        if Path(root, name).is_symlink()
+    ]
 
 
 def _key_field_problems(record: dict) -> list[str]:
-    """Checks that must hold with or without jsonschema: these values become paths."""
+    """Checked even without jsonschema: these values become paths."""
     containers = {k: record.get(k) for k in ('benchmark', 'outcome')}
-    containers['artifacts'] = record.get('artifacts', {})  # optional
+    containers['artifacts'] = record.get('artifacts', {})
     wrong = [f'{k} must be an object' for k, v in containers.items() if not isinstance(v, dict)]
     if wrong:
         return wrong
@@ -152,7 +144,6 @@ def _settings_problems(run_dir: Path, record: dict) -> list[str]:
 
 
 def _artifact_problems(run_dir: Path, record: dict) -> list[str]:
-    """The record's artifacts must be entries of ARTIFACTS whose file exists."""
     found = []
     for key, src in record.get('artifacts', {}).items():
         if ARTIFACTS.get(key) != src:
@@ -164,14 +155,13 @@ def _artifact_problems(run_dir: Path, record: dict) -> list[str]:
 
 
 def _files(run_dir: Path) -> list[str]:
-    """Run-dir relative paths of every file the store keeps for this run."""
     top = [name for name in _TOP_LEVEL if (run_dir / name).is_file()]
     profile = sorted(p for p in (run_dir / 'profile').rglob('*') if p.is_file())
     return top + [p.relative_to(run_dir).as_posix() for p in profile]
 
 
 def stored_artifacts(run_dir: Path, record: dict) -> dict[str, str]:
-    """Artifact key -> store path, for every ``ARTIFACTS`` file the run has."""
+    """Artifact key -> store path for every ``ARTIFACTS`` file the run has."""
     return {
         key: store_path(src, record)
         for key, src in ARTIFACTS.items()
@@ -180,13 +170,10 @@ def stored_artifacts(run_dir: Path, record: dict) -> dict[str, str]:
 
 
 def stage_run(run_dir: Path, record: dict, tree: Path) -> dict:
-    """Copy one checked run into the store tree at ``tree``; return the stored record.
-
-    The settings file is written only if none exists for that hash yet: runs
-    with equal hashes differ only in per-run keys such as the output path.
-    """
+    """Copy one checked run into the store tree at ``tree``; return the stored record."""
     for src in _files(run_dir):
         target = tree / store_path(src, record)
+        # Runs with equal hashes differ only in per-run keys: keep the first file
         if src == ARTIFACTS['settings'] and target.exists():
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -203,7 +190,7 @@ def stage_run(run_dir: Path, record: dict, tree: Path) -> dict:
 
 
 def read_records(tree: Path) -> list[dict]:
-    """All run records in a store tree, in path order; ValueError if ``tree`` is no directory."""
+    """All run records in a store tree, in path order."""
     if not tree.is_dir():
         raise ValueError(f'{tree} is not a directory, so not a store checkout')
     paths = sorted(tree.glob('records/*/*.json'))

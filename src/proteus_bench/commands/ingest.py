@@ -48,8 +48,7 @@ def main(args: argparse.Namespace) -> int:
     run_dirs = _move_runs(staging, runs_dir)
     if run_dirs is None:
         return 1
-    if staging.exists():  # gone already when the staging dir itself was the run dir
-        shutil.rmtree(staging)
+    shutil.rmtree(staging)  # gh extracts each artifact into its own subdirectory
     if args.publish:
         return publish_run_dirs(run_dirs, args)
     return 0

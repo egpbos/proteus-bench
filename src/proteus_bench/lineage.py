@@ -1,21 +1,15 @@
 """Settings lineages and carry-over runs (decision D4), as pure functions of records.
 
-A series is one benchmark on one machine class. Its ``default`` lineage follows
-whatever settings the benchmark resolves to at each commit. When those settings
-change, the previous settings are run once more at the new commit: a carry-over
-run, whose record has ``benchmark.lineage`` set to the previous settings hash
-and ``benchmark.carry_over_of`` to the default run that moved on. After that
-the old settings' lineage has ended.
+A series is one benchmark on one machine class. When the settings of its
+``default`` lineage change, the previous settings are run once more at the new
+commit. That carry-over run's record has ``benchmark.lineage`` set to the
+previous settings hash and ``benchmark.carry_over_of`` to the default run that
+moved on.
 
-Only runs with resolved settings take part: runs that finished ``ok`` and have
-``settings`` (PROTEUS's ``init_coupler.toml``) and ``config`` artifacts, the
-two files a carry-over replays. A run that failed
-before PROTEUS resolved its config has a hash of the unresolved input instead,
-which says nothing about the default settings.
-
-Records are run-record dicts (schema ``proteus-bench/1``) as stored, with
-artifact paths relative to the store. Runs are ordered by
-``trigger.started_at``, ties broken by run id.
+Only resolved runs take part (see ``resolved``): a run that failed before
+PROTEUS resolved its config hashes the unresolved input, which says nothing
+about the default settings. Records are stored records; runs are ordered by
+``trigger.started_at``, then run id.
 """
 
 from __future__ import annotations
@@ -28,26 +22,22 @@ from proteus_bench.settings import changed_keys
 
 @dataclass(frozen=True)
 class SettingsChange:
-    """The default settings of a series differ from the preceding default run."""
-
     previous: dict  # the preceding resolved default-lineage record
     changed_keys: list[str]
 
 
 @dataclass(frozen=True)
 class CarryOver:
-    """The carry-over run to perform after a default run changed the settings."""
-
-    carry_over_of: str  # run id of the default run that moved to new settings
-    lineage: str  # settings hash of the replayed (previous) settings
-    settings_toml: str  # store path of the previous run's resolved settings
-    config_toml: str  # store path of the config passed to that run
-    commit: str  # PROTEUS commit to run at: the one the new default run measured
+    carry_over_of: str  # the default run that moved to new settings
+    lineage: str  # hash of the previous settings, which the carry-over replays
+    settings_toml: str  # store paths of the previous run's settings and config
+    config_toml: str
+    commit: str  # the new default run's PROTEUS commit
     changed_keys: list[str]
 
 
 def resolved(record: dict) -> bool:
-    """Whether the run finished ok with its resolved settings and its config stored."""
+    """Finished ok with settings and config stored, the two files a carry-over replays."""
     stored = record.get('artifacts', {})
     return record['outcome']['status'] == 'ok' and {'settings', 'config'} <= stored.keys()
 
@@ -97,12 +87,11 @@ def settings_change(records: list[dict], new: dict) -> SettingsChange | None:
 def _carry_over_exists(records: list[dict], new: dict, old_hash: str) -> bool:
     """A carry-over for this move (series, old hash, new hash) is already recorded.
 
-    Keyed by the move rather than by the run that made it, so a late-published
-    default run with the same new settings does not ask for a second one.
+    Keyed by the move, not the mover, so a late-published default run with the
+    same new settings does not ask for a second one.
     """
     bench, cls = new['benchmark']['name'], new['machine']['class']
     new_hash = new['benchmark']['settings_hash']
-    # Settings hash of each possible mover; a missing or null carry_over_of maps to None
     hashes = {r['run_id']: r['benchmark']['settings_hash'] for r in records}
     hashes[new['run_id']] = new_hash
     return any(
