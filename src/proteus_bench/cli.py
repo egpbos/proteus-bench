@@ -15,6 +15,7 @@ from proteus_bench import __version__
 
 # name -> (module under proteus_bench.commands, one-line help)
 COMMANDS = {
+    'run': ('run', 'run a benchmark suite through the proteus CLI and write its run record'),
     'validate': ('validate', 'check timing.jsonl and run-record files against the schemas'),
 }
 

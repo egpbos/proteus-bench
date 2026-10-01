@@ -17,6 +17,15 @@ src/proteus_bench/
   commands/         add_arguments(parser) + main(args) -> int, one module per subcommand
   schemas/          JSON Schemas (versioned interfaces, see docs/interface.md)
   timing.py         reading and checking timing.jsonl
+  settings.py       flattening and hashing the resolved config
+  suites.toml       benchmark suites; suites.py loads and validates them
+  tomlwrite.py      TOML writer for the run config
+  checks.py         environment checks and the comparability rule
+  provenance.py     git state and module versions; introspect.py runs in the PROTEUS env
+  machine.py        machine fingerprint and run environment
+  runner.py         spawning and measuring the proteus process
+  collect.py        record sections from a run's output files
+  record.py         assembling and writing record.json
   testing/          fake proteus stub used by the tests
 tests/              mirrors src/proteus_bench/
 examples/           example timing.jsonl and run record (illustrative values)
