@@ -11,6 +11,13 @@ reviews:
     drafts: true
     labels: ["ai-review"]
     auto_pause_after_reviewed_commits: 0
+  # Docstrings follow AGENTS.md, "Quiet code", not a coverage target
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+  finishing_touches:
+    docstrings:
+      enabled: false
   path_instructions:
     - path: "src/**/*.py"
       instructions: "Apply AGENTS.md, sections 'Architecture rules' and 'Code quality'. Flag any runtime dependency, any import of proteus, and any silent fallback."
