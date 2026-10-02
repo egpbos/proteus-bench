@@ -73,7 +73,8 @@ def bench(tmp_path, git_repo, cvode_stub, monkeypatch, capsys):
         )
         code = cli.main([
             'run', '--proteus-root', str(root), '--proteus-cmd', cmd,
-            '--runs-dir', str(tmp_path / 'runs'), '--machine-label', 'test', *extra,
+            '--runs-dir', str(tmp_path / 'runs'), '--machine-label', 'test',
+            '--python', sys.executable, *extra,
         ])  # fmt: skip
         captured = capsys.readouterr()
         out = captured.out + captured.err  # setup errors go to stderr, after no run dir
@@ -353,6 +354,24 @@ def test_non_git_root_is_refused(tmp_path, capsys):
     code = cli.main(['run', '--proteus-root', str(tmp_path), '--runs-dir', str(tmp_path / 'r')])
     assert code == 2
     assert 'not the top of a git checkout' in capsys.readouterr().err
+
+
+def test_python_defaults_to_the_one_on_path(monkeypatch, tmp_path):
+    """Without --python the PROTEUS interpreter is the python on PATH, not this one."""
+    (tmp_path / 'python').write_text('#!/bin/sh\n')
+    (tmp_path / 'python').chmod(0o755)
+    monkeypatch.setenv('PATH', str(tmp_path))
+    args = cli.build_parser().parse_args(['run'])
+    assert args.python == str(tmp_path / 'python')
+
+
+def test_no_python_on_path_is_a_setup_error(monkeypatch, tmp_path, capsys):
+    """With no python on PATH and no --python the run stops before anything else."""
+    monkeypatch.setenv('PATH', str(tmp_path))
+    code = cli.main(['run', '--runs-dir', str(tmp_path / 'r')])
+    assert code == 2
+    assert 'no python on PATH' in capsys.readouterr().err
+    assert not (tmp_path / 'r').exists()
 
 
 def test_run_ids_are_sortable_and_distinct():

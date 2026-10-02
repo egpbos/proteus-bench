@@ -25,12 +25,16 @@ validation in `proteus-bench validate`.
 
 ## Running a benchmark
 
-Inside an activated PROTEUS environment, from the PROTEUS checkout:
+With the PROTEUS environment activated, from the PROTEUS checkout, call
+proteus-bench from its own environment:
 
 ```bash
-proteus-bench run                  # the default suite
-proteus-bench run --timeout 21600  # kill the run after 6 h
+~/.venvs/proteus-bench/bin/proteus-bench run                  # the default suite
+~/.venvs/proteus-bench/bin/proteus-bench run --timeout 21600  # kill the run after 6 h
 ```
+
+`proteus` and `python` come from PATH, so from the PROTEUS environment;
+`--proteus-cmd` and `--python` select others.
 
 Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
 `timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. The proteus

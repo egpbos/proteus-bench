@@ -38,7 +38,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         '--proteus-cmd', default='proteus', help='command that runs PROTEUS, split like a shell'
     )
     parser.add_argument(
-        '--python', default=sys.executable, help='interpreter of the PROTEUS environment'
+        '--python',
+        default=shutil.which('python'),
+        help='interpreter of the PROTEUS environment (default: python on PATH)',
     )
     parser.add_argument('--runs-dir', type=Path, default=Path('bench-runs'))
     parser.add_argument('--machine-label', help='default: short host name, or gha on CI')
@@ -107,6 +109,8 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
     The run directory is created here, exclusively, so a run id is never reused;
     the profiler hook needs it to exist.
     """
+    if args.python is None:
+        raise ValueError('no python on PATH: activate the PROTEUS environment or pass --python')
     root = (args.proteus_root or Path(os.environ.get('PROTEUS_DIR') or '.')).resolve()
     suite = suites.load_suite(args.suite)
     adapter = record.detect_adapter(os.environ)
