@@ -220,3 +220,4 @@ __marimo__/
 # proteus-bench
 .scratch/
 output/
+pixi.lock

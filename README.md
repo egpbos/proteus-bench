@@ -30,6 +30,9 @@ pixi run test    # pytest
 pixi run lint    # ruff
 ```
 
+`pixi.lock` is not committed, so `pixi install` resolves the newest versions
+`pyproject.toml` allows and two checkouts can get different tool versions.
+
 Tests do not need PROTEUS. They use a fake `proteus` stub
 (`python -m proteus_bench.testing.fake_proteus start -c cfg.toml`) that writes
 the same output files as a real run.
