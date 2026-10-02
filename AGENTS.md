@@ -19,6 +19,7 @@ src/proteus_bench/
   schema.py         loading the schemas; optional shape validation
   settings.py       flattening, hashing and comparing resolved PROTEUS settings
   timing.py         reading and checking timing.jsonl
+  report/           static dashboard: pages, inline SVG charts, templates/ (CSS, JS)
   testing/          fake proteus stub used by the tests
 tests/              mirrors src/proteus_bench/
 examples/           example timing.jsonl and run record (illustrative values)

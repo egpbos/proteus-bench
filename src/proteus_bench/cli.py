@@ -16,6 +16,7 @@ from proteus_bench import __version__
 # name -> (module under proteus_bench.commands, one-line help)
 COMMANDS = {
     'validate': ('validate', 'check timing.jsonl and run-record files against the schemas'),
+    'report': ('report', 'build the static HTML dashboard from a results store'),
 }
 
 

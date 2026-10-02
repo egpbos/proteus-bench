@@ -25,6 +25,7 @@ version = { attr = "proteus_bench.__version__" }
 
 [tool.setuptools.package-data]
 "proteus_bench.schemas" = ["*.json"]
+"proteus_bench.report.templates" = ["*.css", "*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

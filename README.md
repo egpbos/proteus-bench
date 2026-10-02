@@ -4,8 +4,10 @@ Benchmarking and profiling harness for [PROTEUS](https://github.com/FormingWorld
 It runs PROTEUS, records per-phase and per-module timings along with the exact
 versions of every module, and publishes a history dashboard.
 
-Status: early development. The interfaces (`docs/interface.md`) are drafted; the
-runner, publishing and dashboard are not written yet. Design discussion:
+Status: early development. The interfaces (`docs/interface.md`) are drafted and
+the dashboard (`proteus-bench report --store DIR --out SITE`, deployed by
+`.github/workflows/pages.yml`) is written; the runner and publishing are in
+progress. Design discussion:
 [FormingWorlds/PROTEUS#916](https://github.com/FormingWorlds/PROTEUS/issues/916).
 
 ## Development
