@@ -107,3 +107,12 @@ the bare change, no history and no result tables.
 Every change goes through a pull request. Reviews (human, CodeRabbit, and the strict
 review checklist in `.claude/agents/quality-reviewer.md`) apply this file. A finding
 is resolved by fixing it or by a stated reason in the PR, never by silence.
+
+A pull request goes through three phases:
+
+1. Develop: open it as a draft. CI and SonarQube run on every push; CodeRabbit does not.
+2. AI review: when the change is complete, add the `ai-review` label, which switches
+   CodeRabbit on for the PR. Address every CodeRabbit and SonarQube finding until CI is
+   green, the quality gate passes and CodeRabbit approves the latest commit.
+3. Human review: mark the PR ready for review. Keep the label, so CodeRabbit also reviews
+   the fixes that follow.
