@@ -34,7 +34,8 @@ from datetime import datetime
 from itertools import pairwise
 from statistics import median
 
-from proteus_bench._vendor.asv_step_detect import detect_steps
+from asv.step_detect import detect_steps
+
 from proteus_bench.settings import changed_keys
 
 SCHEMA = 'proteus-bench-analysis/1'

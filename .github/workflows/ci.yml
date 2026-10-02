@@ -73,6 +73,5 @@ jobs:
             -Dsonar.projectKey=egpbos_proteus-bench
             -Dsonar.sources=src
             -Dsonar.tests=tests
-            -Dsonar.exclusions=src/proteus_bench/_vendor/**
             -Dsonar.python.version=3.11,3.12,3.13
             -Dsonar.python.coverage.reportPaths=coverage.xml

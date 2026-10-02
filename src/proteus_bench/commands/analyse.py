@@ -12,8 +12,6 @@ import json
 import sys
 from pathlib import Path
 
-from proteus_bench.analysis import analyse
-
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('store', type=Path, help='results store holding records/')
@@ -44,6 +42,9 @@ def main(args: argparse.Namespace) -> int:
         except ValueError as err:
             print(f'{path}: not valid UTF-8 JSON ({err})', file=sys.stderr)
             return 1
+    # Imported here so the other commands work without the analysis extra
+    from proteus_bench.analysis import analyse
+
     try:
         result = analyse(records)
     except ValueError as err:
