@@ -54,11 +54,9 @@ ABS_FLOOR = {'s': 1.0, 'count': 0.0}
 def analyse(records: list[dict]) -> dict:
     """Build every series from run records (schema ``proteus-bench/1``).
 
-    Returns the analysis structure described in ``docs/interface.md``, with
-    no series for empty input. This does not validate the record schema.
-    ``KeyError``, ``TypeError`` and ``ValueError`` from extracting a record's
-    identity or metrics become ``ValueError`` naming the run; errors during
-    series analysis propagate unchanged.
+    Returns the analysis structure described in ``docs/interface.md``. Records are
+    not checked against the schema; one that lacks a field or has a malformed one
+    raises ``ValueError`` naming the run.
     """
     groups = defaultdict(list)
     for record in records:
@@ -105,11 +103,6 @@ def record_metrics(record: dict) -> dict[str, float]:
 
 
 def _steady_iteration_metrics(per_iter: list[dict]) -> dict[str, float]:
-    """Return duration medians in seconds, excluding truthy ``init_stage`` rows.
-
-    Component medians use only rows containing that component. Return an
-    empty dict when no steady iterations remain.
-    """
     steady = [row for row in per_iter if not row.get('init_stage')]
     if not steady:
         return {}
@@ -124,12 +117,6 @@ def _steady_iteration_metrics(per_iter: list[dict]) -> dict[str, float]:
 
 
 def _identity(record: dict) -> dict:
-    """Extract series identity and run metadata, sorting by start time then run id.
-
-    Only ``comparability.ok is True`` marks a run comparable. Missing fields
-    raise ``KeyError``; an invalid start timestamp or absent UTC offset raises
-    ``ValueError``, and a non-string timestamp raises ``TypeError``.
-    """
     bench = record['benchmark']
     started_at = record['trigger']['started_at']
     started = datetime.fromisoformat(started_at)
@@ -148,12 +135,6 @@ def _identity(record: dict) -> dict:
 
 
 def _series(key: tuple, rows: list[tuple[dict, float]]) -> dict:
-    """Build a series ordered by start time, then run id, retaining all points.
-
-    Only comparable points enter statistics, split at settings changes. The
-    reported baseline uses the latest segment's last ``BASELINE_WINDOW``
-    points, including its newest point.
-    """
     rows = sorted(rows, key=lambda row: row[0]['sort'])
     unit = 'count' if key[3] == 'n_iters' else 's'
     points = [
@@ -181,12 +162,6 @@ def _series(key: tuple, rows: list[tuple[dict, float]]) -> dict:
 
 
 def _split_at_settings_changes(comparable: list[tuple[dict, dict]]):
-    """Return boundaries and point segments from ordered comparable identity/point pairs.
-
-    Each settings hash change starts a segment; its boundary lists changed
-    settings keys, excluding per-run keys. Empty input gives no boundaries
-    and one empty segment.
-    """
     boundaries, segments = [], [[]]
     for i, (ident, point) in enumerate(comparable):
         prev = comparable[i - 1][0] if i else ident
@@ -204,11 +179,7 @@ def _split_at_settings_changes(comparable: list[tuple[dict, dict]]):
 
 
 def baseline(values: list[float]) -> dict | None:
-    """Return median, robust sigma (1.4826 x MAD) and count of all supplied values.
-
-    Return None with fewer than ``MIN_BASELINE_POINTS`` values. The caller
-    selects the window; median and sigma have the input values' units.
-    """
+    """Median and robust sigma (1.4826 x MAD) of the given values; None with too few."""
     if len(values) < MIN_BASELINE_POINTS:
         return None
     mid = median(values)
@@ -217,13 +188,7 @@ def baseline(values: list[float]) -> dict | None:
 
 
 def _judge(value: float, base: dict, abs_floor: float) -> tuple[int, float, float]:
-    """Return (direction, delta from median, threshold) against a baseline.
-
-    Direction is +1 above the median or -1 below only when the absolute delta
-    strictly exceeds both the threshold and ``abs_floor``; otherwise it is 0.
-    The returned threshold is max(3 sigma, 5 % of the absolute median), without
-    the absolute floor. Delta, threshold and floor use the value's units.
-    """
+    """(direction, delta, threshold): direction +1 above the threshold, -1 below, else 0."""
     delta = value - base['median']
     threshold = max(SIGMA_FACTOR * base['sigma'], MIN_DELTA_REL * abs(base['median']))
     if abs(delta) <= max(threshold, abs_floor):
@@ -232,13 +197,6 @@ def _judge(value: float, base: dict, abs_floor: float) -> tuple[int, float, floa
 
 
 def _flags(segment: list[dict], abs_floor: float) -> list[dict]:
-    """Flag ordered comparable points within one settings segment.
-
-    Each point uses up to ``BASELINE_WINDOW`` preceding points as its baseline.
-    ``abs_floor`` is in the metric's units. Confirmation uses the next point
-    against that same baseline, or is None when no next point exists. Relative
-    deltas and thresholds are None when the baseline median is zero.
-    """
     flags = []
     for i, point in enumerate(segment):
         base = baseline([p['value'] for p in segment[max(0, i - BASELINE_WINDOW) : i]])
@@ -264,13 +222,6 @@ def _flags(segment: list[dict], abs_floor: float) -> list[dict]:
 
 
 def _steps(segment: list[dict]) -> list[dict]:
-    """Return level changes within an ordered comparable settings segment.
-
-    ``after_run_id`` names the first run of the new level, including the first
-    excursion run between levels that is closer to the new median. Level
-    medians exclude excursions; relative change is None if the old median is
-    zero. Unlike flags, steps have no absolute floor.
-    """
     values = [p['value'] for p in segment]
     steps = []
     for (_, end, before), (start, _, after) in pairwise(_levels(values)):

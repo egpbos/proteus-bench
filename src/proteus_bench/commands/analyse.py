@@ -14,7 +14,6 @@ from pathlib import Path
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add a required store path and ``--out`` path, defaulting to ``analysis.json``."""
     parser.add_argument('store', type=Path, help='results store holding records/')
     parser.add_argument(
         '--out',
@@ -25,19 +24,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _reject_constant(name: str):
-    """Raise ``ValueError`` for a JSON decoder's NaN or Infinity token."""
     # Python's json accepts NaN and Infinity, which standard JSON does not have
     raise ValueError(f'{name} is not valid JSON')
 
 
 def main(args: argparse.Namespace) -> int:
-    """Analyze ``args.store/records/**/*.json`` and overwrite ``args.out`` with JSON.
-
-    Return 0 and print a summary on success. Return 1 with a diagnostic on
-    stderr for no records, invalid UTF-8 JSON, or ``ValueError`` from analysis.
-    File I/O errors and import errors for the analysis extra propagate; output
-    parent directories must already exist.
-    """
     paths = sorted((args.store / 'records').glob('**/*.json'))
     if not paths:
         print(f'no run records found under {args.store / "records"}', file=sys.stderr)
