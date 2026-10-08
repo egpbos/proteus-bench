@@ -220,10 +220,12 @@ def test_run_page_puts_problems_first(site):
     problems = text.index('id="problems"')
     assert problems < text.index('<h2>Summary</h2>')
     callout = text[problems : text.index('</section>', problems)]
-    assert 'Check failed: cvode_importable' in callout
     assert 'Check failed: expected_backends' in callout
-    assert 'Not comparable: backend aragog.solver is radau, expected cvode' in callout
-    assert 'proteus_doctor' not in callout
+    assert (
+        'Not comparable: check expected_backends failed: aragog.solver: expected cvode, got radau'
+        in callout
+    )
+    assert 'clean_tree' not in callout
     assert 'id="problems"' not in (site / R1).read_text()
     failed = (site / 'runs/20260924T120000Z-gha-default-g2.html').read_text()
     assert 'Run failed' in failed
@@ -231,12 +233,9 @@ def test_run_page_puts_problems_first(site):
 
 
 def test_checks_table_lists_failed_checks_first(site):
-    """The fixture lists cvode, doctor, backends, tree; the table shows both failures first."""
+    """The fixture lists tree, timing, backends; the failed backends check comes first."""
     checks = section_text((site / R4).read_text(), 'Checks')
-    order = [
-        checks.index(n)
-        for n in ('cvode_importable', 'expected_backends', 'proteus_doctor', 'clean_tree')
-    ]
+    order = [checks.index(n) for n in ('expected_backends', 'clean_tree', 'timing_contract')]
     assert order == sorted(order)
 
 
@@ -356,7 +355,7 @@ def test_series_naming_an_unknown_run_is_refused(tmp_path, records, analysis):
 
 def test_malformed_parts_are_reported_with_the_run(tmp_path, records, analysis):
     """A check without 'ok', an artifact path leaving the store or a list of artifacts names the run."""
-    records[2]['checks'] = [{'name': 'cvode_importable'}]
+    records[2]['checks'] = [{'name': 'clean_tree'}]
     records[3]['artifacts']['log'] = '../outside.log'
     (tmp_path / 'store').mkdir()
     with pytest.raises(

@@ -116,20 +116,9 @@ def fixture_record(run_id: str, started_at: str, sha: str, machine: str, **scena
 
 def _radau(record: dict) -> None:
     record['backends']['aragog'] = {'solver': 'radau', 'calls': {'radau': 6}}
-    record['checks'][0] = {
-        'name': 'cvode_importable',
-        'ok': False,
-        'detail': 'No module named scikits_odes_sundials',
-    }
-    record['checks'][2] = {
-        'name': 'expected_backends',
-        'ok': False,
-        'detail': 'aragog.solver=radau, expected cvode',
-    }
-    reasons = [
-        'check failed: cvode_importable',
-        'backend aragog.solver is radau, expected cvode',
-    ]
+    detail = 'aragog.solver: expected cvode, got radau'
+    record['checks'][2] = {'name': 'expected_backends', 'ok': False, 'detail': detail}
+    reasons = [f'check expected_backends failed: {detail}']
     record['comparability'] = {'ok': False, 'reasons': reasons}
 
 
