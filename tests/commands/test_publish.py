@@ -33,7 +33,6 @@ def _refs(remote) -> str:
 
 def test_invalid_record_refuses_everything(make_run_dir, bare_remote, capsys):
     """One bad run among good ones: problem printed, exit 1, remote untouched."""
-    pytest.importorskip('jsonschema')
     good = make_run_dir(RUN_A)
     bad = make_run_dir(RUN_B)
     record = json.loads((bad / 'record.json').read_text())
@@ -105,14 +104,17 @@ def test_github_remote_without_gh_prints_command(
     assert (run_dir / '.published').exists()
 
 
-def test_shape_not_checked_is_stated(make_run_dir, bare_remote, monkeypatch, capsys):
-    """Without jsonschema the publish proceeds and says the record shape was not checked."""
-    monkeypatch.setattr(schema, 'shape_problems', lambda kind, instance: None)
+def test_without_jsonschema_nothing_is_published(
+    make_run_dir, bare_remote, monkeypatch, capsys
+):
+    """Without the publish extra the run is refused and the store is left untouched."""
+    monkeypatch.setattr(schema, 'available', lambda: False)
     run_dir = make_run_dir(RUN_A)
-    assert cli.main(['publish', str(run_dir), '--remote', str(bare_remote)]) == 0
+    assert cli.main(['publish', str(run_dir), '--remote', str(bare_remote)]) == 1
     out = capsys.readouterr().out
-    assert f'{run_dir}: record shape not checked (install jsonschema)\n' in out
-    assert f'published {RUN_A}' in out
+    assert 'install proteus-bench[publish]' in out
+    assert 'nothing published' in out
+    assert _refs(bare_remote) == ''
 
 
 def test_git_failure_and_retries_are_reported(make_run_dir, bare_remote, monkeypatch, capsys):

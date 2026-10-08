@@ -69,22 +69,26 @@ def record_path(run_id: str) -> str:
     return f'records/{run_id[:4]}/{run_id}.json'
 
 
-def check_run(run_dir: Path) -> tuple[dict | None, list[str], bool]:
-    """(record or None, problems, whether jsonschema checked the record shape)."""
+def check_run(run_dir: Path) -> tuple[dict | None, list[str]]:
+    """(record or None, problems); a run with any problem is not stored.
+
+    The record must pass its JSON Schema, so jsonschema is required.
+    """
     record_file = run_dir / 'record.json'
     if not record_file.is_file():
-        return None, [f'{run_dir}: no record.json, so not a run directory'], True
+        return None, [f'{run_dir}: no record.json, so not a run directory']
     try:
         record = json.loads(record_file.read_text(encoding='utf-8'))
     except json.JSONDecodeError as err:
-        return None, [f'{record_file}: not valid JSON ({err.msg}, line {err.lineno})'], True
-    if not isinstance(record, dict):
-        return None, [f'{record_file}: a run record must be a JSON object'], True
-    shape = schema.shape_problems('record', record)
-    found = (shape or []) + _key_field_problems(record)
-    problems = [f'{record_file}: {p}' for p in found]
+        return None, [f'{record_file}: not valid JSON ({err.msg}, line {err.lineno})']
+    if not schema.available():
+        return record, [
+            f'{record_file}: cannot check the record against its schema; '
+            'install proteus-bench[publish]'
+        ]
+    problems = schema.shape_problems('record', record) or _file_name_problems(record)
     if problems:
-        return record, problems, shape is not None
+        return record, [f'{record_file}: {p}' for p in problems]
     problems += [f'{link}: symbolic links are not published' for link in _symlinks(run_dir)]
     ok = record['outcome']['status'] == 'ok'
     required = REQUIRED + (REQUIRED_IF_OK if ok else ())
@@ -95,7 +99,7 @@ def check_run(run_dir: Path) -> tuple[dict | None, list[str], bool]:
     ]
     problems += _settings_problems(run_dir, record)
     problems += [f'{record_file}: {p}' for p in _artifact_problems(run_dir, record)]
-    return record, problems, shape is not None
+    return record, problems
 
 
 def _symlinks(run_dir: Path) -> list[Path]:
@@ -108,24 +112,17 @@ def _symlinks(run_dir: Path) -> list[Path]:
     ]
 
 
-def _key_field_problems(record: dict) -> list[str]:
-    """Checked even without jsonschema: these values become paths."""
-    containers = {k: record.get(k) for k in ('benchmark', 'outcome')}
-    containers['artifacts'] = record.get('artifacts', {})
-    wrong = [f'{k} must be an object' for k, v in containers.items() if not isinstance(v, dict)]
-    if wrong:
-        return wrong
-    found = []
-    # fullmatch: the schema's '$' (and jsonschema) accept a trailing newline
-    run_id = record.get('run_id')
-    if not isinstance(run_id, str) or not RUN_ID.fullmatch(run_id):
-        found.append(f'run_id {run_id!r} does not match {RUN_ID.pattern}')
-    hash_ = record['benchmark'].get('settings_hash')
-    if not isinstance(hash_, str) or not SETTINGS_HASH.fullmatch(hash_):
-        found.append(f'settings_hash {hash_!r} does not match {SETTINGS_HASH.pattern}')
-    if not isinstance(record['outcome'].get('status'), str):
-        found.append('outcome.status is missing')
-    return found
+def _file_name_problems(record: dict) -> list[str]:
+    """Values that become file names must match in full: the schema's '$' accepts a final newline."""
+    fields = (
+        ('run_id', record['run_id'], RUN_ID),
+        ('settings_hash', record['benchmark']['settings_hash'], SETTINGS_HASH),
+    )
+    return [
+        f'{name} {value!r} does not match {pattern.pattern}'
+        for name, value, pattern in fields
+        if not pattern.fullmatch(value)
+    ]
 
 
 def _settings_problems(run_dir: Path, record: dict) -> list[str]:

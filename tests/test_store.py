@@ -38,15 +38,13 @@ def _rewrite(run_dir, edit):
 
 def test_good_run_passes_and_missing_files_are_named(make_run_dir):
     """A complete run has no problems; removing required files names each one."""
-    pytest.importorskip('jsonschema')
     run_dir = make_run_dir(RUN_A, artifacts={})
-    record, problems, shape_checked = store.check_run(run_dir)
+    record, problems = store.check_run(run_dir)
     assert problems == []
-    assert shape_checked is True
     assert record['run_id'] == RUN_A
     for name in ('timing.jsonl', 'log.txt', 'config.toml', 'init_coupler.toml'):
         (run_dir / name).unlink()
-    _, problems, _ = store.check_run(run_dir)
+    _, problems = store.check_run(run_dir)
     assert problems == [
         f'{run_dir}: missing {name}'
         for name in ('log.txt', 'config.toml', 'timing.jsonl', 'init_coupler.toml')
@@ -60,7 +58,7 @@ def test_failed_run_needs_no_spans_or_settings(make_run_dir):
     )
     (run_dir / 'timing.jsonl').unlink()
     (run_dir / 'init_coupler.toml').unlink()
-    record, problems, _ = store.check_run(run_dir)
+    record, problems = store.check_run(run_dir)
     assert problems == []
     assert store.stored_artifacts(run_dir, record) == {
         'config': f'configs/2026/{RUN_A}.toml',
@@ -72,17 +70,17 @@ def test_failed_run_needs_no_spans_or_settings(make_run_dir):
 
 def test_not_a_run_dir_broken_json_and_non_object(tmp_path):
     """No record.json, unparsable JSON and a JSON array are reported, not raised."""
-    record, problems, _ = store.check_run(tmp_path)
+    record, problems = store.check_run(tmp_path)
     assert record is None
     assert 'not a run directory' in problems[0]
     (tmp_path / 'record.json').write_text('{"run_id": ')
-    record, problems, _ = store.check_run(tmp_path)
+    record, problems = store.check_run(tmp_path)
     assert record is None
     assert 'not valid JSON' in problems[0]
     (tmp_path / 'record.json').write_text('[1, 2]')
-    assert store.check_run(tmp_path)[1] == [
-        f'{tmp_path / "record.json"}: a run record must be a JSON object'
-    ]
+    problems = store.check_run(tmp_path)[1]
+    assert len(problems) == 1
+    assert "<root>: [1, 2] is not of type 'object'" in problems[0]
 
 
 def test_settings_hash_must_match_init_coupler(make_run_dir):
@@ -90,7 +88,7 @@ def test_settings_hash_must_match_init_coupler(make_run_dir):
     run_dir = make_run_dir(RUN_A)
     path = run_dir / 'init_coupler.toml'
     path.write_text(path.read_text().replace('use_jax = true', 'use_jax = false'))
-    _, problems, _ = store.check_run(run_dir)
+    _, problems = store.check_run(run_dir)
     assert len(problems) == 1
     assert 'settings hash is sha256:' in problems[0]
     assert 'but record.json says' in problems[0]
@@ -104,35 +102,46 @@ def test_settings_hash_must_match_init_coupler(make_run_dir):
     assert store.check_run(run_b)[1] == []
 
 
-def test_key_fields_checked_without_jsonschema(make_run_dir, monkeypatch):
-    """Without jsonschema, path-forming fields and their containers are still checked."""
-    monkeypatch.setattr(schema, 'shape_problems', lambda kind, instance: None)
+def test_without_jsonschema_nothing_is_stored(make_run_dir, monkeypatch):
+    """A record that cannot be checked against its schema is refused, naming the extra."""
+    monkeypatch.setattr(schema, 'available', lambda: False)
     run_dir = make_run_dir(RUN_A)
+    _, problems = store.check_run(run_dir)
+    assert problems == [
+        f'{run_dir / "record.json"}: cannot check the record against its schema; '
+        'install proteus-bench[publish]'
+    ]
+
+
+def test_path_forming_fields_are_checked_by_the_schema(make_run_dir):
+    """A run id or settings hash that would escape the store, or a missing status, is refused."""
 
     def escape(record):
         record['run_id'] = '../../etc'
         record['benchmark']['settings_hash'] = 'md5:abc'
         del record['outcome']['status']  # decides which files are required
 
+    run_dir = make_run_dir(RUN_A)
     _rewrite(run_dir, escape)
-    _, problems, shape_checked = store.check_run(run_dir)
-    assert shape_checked is False
-    assert [p.split(': ', 1)[1].split(' ')[0] for p in problems] == [
-        'run_id',
-        'settings_hash',
-        'outcome.status',
-    ]
-    for key, value in (('benchmark', 'all_options'), ('artifacts', ['timing.jsonl'])):
-        run = make_run_dir(f'20260927T000000Z-{key}')
-        _rewrite(run, lambda r, k=key, v=value: r.update({k: v}))
-        assert store.check_run(run)[1][0].endswith(f'{key} must be an object'), key
+    problems = ' '.join(store.check_run(run_dir)[1])
+    for found in ("'../../etc' does not match", "'md5:abc' does not match", "'status' is"):
+        assert found in problems, found
+
+
+def test_start_time_must_be_a_date_time(make_run_dir):
+    """The schema's date-time format is enforced, which needs rfc3339-validator."""
+    run_dir = make_run_dir(RUN_A)
+    _rewrite(run_dir, lambda r: r['trigger'].update(started_at='yesterday'))
+    problems = store.check_run(run_dir)[1]
+    assert len(problems) == 1
+    assert "trigger/started_at: 'yesterday' is not a 'date-time'" in problems[0]
 
 
 def test_trailing_newline_in_run_id_is_refused(make_run_dir):
     """The schema's '$' (used by jsonschema) accepts a final newline; a file name must not."""
     run_dir = make_run_dir(RUN_A)
     _rewrite(run_dir, lambda r: r.update(run_id=RUN_A + '\n'))
-    _, problems, _ = store.check_run(run_dir)
+    _, problems = store.check_run(run_dir)
     assert len(problems) == 1
     assert "run_id '20260925T031000Z-habrok-default-a1b2\\n' does not match" in problems[0]
     assert store.RUN_ID.pattern == schema.load('record')['properties']['run_id']['pattern']
@@ -187,7 +196,7 @@ def test_profile_is_copied_whole(make_run_dir, tmp_path):
     (run_dir / 'profile' / 'flame.html').write_text('<html></html>')
     (run_dir / 'profile' / 'stacks.folded.gz').write_bytes(gzip.compress(b'a;b 3\n'))
     (run_dir / 'profile' / 'raw' / 'scalene-profile.json').write_text('{}')
-    record, problems, _ = store.check_run(run_dir)
+    record, problems = store.check_run(run_dir)
     assert problems == []
     stored = store.stage_run(run_dir, record, tmp_path / 'tree')
     base = f'profiles/2026/{RUN_A}/'
@@ -210,7 +219,7 @@ def test_profile_is_copied_whole(make_run_dir, tmp_path):
 def test_artifacts_outside_the_contract_are_refused(make_run_dir, artifacts, expected):
     """Unknown keys, other paths for a known key, and missing files are check problems."""
     run_dir = make_run_dir(RUN_A, artifacts=artifacts)
-    _, problems, _ = store.check_run(run_dir)
+    _, problems = store.check_run(run_dir)
     assert len(problems) == 1
     assert expected in problems[0]
 
@@ -223,7 +232,7 @@ def test_symbolic_links_are_refused(make_run_dir, tmp_path):
     (tmp_path / 'secret.txt').write_text('token\n')
     (run_dir / 'profile').mkdir()
     os.symlink('/', run_dir / 'profile' / 'root')
-    _, problems, _ = store.check_run(run_dir)
+    _, problems = store.check_run(run_dir)
     links = [p for p in problems if p.endswith('symbolic links are not published')]
     assert sorted(links) == sorted(
         f'{path}: symbolic links are not published'

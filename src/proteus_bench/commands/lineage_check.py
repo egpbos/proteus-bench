@@ -58,7 +58,7 @@ def _stored_file(tree: Path, path: str) -> Path:
 
 
 def main(args: argparse.Namespace) -> int:
-    record, problems, _ = store.check_run(args.run_dir)
+    record, problems = store.check_run(args.run_dir)
     for problem in problems:
         print(problem)
     if problems:

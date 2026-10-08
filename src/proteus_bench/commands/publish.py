@@ -1,8 +1,8 @@
 """``proteus-bench publish``: add run directories to the results store and push.
 
-Every run is checked first (record shape when jsonschema is installed, the
-fields used in store paths, required files, settings hash); if any run fails,
-nothing is published. Runs already in the store are skipped. After a push the
+Every run is checked first (the record against its schema, which needs the
+``publish`` extra; the fields used in store paths, required files, settings
+hash); if any run fails, nothing is published. Runs already in the store are skipped. After a push the
 dashboard workflow is dispatched with ``gh`` when possible. Exit code 0 on
 success (including all runs skipped), 1 when a check or git step failed.
 """
@@ -46,12 +46,10 @@ def check_runs(run_dirs: list[Path]) -> list[tuple[Path, dict]] | None:
     """Check every run dir and print its problems; None if any run is refused."""
     runs, failed = [], False
     for run_dir in run_dirs:
-        record, problems, shape_checked = store.check_run(run_dir)
+        record, problems = store.check_run(run_dir)
         for problem in problems:
             print(problem)
         failed = failed or bool(problems)
-        if not shape_checked:
-            print(f'{run_dir}: record shape not checked (install jsonschema)')
         runs.append((run_dir, record))
     if failed:
         return None

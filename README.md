@@ -21,16 +21,18 @@ proteus-bench is installed twice, for two kinds of use:
   ```
 
 - Everything else (analysis, reports, publishing, validation) runs from an
-  environment of its own, with the `analysis` extra:
+  environment of its own, usually with both extras:
 
   ```bash
   python -m venv ~/.venvs/proteus-bench
-  ~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis] @ git+https://github.com/egpbos/proteus-bench"
+  ~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis,publish] @ git+https://github.com/egpbos/proteus-bench"
   ```
 
-The `analysis` extra adds [asv](https://github.com/airspeed-velocity/asv),
-whose step detector `proteus-bench analyse` uses. `jsonschema` is optional and
-enables shape validation in `proteus-bench validate`.
+`analysis` (asv's step detector) is needed by `analyse` and the dashboard
+build; `publish` (jsonschema and rfc3339-validator) by `publish`, `ingest` and
+`lineage-check`, which refuse records they cannot check against the schema.
+`validate` uses jsonschema when it is there and checks the timing rules either
+way.
 
 ## Running a benchmark
 
