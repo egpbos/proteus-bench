@@ -65,22 +65,23 @@ def introspect_env(python: str) -> dict:
     return json.loads(proc.stdout)
 
 
-def proteus_checkout(python: str, origin: str | None) -> Path:
-    """The PROTEUS checkout that ``python`` imports ``proteus`` from.
+def proteus_checkout(python: str, origin: str | None) -> tuple[Path, dict]:
+    """The git checkout of PROTEUS that ``python`` imports ``proteus`` from, and its state.
 
-    ``origin`` is ``<checkout>/src/proteus/__init__.py``; the checkout holds
-    ``pyproject.toml``, as PROTEUS's ``get_proteus_dir`` requires. Raises
-    ``ValueError`` when proteus is not importable or not from a checkout.
+    ``origin`` is ``<checkout>/src/proteus/__init__.py``, three levels below the
+    root, as PROTEUS's own ``get_proteus_dir`` assumes. Runs are only measured on a
+    git checkout, so a wheel or a copy raises ``ValueError``, as does no proteus.
     """
     if origin is None:
         raise ValueError(f'{python} cannot import proteus; activate the PROTEUS environment')
     root = Path(origin).parents[2]
-    if not (root / 'pyproject.toml').is_file():
+    state = git_state(root)
+    if state is None:
         raise ValueError(
-            f'{python} imports proteus from {origin}, not from a PROTEUS checkout '
-            f'({root} has no pyproject.toml); install PROTEUS editable from its checkout'
+            f'{python} imports proteus from {origin}; runs need PROTEUS installed from '
+            'a git checkout (pip install -e), not from a wheel or a copy'
         )
-    return root
+    return root, state
 
 
 def module_state(info: dict) -> dict:

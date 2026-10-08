@@ -106,18 +106,13 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
     # The environment that runs the command is the one measured, as the profilers assume
     python = str(Path(exe).resolve().parent / 'python')
     env_report = provenance.introspect_env(python)
-    root = provenance.proteus_checkout(python, env_report['proteus'])
+    root, proteus_git = provenance.proteus_checkout(python, env_report['proteus'])
     suite = suites.load_suite(args.suite)
     adapter = record.detect_adapter(os.environ)
     label = args.machine_label or ('gha' if adapter == 'gha' else platform.node().split('.')[0])
     run_id = make_run_id(dt.datetime.now(dt.UTC), label, suite['name'])
     run_dir = args.runs_dir.resolve() / run_id
     run_config = suites.build_run_config(root, suite, run_id)
-    proteus_git = provenance.git_state(root)
-    if proteus_git is None:
-        raise ValueError(
-            f'{root}, where proteus is imported from, is not the top of a git checkout'
-        )
     machine_section = machine.machine_section(label, args.machine_class)
     run_dir.mkdir(parents=True)
     try:

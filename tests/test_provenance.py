@@ -139,23 +139,26 @@ def test_introspect_env_runs_the_target_interpreter():
         provenance.introspect_env('false')
 
 
-def test_proteus_checkout_is_where_proteus_is_imported_from(tmp_path):
-    """``<root>/src/proteus/__init__.py`` gives ``<root>``, the directory with pyproject.toml."""
+def test_proteus_checkout_is_the_git_checkout_proteus_is_imported_from(tmp_path, git_repo):
+    """``<root>/src/proteus/__init__.py`` gives ``<root>`` and its git state."""
     root = tmp_path / 'PROTEUS'
     (root / 'src' / 'proteus').mkdir(parents=True)
-    (root / 'pyproject.toml').write_text('')
+    (root / 'src' / 'proteus' / '__init__.py').write_text('')
+    sha = git_repo(root)
     origin = root / 'src' / 'proteus' / '__init__.py'
-    assert provenance.proteus_checkout('python', str(origin)) == root
+    found, state = provenance.proteus_checkout('python', str(origin))
+    assert found == root
+    assert state['sha'] == sha[:8]
 
 
-def test_proteus_from_an_installed_wheel_is_refused(tmp_path):
-    """No pyproject.toml above the package means no checkout to name or read configs from."""
-    origin = tmp_path / 'lib' / 'site-packages' / 'proteus' / '__init__.py'
-    (tmp_path / 'lib' / 'site-packages' / 'proteus').mkdir(parents=True)
-    (tmp_path / 'pyproject.toml').write_text('')  # one level too high: must not count
-    with pytest.raises(ValueError, match='not from a PROTEUS checkout') as err:
-        provenance.proteus_checkout('/env/bin/python', str(origin))
-    assert f'{tmp_path / "lib"} has no pyproject.toml' in str(err.value)
+def test_proteus_installed_from_a_wheel_is_refused(tmp_path, git_repo):
+    """A wheel install is refused even when its environment lies inside a git checkout."""
+    site = tmp_path / '.pixi' / 'envs' / 'default' / 'lib' / 'python3.12' / 'site-packages'
+    (site / 'proteus').mkdir(parents=True)
+    (site / 'proteus' / '__init__.py').write_text('')
+    git_repo(tmp_path)
+    with pytest.raises(ValueError, match='runs need PROTEUS installed from a git checkout'):
+        provenance.proteus_checkout('/env/bin/python', str(site / 'proteus' / '__init__.py'))
 
 
 def test_proteus_not_importable_is_refused():

@@ -235,7 +235,7 @@ def test_the_checkout_measured_belongs_to_the_command_that_runs(bench, git_repo,
     ('found', 'message'),
     [
         ('empty', 'cannot import proteus; activate the PROTEUS environment'),
-        ('site-packages', 'not from a PROTEUS checkout'),
+        ('site-packages', 'runs need PROTEUS installed from a git checkout'),
     ],
 )
 def test_proteus_outside_a_checkout_is_a_setup_error(bench, tmp_path, found, message):
@@ -395,9 +395,7 @@ def test_non_git_root_is_refused(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv('PYTHONPATH', str(tmp_path / 'PROTEUS' / 'src'))
     argv = ['run', '--proteus-cmd', FAKE_CMD, '--runs-dir', str(tmp_path / 'r')]
     assert cli.main(argv) == 2
-    assert 'where proteus is imported from, is not the top of a git checkout' in (
-        capsys.readouterr().err
-    )
+    assert 'runs need PROTEUS installed from a git checkout' in capsys.readouterr().err
     assert not (tmp_path / 'r').exists()
 
 
