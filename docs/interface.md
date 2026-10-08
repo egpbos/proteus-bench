@@ -122,7 +122,7 @@ One JSON file per run. See `record-v1.schema.json` for every field. Key points:
   The phase's unattributed remainder is a row with `component = other`, so the
   rows for a phase add up to its entry in `timings.phases`.
 - `comparability` says whether the run may enter baselines, and if not, why.
-  Examples: a failed environment check, an unexpected backend such as the Radau
+  Examples: uncommitted changes in PROTEUS, an unexpected backend such as the Radau
   fallback, or a physics fingerprint that doesn't match the series.
 
 ## Analysis output (internal)

@@ -115,7 +115,7 @@ def span_map(events: list[dict]) -> dict[int, dict]:
     return {ev['id']: ev for ev in events if ev['ev'] == 'span'}
 
 
-def _ancestors(span: dict, spans: dict[int, dict]):
+def ancestors(span: dict, spans: dict[int, dict]):
     """Yield the known ancestors of a span, nearest first.
 
     Parents open before their children, so ids strictly decrease along a valid
@@ -154,7 +154,7 @@ def _attribution_problems(span: dict, spans: dict[int, dict]) -> list[str]:
     """An attributed span has no attributed ancestor."""
     if 'component' not in span:
         return []
-    clash = next((a for a in _ancestors(span, spans) if 'component' in a), None)
+    clash = next((a for a in ancestors(span, spans) if 'component' in a), None)
     if clash is None:
         return []
     return [f'span {span["id"]} and its ancestor {clash["id"]} both carry a component']
@@ -221,7 +221,7 @@ def _check_iterations(spans: dict[int, dict]) -> list[str]:
 
 def phase_of(span: dict, spans: dict[int, dict]) -> str | None:
     """Name of the phase (root span) a span belongs to, if known."""
-    root = [span, *_ancestors(span, spans)][-1]
+    root = [span, *ancestors(span, spans)][-1]
     return root['name'] if root['parent'] is None else None
 
 

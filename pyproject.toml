@@ -10,9 +10,9 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dynamic = ["version"]
-# The harness has no runtime dependencies: it is installed into PROTEUS
-# environments and must not constrain them.
-dependencies = []
+# Runs happen inside the PROTEUS environment, so tomli-w (the run config writer) is the
+# one dependency; other commands get theirs from extras (AGENTS.md, architecture rule 1)
+dependencies = ["tomli-w>=1"]
 
 [project.optional-dependencies]
 # Step detection in `proteus-bench analyse`
@@ -26,7 +26,7 @@ proteus-bench = "proteus_bench.cli:main"
 version = { attr = "proteus_bench.__version__" }
 
 [tool.setuptools.package-data]
-"proteus_bench" = ["flame_template.html"]
+"proteus_bench" = ["flame_template.html", "suites.toml"]
 "proteus_bench.schemas" = ["*.json"]
 
 [tool.pytest.ini_options]

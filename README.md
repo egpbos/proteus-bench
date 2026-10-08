@@ -4,24 +4,63 @@ Benchmarking and profiling harness for [PROTEUS](https://github.com/FormingWorld
 It runs PROTEUS, records per-phase and per-module timings along with the exact
 versions of every module, and publishes a history dashboard.
 
-Status: early development. The interfaces (`docs/interface.md`) are drafted; the
-runner, publishing and dashboard are not written yet. Design discussion:
+Status: early development. The interfaces (`docs/interface.md`) are drafted and
+the runner works; publishing and the dashboard are not written yet. Design discussion:
 [FormingWorlds/PROTEUS#916](https://github.com/FormingWorlds/PROTEUS/issues/916).
 
 ## Installation
 
-Install proteus-bench in its own environment, not in the PROTEUS one, so its
-dependencies never change the environment being measured:
+proteus-bench is installed twice, for two kinds of use:
+
+- Runs happen inside the PROTEUS environment. With that environment active,
+  install the bare package; its only dependency is the small `tomli-w`, so it
+  changes almost nothing else there:
+
+  ```bash
+  pip install "proteus-bench @ git+https://github.com/egpbos/proteus-bench"
+  ```
+
+- Everything else (analysis, reports, publishing, validation) runs from an
+  environment of its own, with the `analysis` extra:
+
+  ```bash
+  python -m venv ~/.venvs/proteus-bench
+  ~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis] @ git+https://github.com/egpbos/proteus-bench"
+  ```
+
+The `analysis` extra adds [asv](https://github.com/airspeed-velocity/asv),
+whose step detector `proteus-bench analyse` uses. `jsonschema` is optional and
+enables shape validation in `proteus-bench validate`.
+
+## Running a benchmark
+
+With the PROTEUS environment active:
 
 ```bash
-python -m venv ~/.venvs/proteus-bench
-~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis] @ git+https://github.com/egpbos/proteus-bench"
+proteus-bench run                  # the default suite
+proteus-bench run --timeout 21600  # kill the run after 6 h
 ```
 
-The harness itself has no runtime dependencies. The `analysis` extra adds
-[asv](https://github.com/airspeed-velocity/asv), whose step detector
-`proteus-bench analyse` uses. `jsonschema` is optional and enables shape
-validation in `proteus-bench validate`.
+The run measures the PROTEUS checkout that the `proteus` command on PATH
+imports, in that command's environment; to measure another checkout, activate
+its environment. PROTEUS must be installed from a git checkout
+(`pip install -e`); a PROTEUS installed from a wheel is refused.
+
+Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
+`timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. The proteus
+process runs with the BLAS and OpenMP thread counts set to 1, as the proteus CLI
+does itself. The PROTEUS tree must be clean (no changes to tracked files);
+`--allow-failed-checks` runs anyway and marks the record as not comparable.
+PROTEUS stops a run itself when CVODE or an environment variable it needs is
+missing; `proteus doctor` checks them beforehand.
+Suites live in `src/proteus_bench/suites.toml`.
+`proteus-bench run --help` lists the other options.
+
+proteus runs with `--offline`, so no download is ever timed and missing data
+fails the run. Fetch the data once beforehand: `proteus get reference` covers
+the `dummy` suite; the `default` suite also needs the data `proteus get` fetches
+for its modules (`stellar`, `spectral`, `surfaces`, and
+`interiordata --config-path input/all_options.toml`).
 
 ## Development
 

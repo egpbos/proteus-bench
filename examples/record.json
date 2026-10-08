@@ -91,22 +91,19 @@
   },
   "checks": [
     {
-      "name": "cvode_importable",
+      "name": "clean_tree",
       "ok": true,
-      "detail": "scikits_odes_sundials 3.1.1"
+      "detail": "abd4ca53"
     },
     {
-      "name": "proteus_doctor",
-      "ok": true
+      "name": "timing_contract",
+      "ok": true,
+      "detail": "39 events"
     },
     {
       "name": "expected_backends",
       "ok": true,
       "detail": "aragog.solver=cvode"
-    },
-    {
-      "name": "clean_tree",
-      "ok": true
     }
   ],
   "backends": {
