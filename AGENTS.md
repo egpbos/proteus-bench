@@ -23,7 +23,7 @@ src/proteus_bench/
   timing.py         reading and checking timing.jsonl
   suites.toml       benchmark suites; suites.py loads and validates them
   tomlwrite.py      TOML writer for the run config
-  checks.py         environment checks and the comparability rule
+  checks.py         run checks and the comparability rule
   provenance.py     git state and module versions; introspect.py runs in the PROTEUS env
   machine.py        machine fingerprint and run environment
   runner.py         spawning and measuring the proteus process

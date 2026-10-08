@@ -1,6 +1,6 @@
 """``proteus-bench run``: run one benchmark suite through the proteus CLI and record it.
 
-Stages: load the suite, build the run config, check the environment, spawn
+Stages: load the suite, build the run config, check the PROTEUS tree, spawn
 proteus with ``PROTEUS_TIMING=1``, collect its outputs and write
 ``<runs-dir>/<run_id>/record.json``. Failing checks stop the run before it is
 timed unless ``--allow-failed-checks`` is given; the record then says why the
@@ -140,8 +140,6 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
         machine=machine_section,
         env=machine.env_section(child_env, env_report, args.profiler, profiler_env),
         checks=[
-            checks.cvode_check(args.python, run_config),
-            checks.env_dirs_check(child_env),
             checks.proteus_import_check(env_report['proteus'], root),
             checks.clean_tree_check(proteus_git),
         ],

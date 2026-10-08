@@ -155,26 +155,3 @@ def git_repo():
         return _git(path, 'rev-parse', 'HEAD')
 
     return _make
-
-
-@pytest.fixture
-def cvode_stub(tmp_path, monkeypatch):
-    """Put a stand-in scikits_odes_sundials first on PYTHONPATH for subprocesses.
-
-    ``cvode_stub(True)`` makes the CVODE import succeed, ``cvode_stub(False)``
-    makes it fail, independent of what the test environment has installed.
-    """
-
-    def _install(importable: bool) -> None:
-        pkg = tmp_path / 'cvode_stub' / 'scikits_odes_sundials'
-        pkg.mkdir(parents=True, exist_ok=True)
-        (pkg / '__init__.py').write_text('')
-        body = (
-            'CVODE = CV_RootFunction = StatusEnum = object\n'
-            if importable
-            else "raise ImportError('stub: SUNDIALS library not found')\n"
-        )
-        (pkg / 'cvode.py').write_text(body)
-        monkeypatch.setenv('PYTHONPATH', str(pkg.parent))
-
-    return _install

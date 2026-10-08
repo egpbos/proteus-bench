@@ -1,17 +1,14 @@
-"""Tests for proteus_bench.checks: environment checks and the comparability rule.
+"""Tests for proteus_bench.checks: run checks and the comparability rule.
 
-Contract clauses: CVODE is checked only when the config (with PROTEUS
-defaults for absent keys) selects Aragog with CVODE; FWL_DATA, RAD_DIR (with
-bin/radlib.a) and FC_DIR must be existing directories; a dirty tree fails; timing problems and backend
-mismatches fail with the offending values; comparability lists one reason per
-failed check, a non-ok outcome, a profiler and each collection note, and is ok
-only with no reasons.
+Contract clauses: proteus must import from inside the PROTEUS root; a dirty
+tree fails; timing problems and backend mismatches fail with the offending
+values; comparability lists one reason per failed check, a non-ok outcome, a
+profiler and each collection note, and is ok only with no reasons.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -19,84 +16,6 @@ import pytest
 from proteus_bench import checks
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
-
-
-def test_cvode_needed_follows_proteus_defaults():
-    """Absent keys mean Aragog with CVODE, like PROTEUS; other choices do not need it."""
-    assert checks.uses_cvode({}) is True
-    assert checks.uses_cvode({'interior_energetics': {'module': 'aragog'}}) is True
-    assert checks.uses_cvode({'interior_energetics': {'module': 'spider'}}) is False
-    radau = {'interior_energetics': {'aragog': {'solver_method': 'radau'}}}
-    assert checks.uses_cvode(radau) is False
-
-
-def test_cvode_check_runs_the_import_in_the_target_interpreter(monkeypatch):
-    """The import runs under the given Python; its last error line becomes the detail.
-
-    The real subprocess path is exercised end to end in tests/commands/test_run.py.
-    """
-    calls = []
-
-    returncode = 1
-
-    def fake_run(argv, **kwargs):
-        calls.append(argv)
-        failed = 'Traceback\nImportError: stub: SUNDIALS library not found\n'
-        return subprocess.CompletedProcess(argv, returncode, '', failed)
-
-    monkeypatch.setattr(subprocess, 'run', fake_run)
-    missing = checks.cvode_check('/envs/proteus/bin/python', {})
-    assert calls == [['/envs/proteus/bin/python', '-c', checks.CVODE_IMPORT]]
-    assert missing == {
-        'name': 'cvode_importable',
-        'ok': False,
-        'detail': '/envs/proteus/bin/python: ImportError: stub: SUNDIALS library not found',
-    }
-    returncode = 0
-    assert checks.cvode_check('python', {})['ok'] is True
-    assert len(calls) == 2
-    skipped = checks.cvode_check('python', {'interior_energetics': {'module': 'dummy'}})
-    assert skipped == {
-        'name': 'cvode_importable',
-        'ok': True,
-        'detail': 'not required by this config',
-    }
-    assert len(calls) == 2  # the dummy interior needs no import at all
-
-
-def _dirs(tmp_path, radlib: bool = True) -> dict:
-    for name in ('fwl_data', 'socrates/bin', 'fastchem'):
-        (tmp_path / name).mkdir(parents=True, exist_ok=True)
-    if radlib:
-        (tmp_path / 'socrates' / 'bin' / 'radlib.a').write_bytes(b'!<arch>\n')
-    return {
-        'FWL_DATA': str(tmp_path / 'fwl_data'),
-        'RAD_DIR': str(tmp_path / 'socrates'),
-        'FC_DIR': str(tmp_path / 'fastchem'),
-    }
-
-
-def test_env_dirs_check_passes_with_all_directories(tmp_path):
-    """FWL_DATA, RAD_DIR (with bin/radlib.a) and FC_DIR set to real directories pass."""
-    env = _dirs(tmp_path)
-    result = checks.env_dirs_check(env)
-    assert result['ok'] is True
-    assert f'RAD_DIR={env["RAD_DIR"]}' in result['detail']
-
-
-def test_env_dirs_check_names_each_problem(tmp_path):
-    """Unset, empty, not a directory and a SOCRATES tree without radlib.a all fail."""
-    env = _dirs(tmp_path, radlib=False)
-    env['FC_DIR'] = str(tmp_path / 'missing')
-    del env['FWL_DATA']
-    result = checks.env_dirs_check(env)
-    assert result['ok'] is False
-    assert result['detail'].startswith('FWL_DATA is not set; ')
-    assert f'RAD_DIR={env["RAD_DIR"]} has no bin/radlib.a' in result['detail']
-    assert f'FC_DIR={env["FC_DIR"]} is not a directory' in result['detail']
-    assert result['detail'].endswith('proteus-bench run')  # says how to fix it
-    empty = checks.env_dirs_check({**_dirs(tmp_path), 'RAD_DIR': ''})
-    assert 'RAD_DIR is not set' in empty['detail']
 
 
 def test_proteus_import_check(tmp_path):

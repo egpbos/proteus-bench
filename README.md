@@ -39,11 +39,11 @@ proteus-bench from its own environment:
 Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
 `timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. The proteus
 process runs with the BLAS and OpenMP thread counts set to 1, as the proteus CLI
-does itself. Environment checks must pass: CVODE importable; FWL_DATA, RAD_DIR
-and FC_DIR set to existing directories (`pixi run` does not read shell rc files,
-so pass them explicitly there); `proteus` imported from the PROTEUS checkout
-being measured; a clean PROTEUS tree. `--allow-failed-checks`
-runs anyway and marks the record as not comparable.
+does itself. `proteus` must be imported from the PROTEUS checkout being
+measured, and that tree must be clean (no changes to tracked files);
+`--allow-failed-checks` runs anyway and marks the record as not comparable.
+PROTEUS stops a run itself when CVODE or an environment variable it needs is
+missing; `proteus doctor` checks them beforehand.
 Suites live in `src/proteus_bench/suites.toml`.
 `proteus-bench run --help` lists the other options.
 

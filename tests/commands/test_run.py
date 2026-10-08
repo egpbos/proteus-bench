@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import os
 import re
 import shlex
 import sys
@@ -44,20 +43,19 @@ EXPECTED_FILES = {'record.json', 'timing.jsonl', 'init_coupler.toml', 'config.to
 
 
 @pytest.fixture
-def bench(tmp_path, git_repo, cvode_stub, monkeypatch, capsys):
-    """Run ``proteus-bench run`` on a fake PROTEUS checkout; return (code, record, output)."""
+def bench(tmp_path, git_repo, monkeypatch, capsys):
+    """Run ``proteus-bench run`` on a fake PROTEUS checkout; return (code, record, output).
+
+    ``dirty=True`` edits a tracked file of the checkout first.
+    """
     for var in (*machine.THREAD_VARS, 'JULIA_NUM_THREADS', 'GITHUB_ACTIONS', 'SLURM_JOB_ID'):
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.delenv('RAD_DIR', raising=False)  # else the record reads the host's SOCRATES
     monkeypatch.setattr(machine, 'julia_version', lambda env: '1.13.0')
-    for var, rel in (('FWL_DATA', 'fwl_data'), ('RAD_DIR', 'socrates'), ('FC_DIR', 'fastchem')):
-        (tmp_path / rel).mkdir()
-        monkeypatch.setenv(var, str(tmp_path / rel))
-    (tmp_path / 'socrates' / 'bin').mkdir()
-    (tmp_path / 'socrates' / 'bin' / 'radlib.a').write_bytes(b'!<arch>\n')
     root = tmp_path / 'PROTEUS'
     proteus_path = [root / 'src']  # where the proteus package is found; tests may move it
 
-    def _run(fake: dict | None = None, *extra: str, cvode: bool = True, cmd: str = FAKE_CMD):
+    def _run(fake: dict | None = None, *extra: str, dirty: bool = False, cmd: str = FAKE_CMD):
         if not root.exists():
             (root / 'input').mkdir(parents=True)
             text = (DATA / 'all_options.toml').read_text()
@@ -67,10 +65,10 @@ def bench(tmp_path, git_repo, cvode_stub, monkeypatch, capsys):
             (root / 'src' / 'proteus').mkdir(parents=True)
             (root / 'src' / 'proteus' / '__init__.py').write_text('')
             git_repo(root)
-        cvode_stub(cvode)
-        monkeypatch.setenv(
-            'PYTHONPATH', f'{proteus_path[0]}{os.pathsep}{os.environ["PYTHONPATH"]}'
-        )
+        if dirty:
+            config = root / 'input' / 'all_options.toml'
+            config.write_text(config.read_text() + '\n# local edit\n')
+        monkeypatch.setenv('PYTHONPATH', str(proteus_path[0]))
         code = cli.main([
             'run', '--proteus-root', str(root), '--proteus-cmd', cmd,
             '--runs-dir', str(tmp_path / 'runs'), '--machine-label', 'test',
@@ -117,8 +115,6 @@ def test_ok_run_writes_a_complete_valid_record(bench):
     assert rec['trigger']['adapter'] == 'local'
     assert set(rec['env']['threads'].values()) == {'1'}
     assert [c['name'] for c in rec['checks']] == [
-        'cvode_importable',
-        'env_dirs',
         'proteus_import',
         'clean_tree',
         'timing_contract',
@@ -184,23 +180,13 @@ def test_radau_fallback_is_not_comparable(bench):
 
 
 def test_failed_check_stops_the_run(bench, tmp_path):
-    """Without CVODE the run does not start and nothing is written."""
-    code, rec, out = bench(cvode=False)
+    """An edited tracked file in PROTEUS stops the run before anything is written."""
+    code, rec, out = bench(dirty=True)
     assert code == 2
     assert rec is None
     assert list((tmp_path / 'runs').glob('*')) == []
-    assert 'FAIL cvode_importable' in out
+    assert 'FAIL clean_tree: uncommitted changes in PROTEUS' in out
     assert '--allow-failed-checks' in out
-
-
-def test_missing_rad_dir_stops_the_run(bench, monkeypatch, tmp_path):
-    """Under pixi run, rc-file exports such as RAD_DIR are absent: say so and stop."""
-    monkeypatch.delenv('RAD_DIR')
-    code, rec, out = bench()
-    assert code == 2
-    assert rec is None
-    assert 'FAIL env_dirs: RAD_DIR is not set; pass them explicitly' in out
-    assert list((tmp_path / 'runs').glob('*')) == []
 
 
 def test_proteus_from_another_checkout_stops_the_run(bench, tmp_path):
@@ -220,24 +206,12 @@ def test_proteus_from_another_checkout_stops_the_run(bench, tmp_path):
 
 def test_failed_check_can_be_overridden(bench):
     """With --allow-failed-checks the run happens and says why it is not comparable."""
-    code, rec, _ = bench(None, '--allow-failed-checks', cvode=False)
+    code, rec, _ = bench(None, '--allow-failed-checks', dirty=True)
     assert code == 0
     assert rec['outcome']['status'] == 'ok'
     reasons = rec['comparability']['reasons']
     assert len(reasons) == 1
-    assert reasons[0].startswith('check cvode_importable failed')
-
-
-def test_dirty_checkout_fails_the_clean_tree_check(bench, tmp_path):
-    """An edited tracked file in PROTEUS stops the run."""
-    bench(cvode=False)  # creates the checkout; stops at the CVODE check
-    config = tmp_path / 'PROTEUS' / 'input' / 'all_options.toml'
-    config.write_text(config.read_text() + '\n# local edit\n')
-    code, rec, out = bench()
-    assert code == 2
-    assert rec is None
-    assert 'FAIL clean_tree' in out
-    assert 'ok   cvode_importable' in out
+    assert reasons[0].startswith('check clean_tree failed: uncommitted changes in PROTEUS')
 
 
 def test_timeout_kills_the_run(bench):
@@ -337,7 +311,7 @@ def test_profile_that_cannot_be_collected_still_gives_a_record(bench, monkeypatc
 def test_profiled_run_that_fails_checks_leaves_nothing_behind(bench, monkeypatch, tmp_path):
     """The hook's profile directory is removed again when the checks stop the run."""
     monkeypatch.setitem(sys.modules, 'proteus_bench.profiling', FakeProfiling())
-    code, rec, _ = bench(None, '--profiler', 'scalene', cvode=False)
+    code, rec, _ = bench(None, '--profiler', 'scalene', dirty=True)
     assert code == 2
     assert rec is None
     assert list((tmp_path / 'runs').glob('*')) == []
