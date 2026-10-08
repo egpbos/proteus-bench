@@ -26,8 +26,9 @@ import tomllib
 from pathlib import Path
 
 import pytest
+import tomli_w
 
-from proteus_bench import cli, machine, record, schema, tomlwrite
+from proteus_bench import cli, machine, record, schema
 from proteus_bench.commands import run as run_command
 from proteus_bench.commands.run import make_run_id
 
@@ -47,9 +48,7 @@ def make_checkout(root: Path, git_repo=None, fake: dict | None = None) -> str | 
     """A PROTEUS checkout as the runner sees it, committed when ``git_repo`` is given."""
     (root / 'input').mkdir(parents=True)
     text = (DATA / 'proteus_config.toml').read_text()
-    (root / 'input' / 'all_options.toml').write_text(
-        text + tomlwrite.dumps({'fake': fake or {}})
-    )
+    (root / 'input' / 'all_options.toml').write_text(text + tomli_w.dumps({'fake': fake or {}}))
     (root / 'src' / 'proteus').mkdir(parents=True)
     (root / 'src' / 'proteus' / '__init__.py').write_text('')
     (root / 'pyproject.toml').write_text('[project]\nname = "fwl-proteus"\n')

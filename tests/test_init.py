@@ -1,8 +1,8 @@
-"""Package-level contract: proteus-bench has no runtime dependencies.
+"""Package-level contract: proteus-bench adds only tomli-w to a PROTEUS environment.
 
-The harness is installed into PROTEUS environments, so it must not constrain them:
-the distribution declares requirements only inside extras, and every module imports
-and the validator runs with the optional ``jsonschema`` unavailable.
+The harness is installed into PROTEUS environments for runs, so it must not constrain
+them: tomli-w is its one unconditional requirement, everything else sits in extras, and
+every module imports and the validator runs with the optional ``jsonschema`` unavailable.
 """
 
 from __future__ import annotations
@@ -23,11 +23,11 @@ pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 EXAMPLES = Path(__file__).parent.parent / 'examples'
 
 
-def test_distribution_declares_requirements_only_in_extras():
-    """Every Requires-Dist entry is conditional on an extra, so a plain install adds nothing."""
+def test_distribution_requires_only_tomli_w_outside_extras():
+    """Every Requires-Dist entry but tomli-w is conditional on an extra."""
     requirements = metadata.requires('proteus-bench') or []
     unconditional = [r for r in requirements if 'extra ==' not in r]
-    assert unconditional == []
+    assert unconditional == ['tomli-w>=1']
     # The dev extra really exists, so the check above is not vacuous.
     assert any('jsonschema' in r and 'extra == "dev"' in r for r in requirements)
 

@@ -13,8 +13,8 @@ the runner works; publishing and the dashboard are not written yet. Design discu
 proteus-bench is installed twice, for two kinds of use:
 
 - Runs happen inside the PROTEUS environment. With that environment active,
-  install the bare package; it depends on nothing, so it changes nothing else
-  there:
+  install the bare package; its only dependency is the small `tomli-w`, so it
+  changes almost nothing else there:
 
   ```bash
   pip install "proteus-bench @ git+https://github.com/egpbos/proteus-bench"
@@ -43,7 +43,8 @@ proteus-bench run --timeout 21600  # kill the run after 6 h
 
 The run measures the PROTEUS checkout that the `proteus` command on PATH
 imports, in that command's environment; to measure another checkout, activate
-its environment.
+its environment. PROTEUS must be installed from a git checkout
+(`pip install -e`); a PROTEUS installed from a wheel is refused.
 
 Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
 `timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. The proteus

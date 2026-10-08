@@ -22,7 +22,6 @@ src/proteus_bench/
   settings.py       flattening, hashing and comparing resolved PROTEUS settings
   timing.py         reading and checking timing.jsonl
   suites.toml       benchmark suites; suites.py loads and validates them
-  tomlwrite.py      TOML writer for the run config
   checks.py         run checks and the comparability rule
   provenance.py     git state and module versions; introspect.py runs in the PROTEUS env
   machine.py        machine fingerprint and run environment
@@ -42,7 +41,7 @@ Commands: `pixi run test`, `pixi run lint`, `proteus-bench validate <files>`.
    environment: `proteus-bench run` and everything it imports, including the profiler
    wrappers and the flame page they write. proteus-bench is installed into that
    environment for runs, so installing it must never change it beyond the package
-   itself. The rest (analyse, report, publish, ingest, lineage-check, validate) runs
+   itself. The one exception is `tomli-w`, which writes the run config. The rest (analyse, report, publish, ingest, lineage-check, validate) runs
    from a separate proteus-bench environment and may use third-party packages through
    extras where they cut code or maintenance, as the `analysis` extra does with asv.
 2. **Never import PROTEUS.** Run the `proteus` CLI as a subprocess and read its output

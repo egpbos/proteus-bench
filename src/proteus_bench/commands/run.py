@@ -24,7 +24,9 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-from proteus_bench import checks, machine, provenance, record, runner, suites, tomlwrite
+import tomli_w
+
+from proteus_bench import checks, machine, provenance, record, runner, suites
 
 PROFILERS = ('none', 'scalene', 'py-spy')
 PROFILE_DIR = 'profile'
@@ -71,7 +73,7 @@ def _discard_empty(run_dir: Path) -> None:
 
 def execute(ctx: record.RunContext) -> dict:
     """Write the config, run proteus, collect its outputs and write the record."""
-    (ctx.run_dir / record.ARTIFACTS['config']).write_text(tomlwrite.dumps(ctx.run_config))
+    (ctx.run_dir / record.ARTIFACTS['config']).write_text(tomli_w.dumps(ctx.run_config))
     result = runner.spawn(
         ctx.argv,
         ctx.proteus_root,
