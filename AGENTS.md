@@ -38,8 +38,13 @@ Commands: `pixi run test`, `pixi run lint`, `proteus-bench validate <files>`.
 
 ## Architecture rules
 
-1. **No runtime dependencies.** The harness is installed into PROTEUS environments and
-   must never constrain them. Standard library only; `jsonschema` stays optional.
+1. **Runtime uses the standard library only.** Runtime is what runs inside the PROTEUS
+   environment: `proteus-bench run` and everything it imports, including the profiler
+   wrappers and the flame page they write. proteus-bench is installed into that
+   environment for runs, so installing it must never change it beyond the package
+   itself. The rest (analyse, report, publish, ingest, lineage-check, validate) runs
+   from a separate proteus-bench environment and may use third-party packages through
+   extras where they cut code or maintenance, as the `analysis` extra does with asv.
 2. **Never import PROTEUS.** Run the `proteus` CLI as a subprocess and read its output
    files. This keeps the harness independent of the PROTEUS version being measured.
 3. **Interfaces are versioned files.** `timing.jsonl` and the run record are defined in

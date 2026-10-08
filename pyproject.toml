@@ -10,8 +10,8 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dynamic = ["version"]
-# The harness has no runtime dependencies: it is installed into PROTEUS
-# environments and must not constrain them.
+# Runs happen inside the PROTEUS environment, which the package must not change;
+# other commands get what they need from extras (AGENTS.md, architecture rule 1)
 dependencies = []
 
 [project.optional-dependencies]

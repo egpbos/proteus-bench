@@ -10,38 +10,45 @@ the runner works; publishing and the dashboard are not written yet. Design discu
 
 ## Installation
 
-Install proteus-bench in its own environment, not in the PROTEUS one, so its
-dependencies never change the environment being measured:
+proteus-bench is installed twice, for two kinds of use:
 
-```bash
-python -m venv ~/.venvs/proteus-bench
-~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis] @ git+https://github.com/egpbos/proteus-bench"
-```
+- Runs happen inside the PROTEUS environment. With that environment active,
+  install the bare package; it depends on nothing, so it changes nothing else
+  there:
 
-The harness itself has no runtime dependencies. The `analysis` extra adds
-[asv](https://github.com/airspeed-velocity/asv), whose step detector
-`proteus-bench analyse` uses. `jsonschema` is optional and enables shape
-validation in `proteus-bench validate`.
+  ```bash
+  pip install "proteus-bench @ git+https://github.com/egpbos/proteus-bench"
+  ```
+
+- Everything else (analysis, reports, publishing, validation) runs from an
+  environment of its own, with the `analysis` extra:
+
+  ```bash
+  python -m venv ~/.venvs/proteus-bench
+  ~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis] @ git+https://github.com/egpbos/proteus-bench"
+  ```
+
+The `analysis` extra adds [asv](https://github.com/airspeed-velocity/asv),
+whose step detector `proteus-bench analyse` uses. `jsonschema` is optional and
+enables shape validation in `proteus-bench validate`.
 
 ## Running a benchmark
 
-With the PROTEUS environment activated, call proteus-bench from its own
-environment:
+With the PROTEUS environment active:
 
 ```bash
-~/.venvs/proteus-bench/bin/proteus-bench run                  # the default suite
-~/.venvs/proteus-bench/bin/proteus-bench run --timeout 21600  # kill the run after 6 h
+proteus-bench run                  # the default suite
+proteus-bench run --timeout 21600  # kill the run after 6 h
 ```
 
-`proteus` and `python` come from PATH, so from the PROTEUS environment;
-`--proteus-cmd` and `--python` select others.
+The run measures the PROTEUS checkout that `proteus` is imported from; to
+measure another checkout, activate its environment. `proteus` and `python`
+come from PATH; `--proteus-cmd` and `--python` select others.
 
 Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
 `timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. The proteus
 process runs with the BLAS and OpenMP thread counts set to 1, as the proteus CLI
-does itself. The run measures the PROTEUS checkout that `proteus` is imported
-from; to measure another checkout, activate its environment. That tree must be
-clean (no changes to tracked files);
+does itself. The PROTEUS tree must be clean (no changes to tracked files);
 `--allow-failed-checks` runs anyway and marks the record as not comparable.
 PROTEUS stops a run itself when CVODE or an environment variable it needs is
 missing; `proteus doctor` checks them beforehand.
