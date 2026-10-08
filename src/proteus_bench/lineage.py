@@ -1,4 +1,4 @@
-"""Settings lineages and carry-over runs (decision D4), as pure functions of records.
+"""Settings lineages and carry-over runs, as pure functions of records.
 
 A series is one benchmark on one machine class. When the settings of its
 ``default`` lineage change, the previous settings are run once more at the new
@@ -103,11 +103,11 @@ def _carry_over_exists(records: list[dict], new: dict, old_hash: str) -> bool:
 
 
 def carry_over(records: list[dict], new: dict) -> CarryOver | None:
-    """The one carry-over run D4 asks for after ``new``, or None if none is due.
+    """The one carry-over run due after ``new``, or None if none is due.
 
     Due when ``settings_change`` reports a change and no carry-over for the
-    same move exists in the series. A failed carry-over run counts as done: D4
-    allows one attempt, and its record holds the error.
+    same move exists in the series. A failed carry-over run counts as done: there
+    is one attempt, and its record holds the error.
     """
     change = settings_change(records, new)
     if change is None:

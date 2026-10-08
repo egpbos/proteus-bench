@@ -1,4 +1,4 @@
-"""Tests for proteus_bench.lineage: settings changes and carry-over runs (D4).
+"""Tests for proteus_bench.lineage: settings changes and carry-over runs.
 
 Contract clauses: a new default run is compared with the latest earlier
 resolved default run of the same benchmark and machine class (ordered by
@@ -164,7 +164,7 @@ def test_other_series_and_lineages_are_ignored():
     ]
     assert lineage.carry_over(history, rec('r5', S_A, 5)) is None
     manual = rec('r6', S_B, 6, lineage_=H_B)
-    assert lineage.carry_over(history, manual) is None  # only default runs trigger D4
+    assert lineage.carry_over(history, manual) is None  # only default runs trigger a carry-over
     assert lineage.carry_over(history, rec('r7', S_B, 7)).carry_over_of == 'r7'
 
 

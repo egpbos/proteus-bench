@@ -117,7 +117,8 @@ reason is worse than none.
 ## Writing style for anything published
 
 Commit messages, PR titles and bodies, docs, comments and log strings describe the
-outcome, not the process. Do not mention AI tools or how a change was produced. No em
+outcome, not the process. Do not mention AI tools or how a change was produced, and
+do not cite internal plan labels such as decision or work-package numbers. No em
 dashes or en dashes. Do not hard-wrap PR or issue bodies. Keep PR descriptions short:
 the bare change, no history and no result tables.
 

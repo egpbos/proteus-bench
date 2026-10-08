@@ -1,4 +1,4 @@
-"""``proteus-bench lineage-check``: is a carry-over run due after this run (D4)?
+"""``proteus-bench lineage-check``: is a carry-over run due after this run?
 
 Compares the run's resolved settings with those of the default-lineage run
 before it in the store (same benchmark and machine class; see

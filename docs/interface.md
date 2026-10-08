@@ -254,7 +254,7 @@ and all other files are copied unchanged.
 4. **Resolved settings.** Only runs that finished `ok` and have `settings` and
    `config` artifacts define a lineage's settings. A run that failed before PROTEUS wrote
    `init_coupler.toml` is stored, but its hash is not used for lineage.
-5. **Carry-over records.** A carry-over run (decision D4) has
+5. **Carry-over records.** A carry-over run has
    `benchmark.lineage` set to the previous settings hash and
    `benchmark.carry_over_of` set to the default run that moved to the new
    settings. One carry-over is run per move, where a move is identified by
