@@ -15,9 +15,9 @@ dynamic = ["version"]
 dependencies = ["tomli-w>=1"]
 
 [project.optional-dependencies]
-# Step detection in `proteus-bench analyse`
 analysis = ["asv>=0.6.6,<0.7"]
-dev = ["pytest>=8", "pytest-cov>=5", "pytest-timeout>=2", "jsonschema>=4.18", "ruff>=0.16", "asv>=0.6.6,<0.7"]
+publish = ["jsonschema>=4.18", "rfc3339-validator"]
+dev = ["pytest>=8", "pytest-cov>=5", "pytest-timeout>=2", "jsonschema>=4.18", "rfc3339-validator", "ruff>=0.16", "asv>=0.6.6,<0.7"]
 
 [project.scripts]
 proteus-bench = "proteus_bench.cli:main"

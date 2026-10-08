@@ -28,6 +28,10 @@ src/proteus_bench/
   runner.py         spawning and measuring the proteus process
   collect.py        record sections from a run's output files
   record.py         assembling and writing record.json
+  analysis.py       timing series, regression flags and steps over run records
+  store.py          results store layout, run-directory checks and staging
+  publishing.py     pushing checked runs to the store branch
+  lineage.py        settings lineages and carry-over runs
   testing/          fake proteus stub used by the tests
 tests/              mirrors src/proteus_bench/
 examples/           example timing.jsonl and run record (illustrative values)
@@ -41,7 +45,7 @@ Commands: `pixi run test`, `pixi run lint`, `proteus-bench validate <files>`.
    environment: `proteus-bench run` and everything it imports, including the profiler
    wrappers and the flame page they write. proteus-bench is installed into that
    environment for runs, so installing it must never change it beyond the package
-   itself. The one exception is `tomli-w`, which writes the run config. The rest (analyse, report, publish, ingest, lineage-check, validate) runs
+   itself. The one exception is `tomli-w`, which writes the run config. The rest (analyse, report, publish, lineage-check, validate) runs
    from a separate proteus-bench environment and may use third-party packages through
    extras where they cut code or maintenance, as the `analysis` extra does with asv.
 2. **Never import PROTEUS.** Run the `proteus` CLI as a subprocess and read its output
@@ -112,7 +116,8 @@ reason is worse than none.
 ## Writing style for anything published
 
 Commit messages, PR titles and bodies, docs, comments and log strings describe the
-outcome, not the process. Do not mention AI tools or how a change was produced. No em
+outcome, not the process. Do not mention AI tools or how a change was produced, and
+do not cite internal plan labels such as decision or work-package numbers. No em
 dashes or en dashes. Do not hard-wrap PR or issue bodies. Keep PR descriptions short:
 the bare change, no history and no result tables.
 

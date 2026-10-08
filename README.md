@@ -4,8 +4,8 @@ Benchmarking and profiling harness for [PROTEUS](https://github.com/FormingWorld
 It runs PROTEUS, records per-phase and per-module timings along with the exact
 versions of every module, and publishes a history dashboard.
 
-Status: early development. The interfaces (`docs/interface.md`) are drafted and
-the runner works; publishing and the dashboard are not written yet. Design discussion:
+Status: early development. The interfaces (`docs/interface.md`) are drafted, and
+the runner and publishing work; the dashboard is not written yet. Design discussion:
 [FormingWorlds/PROTEUS#916](https://github.com/FormingWorlds/PROTEUS/issues/916).
 
 ## Installation
@@ -21,16 +21,18 @@ proteus-bench is installed twice, for two kinds of use:
   ```
 
 - Everything else (analysis, reports, publishing, validation) runs from an
-  environment of its own, with the `analysis` extra:
+  environment of its own, usually with both extras:
 
   ```bash
   python -m venv ~/.venvs/proteus-bench
-  ~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis] @ git+https://github.com/egpbos/proteus-bench"
+  ~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis,publish] @ git+https://github.com/egpbos/proteus-bench"
   ```
 
-The `analysis` extra adds [asv](https://github.com/airspeed-velocity/asv),
-whose step detector `proteus-bench analyse` uses. `jsonschema` is optional and
-enables shape validation in `proteus-bench validate`.
+`analysis` (asv's step detector) is needed by `analyse` and the dashboard
+build; `publish` (jsonschema and rfc3339-validator) by `publish` and `lineage-check`,
+which refuse records they cannot check against the schema.
+`validate` uses jsonschema when it is there and checks the timing rules either
+way.
 
 ## Running a benchmark
 
@@ -61,6 +63,24 @@ fails the run. Fetch the data once beforehand: `proteus get reference` covers
 the `dummy` suite; the `default` suite also needs the data `proteus get` fetches
 for its modules (`stellar`, `spectral`, `surfaces`, and
 `interiordata --config-path input/all_options.toml`).
+
+## Publishing
+
+From the separate proteus-bench environment:
+
+```bash
+proteus-bench publish bench-runs/<run_id>
+```
+
+This adds the run to the `results` branch of the store repository. For a
+store on GitHub it also starts the dashboard build with `gh`, or prints the
+command when `gh` is missing. Runs made in GitHub Actions are uploaded there as one
+artifact per run directory; download them first:
+
+```bash
+gh run download <gha-run-id> -R FormingWorlds/PROTEUS -D bench-runs/gha-<gha-run-id>
+proteus-bench publish bench-runs/gha-<gha-run-id>/*
+```
 
 ## Development
 
