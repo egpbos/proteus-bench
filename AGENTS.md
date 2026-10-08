@@ -28,6 +28,11 @@ src/proteus_bench/
   runner.py         spawning and measuring the proteus process
   collect.py        record sections from a run's output files
   record.py         assembling and writing record.json
+  analysis.py       timing series, regression flags and steps over run records
+  store.py          results store layout, run-directory checks and staging
+  publishing.py     pushing checked runs to the store branch
+  lineage.py        settings lineages and carry-over runs
+  userconfig.py     the user config file written by proteus-bench init
   testing/          fake proteus stub used by the tests
 tests/              mirrors src/proteus_bench/
 examples/           example timing.jsonl and run record (illustrative values)
