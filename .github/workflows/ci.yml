@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
-# Every tool comes from the locked pixi environments (pixi.lock), the same ones
+# Every tool comes from the pixi environments, the same ones
 # developers use through `pixi run`; actions are pinned by commit.
 jobs:
   lint:

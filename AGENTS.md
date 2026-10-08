@@ -16,6 +16,8 @@ src/proteus_bench/
   cli.py            dispatcher only; each subcommand is commands/<name>.py
   commands/         add_arguments(parser) + main(args) -> int, one module per subcommand
   schemas/          JSON Schemas (versioned interfaces, see docs/interface.md)
+  flame_template.html  page template filled by profiling.write_flame_page
+  profiling.py      profiler commands, folded stacks and flame pages
   schema.py         loading the schemas; optional shape validation
   settings.py       flattening, hashing and comparing resolved PROTEUS settings
   timing.py         reading and checking timing.jsonl
