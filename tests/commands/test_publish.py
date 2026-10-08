@@ -47,10 +47,11 @@ def test_invalid_record_refuses_everything(make_run_dir, bare_remote, capsys):
     assert not (good / '.published').exists()
 
 
-def test_same_run_twice_and_missing_remote(make_run_dir, bare_remote, capsys):
-    """A run id given twice is refused before git runs; with no remote the fix is named."""
+def test_same_run_twice_and_missing_remote(make_run_dir, bare_remote, tmp_path, capsys):
+    """One run id in two directories is refused before git runs; with no remote the fix is named."""
     run_dir = make_run_dir(RUN_A)
-    assert cli.main(['publish', str(run_dir), str(run_dir), '--remote', str(bare_remote)]) == 1
+    copy = shutil.copytree(run_dir, tmp_path / 'copy' / RUN_A)
+    assert cli.main(['publish', str(run_dir), str(copy), '--remote', str(bare_remote)]) == 1
     out = capsys.readouterr().out
     assert f'run ids given more than once: {RUN_A}\nnothing published\n' in out
     assert not Path(userconfig.defaults()['store']['cache_dir']).exists()  # git never ran
