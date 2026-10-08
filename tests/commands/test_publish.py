@@ -2,9 +2,8 @@
 
 Contract clauses: an invalid run anywhere in the list stops the whole publish
 with the problem printed and nothing pushed; the same run id given twice is
-refused; without a remote (option or config) the command says how to set one;
-the config's store remote is used when --remote is absent; after a push to a
-github.com remote the Pages workflow is dispatched with gh, and without gh
+refused; a non-GitHub remote is published to without triggering the dashboard;
+after a push to a github.com remote the Pages workflow is dispatched with gh, and without gh
 the command to run is printed.
 """
 
@@ -13,11 +12,11 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-from pathlib import Path
 
 import pytest
 
-from proteus_bench import cli, publishing, schema, userconfig
+from proteus_bench import cli, publishing, schema
+from proteus_bench.commands.publish import cache_checkout
 
 pytestmark = [pytest.mark.smoke, pytest.mark.timeout(60)]
 
@@ -47,33 +46,26 @@ def test_invalid_record_refuses_everything(make_run_dir, bare_remote, capsys):
     assert not (good / '.published').exists()
 
 
-def test_same_run_twice_and_missing_remote(make_run_dir, bare_remote, tmp_path, capsys):
-    """One run id in two directories is refused before git runs; with no remote the fix is named."""
+def test_same_run_twice(make_run_dir, bare_remote, tmp_path, capsys):
+    """One run id in two directories is refused before git runs."""
     run_dir = make_run_dir(RUN_A)
     copy = shutil.copytree(run_dir, tmp_path / 'copy' / RUN_A)
     assert cli.main(['publish', str(run_dir), str(copy), '--remote', str(bare_remote)]) == 1
     out = capsys.readouterr().out
     assert f'run ids given more than once: {RUN_A}\nnothing published\n' in out
-    assert not Path(userconfig.defaults()['store']['cache_dir']).exists()  # git never ran
-    assert cli.main(['publish', str(run_dir)]) == 1
-    out = capsys.readouterr().out
-    assert 'no store remote' in out
-    assert 'proteus-bench init --remote' in out
+    assert not cache_checkout().exists()  # git never ran
     assert _refs(bare_remote) == ''
 
 
-def test_remote_from_config_and_local_remote_message(make_run_dir, bare_remote, capsys):
-    """The config's remote is used; a non-GitHub remote says the dashboard is not triggered."""
-    path = userconfig.config_path()
-    path.parent.mkdir(parents=True)
-    path.write_text(userconfig.render({'store': {'remote': str(bare_remote)}}))
+def test_local_remote_message_and_republish(make_run_dir, bare_remote, capsys):
+    """A non-GitHub remote says the dashboard is not triggered; publishing again skips."""
     run_dir = make_run_dir(RUN_A)
-    assert cli.main(['publish', str(run_dir)]) == 0
+    assert cli.main(['publish', str(run_dir), '--remote', str(bare_remote)]) == 0
     out = capsys.readouterr().out
     assert f'published {RUN_A} to {bare_remote} results' in out
     assert 'dashboard not triggered' in out
     assert 'refs/heads/results' in _refs(bare_remote)
-    assert cli.main(['publish', str(run_dir)]) == 0  # again: skipped, still success
+    assert cli.main(['publish', str(run_dir), '--remote', str(bare_remote)]) == 0  # skipped
     assert 'already in the store' in capsys.readouterr().out
 
 

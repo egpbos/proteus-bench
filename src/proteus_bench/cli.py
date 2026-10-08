@@ -19,7 +19,6 @@ COMMANDS = {
     'run': ('run', 'run a benchmark suite through the proteus CLI and write its run record'),
     'validate': ('validate', 'check timing.jsonl and run-record files against the schemas'),
     'analyse': ('analyse', 'build timing series, regression flags and steps from run records'),
-    'init': ('init', 'write the user config file (machine, results store, Slurm defaults)'),
     'publish': ('publish', 'add run directories to the results store and push'),
     'lineage-check': ('lineage_check', 'report whether a carry-over run is due (exit 3 if so)'),
 }

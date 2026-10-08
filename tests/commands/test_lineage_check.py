@@ -6,7 +6,7 @@ naming the previous run's stored settings and config (existing absolute
 paths holding the old values), the lineage, this run and its commit when they
 did; exit 1 when the run directory fails the publish checks, the store cannot
 be read, or it lacks a file the old record points to; without --store the
-cached checkout of the configured remote is read.
+cached checkout of the remote is read.
 """
 
 from __future__ import annotations
@@ -132,11 +132,9 @@ def test_bad_run_dir_and_incomplete_store_exit_1(make_run_dir, tmp_path, capsys)
     assert 'the store has no file settings/' in capsys.readouterr().out
 
 
-def test_store_errors_exit_1(make_run_dir, git_env, tmp_path, capsys):
-    """No remote configured, or one that cannot be read: exit 1 with the reason."""
+def test_unreadable_store_exits_1(make_run_dir, git_env, tmp_path, capsys):
+    """A remote that cannot be read: exit 1 with the reason."""
     new = make_run_dir(RUN_3)
-    assert cli.main(['lineage-check', str(new)]) == 1
-    assert 'no store remote' in capsys.readouterr().out
     missing = str(tmp_path / 'missing.git')
     assert cli.main(['lineage-check', str(new), '--remote', missing]) == 1
     assert f'cannot read {missing}' in capsys.readouterr().out

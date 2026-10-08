@@ -24,7 +24,7 @@ import argparse
 from pathlib import Path
 
 from proteus_bench import lineage, publishing, store
-from proteus_bench.commands.publish import add_store_arguments, store_location
+from proteus_bench.commands.publish import add_store_arguments, cache_checkout
 
 CARRY_OVER_NEEDED = 3
 
@@ -43,9 +43,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 def _store_records(args: argparse.Namespace) -> tuple[Path, list[dict]]:
     if args.store:
         return args.store, store.read_records(args.store)
-    remote, branch, checkout = store_location(args)
+    checkout = cache_checkout()
     with publishing.locked(checkout):
-        publishing.update_checkout(checkout, remote, branch)
+        publishing.update_checkout(checkout, args.remote, args.branch)
         return checkout, store.read_records(checkout)
 
 

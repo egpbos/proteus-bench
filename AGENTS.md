@@ -32,7 +32,6 @@ src/proteus_bench/
   store.py          results store layout, run-directory checks and staging
   publishing.py     pushing checked runs to the store branch
   lineage.py        settings lineages and carry-over runs
-  userconfig.py     the user config file written by proteus-bench init
   testing/          fake proteus stub used by the tests
 tests/              mirrors src/proteus_bench/
 examples/           example timing.jsonl and run record (illustrative values)
