@@ -46,7 +46,7 @@ Commands: `pixi run test`, `pixi run lint`, `proteus-bench validate <files>`.
    environment: `proteus-bench run` and everything it imports, including the profiler
    wrappers and the flame page they write. proteus-bench is installed into that
    environment for runs, so installing it must never change it beyond the package
-   itself. The one exception is `tomli-w`, which writes the run config. The rest (analyse, report, publish, ingest, lineage-check, validate) runs
+   itself. The one exception is `tomli-w`, which writes the run config. The rest (analyse, report, publish, lineage-check, validate) runs
    from a separate proteus-bench environment and may use third-party packages through
    extras where they cut code or maintenance, as the `analysis` extra does with asv.
 2. **Never import PROTEUS.** Run the `proteus` CLI as a subprocess and read its output

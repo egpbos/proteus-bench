@@ -29,8 +29,8 @@ proteus-bench is installed twice, for two kinds of use:
   ```
 
 `analysis` (asv's step detector) is needed by `analyse` and the dashboard
-build; `publish` (jsonschema and rfc3339-validator) by `publish`, `ingest` and
-`lineage-check`, which refuse records they cannot check against the schema.
+build; `publish` (jsonschema and rfc3339-validator) by `publish` and `lineage-check`,
+which refuse records they cannot check against the schema.
 `validate` uses jsonschema when it is there and checks the timing rules either
 way.
 
@@ -63,6 +63,23 @@ fails the run. Fetch the data once beforehand: `proteus get reference` covers
 the `dummy` suite; the `default` suite also needs the data `proteus get` fetches
 for its modules (`stellar`, `spectral`, `surfaces`, and
 `interiordata --config-path input/all_options.toml`).
+
+## Publishing
+
+From the separate proteus-bench environment:
+
+```bash
+proteus-bench publish bench-runs/<run_id>
+```
+
+This adds the run to the `results` branch of the store repository and starts
+the dashboard build. Runs made in GitHub Actions are uploaded there as one
+artifact per run directory; download them first:
+
+```bash
+gh run download <gha-run-id> -R FormingWorlds/PROTEUS -D bench-runs/gha-<gha-run-id>
+proteus-bench publish bench-runs/gha-<gha-run-id>/*
+```
 
 ## Development
 
