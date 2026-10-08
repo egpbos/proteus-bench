@@ -146,6 +146,7 @@ def test_timing_contract_check(good_events, tmp_path):
     broken = [dict(ev) for ev in good_events]
     broken[0]['v'] = 99
     _, check = checks.timing_contract_check(_write_events(tmp_path / 'b.jsonl', broken))
+    assert check['ok'] is False
     assert 'unsupported version' in check['detail']
 
 
