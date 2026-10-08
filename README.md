@@ -72,8 +72,9 @@ From the separate proteus-bench environment:
 proteus-bench publish bench-runs/<run_id>
 ```
 
-This adds the run to the `results` branch of the store repository and starts
-the dashboard build. Runs made in GitHub Actions are uploaded there as one
+This adds the run to the `results` branch of the store repository. For a
+store on GitHub it also starts the dashboard build with `gh`, or prints the
+command when `gh` is missing. Runs made in GitHub Actions are uploaded there as one
 artifact per run directory; download them first:
 
 ```bash
