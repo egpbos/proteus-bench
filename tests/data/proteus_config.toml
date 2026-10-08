@@ -1,0 +1,13 @@
+# Stand-in for PROTEUS's input/all_options.toml: only the keys the runner, the
+# fake proteus stub and the tests read, with the values the real file has.
+
+[params.out]
+path = "auto"
+logging = "INFO"
+
+[params.stop.iters]
+maximum = 9000
+
+[params.stop.time]
+minimum = 1.0e3
+maximum = 6.0e+9

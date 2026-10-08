@@ -46,7 +46,7 @@ EXPECTED_FILES = {'record.json', 'timing.jsonl', 'init_coupler.toml', 'config.to
 def make_checkout(root: Path, git_repo=None, fake: dict | None = None) -> str | None:
     """A PROTEUS checkout as the runner sees it, committed when ``git_repo`` is given."""
     (root / 'input').mkdir(parents=True)
-    text = (DATA / 'all_options.toml').read_text()
+    text = (DATA / 'proteus_config.toml').read_text()
     (root / 'input' / 'all_options.toml').write_text(
         text + tomlwrite.dumps({'fake': fake or {}})
     )

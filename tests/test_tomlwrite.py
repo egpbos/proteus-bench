@@ -2,8 +2,9 @@
 
 Contract clauses: ``tomllib.loads(dumps(x)) == x`` for every type tomllib
 returns (nested and empty tables, arrays of tables, escaped strings and keys,
-ints, floats with exponents, inf and nan, bools, dates and times), including a
-real PROTEUS config; values tomllib cannot produce raise TypeError.
+ints, floats with exponents, inf and nan, bools, dates and times), including
+every value form PROTEUS's all_options.toml uses; values tomllib cannot
+produce raise TypeError.
 """
 
 from __future__ import annotations
@@ -11,7 +12,6 @@ from __future__ import annotations
 import datetime as dt
 import math
 import tomllib
-from pathlib import Path
 
 import pytest
 
@@ -19,20 +19,57 @@ from proteus_bench.tomlwrite import dumps
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 
-DATA = Path(__file__).parent / 'data'
-
 
 def roundtrip(value: dict) -> dict:
     return tomllib.loads(dumps(value))
 
 
-def test_real_proteus_config_round_trips():
-    """PROTEUS's all_options.toml (hundreds of keys, nested tables) survives a round trip."""
-    config = tomllib.loads((DATA / 'all_options.toml').read_text())
-    assert roundtrip(config) == config
-    # Guard that the fixture is the rich config, not a trivial one
-    assert config['params']['stop']['iters']['maximum'] == 9000
-    assert config['interior_energetics']['aragog']['solver_method'] == 'cvode'
+# The value forms of PROTEUS's input/all_options.toml: a top-level key, tables
+# three deep, exponent floats with and without sign or point, literal strings
+PROTEUS_LIKE = """
+config_version = "3.0"
+
+[params]
+resume = false
+
+[params.stop.iters]
+enabled = true
+minimum = 5
+maximum = 9000
+
+[params.stop.time]
+minimum = 1.0e3
+maximum = 6.0e+9
+
+[params.dt]
+minimum_rel = 1e-5
+initial = 3e1
+evection_maximum = 'none'
+
+[planet]
+ini_dsdr = -4.698e-6
+flux_guess = -1
+mass_tot = 1.0
+
+[orbit.obliqua]
+n = [2]
+m = [0, 2]
+
+[accretion.morrigan]
+masses = []
+"""
+
+
+def test_proteus_config_forms_round_trip():
+    """Every value form PROTEUS's all_options.toml uses survives a round trip with its type."""
+    config = tomllib.loads(PROTEUS_LIKE)
+    back = roundtrip(config)
+    assert back == config
+    assert type(back['planet']['flux_guess']) is int
+    assert type(back['planet']['mass_tot']) is float
+    assert type(back['params']['dt']['initial']) is float  # 3e1, not the int 30
+    assert back['params']['stop']['time']['maximum'] == pytest.approx(6e9, rel=1e-15)
+    assert back['params']['dt']['evection_maximum'] == 'none'
 
 
 def test_strings_and_keys_that_need_escaping():

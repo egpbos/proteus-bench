@@ -114,10 +114,10 @@ def test_override_through_a_value_is_refused():
 
 
 def test_run_config_from_a_proteus_checkout(tmp_path):
-    """The real all_options.toml gets the suite cap and the run id as output name."""
+    """The checkout's input/all_options.toml gets the suite cap and the run id as output name."""
     (tmp_path / 'input').mkdir()
     (tmp_path / 'input' / 'all_options.toml').write_text(
-        (DATA / 'all_options.toml').read_text()
+        (DATA / 'proteus_config.toml').read_text()
     )
     suite = load_suite('default')
     cfg = build_run_config(tmp_path, suite, '20260925T031000Z-x-default-a1b2')
