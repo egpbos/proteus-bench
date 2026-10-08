@@ -60,14 +60,21 @@ masses = []
 """
 
 
+def _types(value):
+    if isinstance(value, dict):
+        return {k: _types(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_types(v) for v in value]
+    return type(value)
+
+
 def test_proteus_config_forms_round_trip():
     """Every value form PROTEUS's all_options.toml uses survives a round trip with its type."""
     config = tomllib.loads(PROTEUS_LIKE)
     back = roundtrip(config)
     assert back == config
-    assert type(back['planet']['flux_guess']) is int
-    assert type(back['planet']['mass_tot']) is float
-    assert type(back['params']['dt']['initial']) is float  # 3e1, not the int 30
+    assert _types(back) == _types(config)  # 1.0e3 stays a float: == alone accepts the int 1000
+    assert type(config['params']['stop']['time']['minimum']) is float
     assert back['params']['stop']['time']['maximum'] == pytest.approx(6e9, rel=1e-15)
     assert back['params']['dt']['evection_maximum'] == 'none'
 
