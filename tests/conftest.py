@@ -16,6 +16,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import tomli_w
 
 from proteus_bench import store
 from proteus_bench.settings import comparable, flatten, settings_hash
@@ -169,16 +170,6 @@ def git_repo():
     return _make
 
 
-def _toml(nested: dict, prefix: str = '') -> str:
-    """TOML text for nested tables of strings, numbers and booleans."""
-    lines = [f'{k} = {json.dumps(v)}' for k, v in nested.items() if not isinstance(v, dict)]
-    for key, value in nested.items():
-        if isinstance(value, dict):
-            name = f'{prefix}.{key}' if prefix else key
-            lines += ['', f'[{name}]', _toml(value, name)]
-    return '\n'.join(lines)
-
-
 @pytest.fixture
 def make_run_dir(tmp_path):
     """Build a run directory like ``proteus-bench run`` writes, from the examples.
@@ -200,7 +191,7 @@ def make_run_dir(tmp_path):
         run_dir.mkdir(parents=True)
         nested = copy.deepcopy(settings or DEFAULT_SETTINGS)
         nested['params']['out']['path'] = run_id  # per-run key: must not change the hash
-        (run_dir / 'init_coupler.toml').write_text(_toml(nested) + '\n')
+        (run_dir / 'init_coupler.toml').write_text(tomli_w.dumps(nested))
         shutil.copyfile(EXAMPLES / 'timing.jsonl', run_dir / 'timing.jsonl')
         (run_dir / 'log.txt').write_text(f'[ INFO ] run {run_id}\n')
         (run_dir / 'config.toml').write_text('[params.stop.iters]\nmaximum = 6\n')
