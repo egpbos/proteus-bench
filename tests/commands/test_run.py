@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from proteus_bench import cli, machine, schema, tomlwrite
+from proteus_bench import cli, machine, record, schema, tomlwrite
 from proteus_bench.commands import run as run_command
 from proteus_bench.commands.run import make_run_id
 
@@ -149,6 +149,26 @@ def test_killed_run_is_crashed_but_still_readable(bench):
     assert [r['iter'] for r in rec['timings']['per_iter']] == [1, 2]
     assert rec['timings']['phases']['loop'] is None  # the loop span never closed
     assert rec['comparability']['reasons'] == ['outcome is crashed', NO_HELPFILE]
+    assert schema.shape_problems('record', rec) == []
+
+
+def test_unparsable_timing_file_still_gives_a_record(bench, monkeypatch):
+    """A malformed line inside timing.jsonl fails the timing check instead of losing the record."""
+    copy_outputs = record.copy_outputs
+
+    def corrupt(ctx):
+        copy_outputs(ctx)
+        path = ctx.run_dir / 'timing.jsonl'
+        lines = path.read_text().splitlines()
+        lines[1] = '{not json'
+        path.write_text('\n'.join(lines) + '\n')
+
+    monkeypatch.setattr(record, 'copy_outputs', corrupt)
+    _, rec, _ = bench()
+    (check,) = [c for c in rec['checks'] if c['name'] == 'timing_contract']
+    assert check['ok'] is False
+    assert 'timing.jsonl:2: not valid JSON' in check['detail']
+    assert rec['comparability']['ok'] is False
     assert schema.shape_problems('record', rec) == []
 
 

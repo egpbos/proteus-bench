@@ -17,7 +17,6 @@ from types import ModuleType
 
 from proteus_bench import checks, collect, settings
 from proteus_bench.runner import ProcessResult
-from proteus_bench.timing import read_events
 
 SCHEMA = 'proteus-bench/1'
 # record.artifacts key -> file in the run directory; one key per file
@@ -140,14 +139,13 @@ def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, li
     ``profile`` holds the profile artifacts and notes (both empty when not profiled).
     """
     profile_artifacts, profile_notes = profile
-    timing_path = ctx.run_dir / ARTIFACTS['spans']
-    events = read_events(timing_path) if timing_path.is_file() else []
+    events, timing_check = checks.timing_contract_check(ctx.run_dir / ARTIFACTS['spans'])
     flat, notes = collect.resolved_settings(ctx.run_dir / ARTIFACTS['settings'], ctx.run_config)
     fingerprint, fp_notes = collect.fingerprint(ctx.output_dir / 'runtime_helpfile.csv')
     backends = collect.backends(events)
     all_checks = [
         *ctx.checks,
-        checks.timing_contract_check(events),
+        timing_check,
         checks.expected_backends_check(backends, ctx.suite['expected_backends']),
     ]
     outcome = collect.outcome(events, result.exit_code, result.timed_out, ctx.timeout_s)

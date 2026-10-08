@@ -9,7 +9,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from proteus_bench.timing import check_events
+from proteus_bench.timing import check_events, read_events
 
 # The import PROTEUS requires before an Aragog CVODE run (aragog.py require_cvode)
 CVODE_IMPORT = 'from scikits_odes_sundials.cvode import CVODE, CV_RootFunction, StatusEnum'
@@ -77,13 +77,21 @@ def clean_tree_check(proteus_git: dict) -> dict:
     return _check('clean_tree', True, describe)
 
 
-def timing_contract_check(events: list[dict]) -> dict:
-    """timing.jsonl follows the interface rules, so its totals are meaningful."""
+def timing_contract_check(path: Path) -> tuple[list[dict], dict]:
+    """Events of timing.jsonl and whether they follow the interface rules.
+
+    A file that cannot be parsed fails the check and gives no events, so the run
+    still gets a record.
+    """
+    try:
+        events = read_events(path) if path.is_file() else []
+    except ValueError as err:
+        return [], _check('timing_contract', False, str(err))
     problems = check_events(events)
     if problems:
         more = f' (+{len(problems) - 3} more)' if len(problems) > 3 else ''
-        return _check('timing_contract', False, '; '.join(problems[:3]) + more)
-    return _check('timing_contract', True, f'{len(events)} events')
+        return events, _check('timing_contract', False, '; '.join(problems[:3]) + more)
+    return events, _check('timing_contract', True, f'{len(events)} events')
 
 
 def expected_backends_check(backends: dict, expected: dict) -> dict:
