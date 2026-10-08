@@ -65,6 +65,26 @@ def introspect_env(python: str) -> dict:
     return json.loads(proc.stdout)
 
 
+def proteus_checkout(python: str, origin: str | None) -> Path:
+    """The PROTEUS checkout that ``python`` imports ``proteus`` from.
+
+    ``origin`` is ``<checkout>/src/proteus/__init__.py``; the checkout holds
+    ``pyproject.toml``, as PROTEUS's ``get_proteus_dir`` requires. Raises
+    ``ValueError`` when proteus is not importable or not from a checkout.
+    """
+    if origin is None:
+        raise ValueError(
+            f'--python {python} cannot import proteus; activate the PROTEUS environment'
+        )
+    root = Path(origin).parents[2]
+    if not (root / 'pyproject.toml').is_file():
+        raise ValueError(
+            f'--python {python} imports proteus from {origin}, not from a PROTEUS checkout '
+            f'({root} has no pyproject.toml); install PROTEUS editable from its checkout'
+        )
+    return root
+
+
 def module_state(info: dict) -> dict:
     """Record entry for one module from its introspected version and direct_url."""
     url = info['direct_url'] or {}
@@ -95,7 +115,7 @@ def checkout_state(path: Path | None) -> dict | None:
 def code_section(proteus: dict, env_report: dict, proteus_root: Path, env: dict) -> dict:
     """The record's ``code`` section.
 
-    AGNI is looked up where PROTEUS loads it (``<proteus-root>/AGNI``),
+    AGNI is looked up where PROTEUS loads it (``<checkout>/AGNI``),
     SOCRATES at ``$RAD_DIR``.
     """
     dists = env_report['dists']

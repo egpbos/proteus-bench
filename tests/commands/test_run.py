@@ -3,7 +3,8 @@
 Contract clauses: a run writes record.json (valid against the schema),
 timing.jsonl, init_coupler.toml, config.toml and log.txt into
 ``<runs-dir>/<run_id>/`` and prints that directory; the suite's iteration cap
-and output name reach proteus; failed, crashed, timed-out and fallback-solver
+and output name reach proteus; the PROTEUS checkout is the one proteus is
+imported from, and none or one without git is a setup error; failed, crashed, timed-out and fallback-solver
 runs are recorded as not comparable with the reason; failing checks stop the
 run before anything is written unless --allow-failed-checks; a missing
 proteus command is a setup error; thread counts are forced to 1 for the child
@@ -42,6 +43,19 @@ NO_HELPFILE = 'runtime_helpfile.csv missing, no physics fingerprint'
 EXPECTED_FILES = {'record.json', 'timing.jsonl', 'init_coupler.toml', 'config.toml', 'log.txt'}
 
 
+def make_checkout(root: Path, git_repo=None, fake: dict | None = None) -> str | None:
+    """A PROTEUS checkout as the runner sees it, committed when ``git_repo`` is given."""
+    (root / 'input').mkdir(parents=True)
+    text = (DATA / 'all_options.toml').read_text()
+    (root / 'input' / 'all_options.toml').write_text(
+        text + tomlwrite.dumps({'fake': fake or {}})
+    )
+    (root / 'src' / 'proteus').mkdir(parents=True)
+    (root / 'src' / 'proteus' / '__init__.py').write_text('')
+    (root / 'pyproject.toml').write_text('[project]\nname = "fwl-proteus"\n')
+    return git_repo(root) if git_repo else None
+
+
 @pytest.fixture
 def bench(tmp_path, git_repo, monkeypatch, capsys):
     """Run ``proteus-bench run`` on a fake PROTEUS checkout; return (code, record, output).
@@ -57,26 +71,20 @@ def bench(tmp_path, git_repo, monkeypatch, capsys):
 
     def _run(fake: dict | None = None, *extra: str, dirty: bool = False, cmd: str = FAKE_CMD):
         if not root.exists():
-            (root / 'input').mkdir(parents=True)
-            text = (DATA / 'all_options.toml').read_text()
-            (root / 'input' / 'all_options.toml').write_text(
-                text + tomlwrite.dumps({'fake': fake or {}})
-            )
-            (root / 'src' / 'proteus').mkdir(parents=True)
-            (root / 'src' / 'proteus' / '__init__.py').write_text('')
-            git_repo(root)
+            make_checkout(root, git_repo, fake)
         if dirty:
             config = root / 'input' / 'all_options.toml'
             config.write_text(config.read_text() + '\n# local edit\n')
         monkeypatch.setenv('PYTHONPATH', str(proteus_path[0]))
+        earlier = set((tmp_path / 'runs').glob('*/record.json'))
         code = cli.main([
-            'run', '--proteus-root', str(root), '--proteus-cmd', cmd,
+            'run', '--proteus-cmd', cmd,
             '--runs-dir', str(tmp_path / 'runs'), '--machine-label', 'test',
             '--python', sys.executable, *extra,
         ])  # fmt: skip
         captured = capsys.readouterr()
         out = captured.out + captured.err  # setup errors go to stderr, after no run dir
-        records = list((tmp_path / 'runs').glob('*/record.json'))
+        records = list(set((tmp_path / 'runs').glob('*/record.json')) - earlier)
         return code, json.loads(records[0].read_text()) if records else None, out
 
     _run.proteus_path = proteus_path
@@ -115,7 +123,6 @@ def test_ok_run_writes_a_complete_valid_record(bench):
     assert rec['trigger']['adapter'] == 'local'
     assert set(rec['env']['threads'].values()) == {'1'}
     assert [c['name'] for c in rec['checks']] == [
-        'proteus_import',
         'clean_tree',
         'timing_contract',
         'expected_backends',
@@ -189,19 +196,37 @@ def test_failed_check_stops_the_run(bench, tmp_path):
     assert '--allow-failed-checks' in out
 
 
-def test_proteus_from_another_checkout_stops_the_run(bench, tmp_path):
-    """The record must not name the git state of a checkout proteus does not run from."""
-    elsewhere = tmp_path / 'PROTEUSpixi' / 'src'
-    (elsewhere / 'proteus').mkdir(parents=True)
-    (elsewhere / 'proteus' / '__init__.py').write_text('')
-    bench.proteus_path[0] = elsewhere
+def test_the_checkout_measured_is_where_proteus_is_imported_from(bench, git_repo, tmp_path):
+    """Its git state goes into the record and its config is the one run."""
+    _, first, _ = bench()  # the fixture's checkout exists too, so the two can be told apart
+    other = tmp_path / 'PROTEUS-other'
+    sha = make_checkout(other, git_repo, {'atmos_s': 20.0})
+    bench.proteus_path[0] = other / 'src'
+    code, rec, _ = bench()
+    assert code == 0
+    assert rec['code']['proteus']['sha'] == sha[:8] != first['code']['proteus']['sha']
+    assert rec['timings']['phases']['loop'] == pytest.approx(LOOP_S + 15 * 5.0, abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    ('found', 'message'),
+    [
+        ('empty', 'cannot import proteus; activate the PROTEUS environment'),
+        ('site-packages', 'not from a PROTEUS checkout'),
+    ],
+)
+def test_proteus_outside_a_checkout_is_a_setup_error(bench, tmp_path, found, message):
+    """No importable proteus, or one installed as a wheel: exit 2 before any run directory."""
+    (tmp_path / found).mkdir()
+    if found == 'site-packages':
+        (tmp_path / found / 'proteus').mkdir()
+        (tmp_path / found / 'proteus' / '__init__.py').write_text('')
+    bench.proteus_path[0] = tmp_path / found
     code, rec, out = bench()
     assert code == 2
     assert rec is None
-    expected = (
-        f'FAIL proteus_import: proteus imports from {elsewhere}/proteus/__init__.py, not '
-    )
-    assert expected in out
+    assert message in out
+    assert not (tmp_path / 'runs').exists()
 
 
 def test_failed_check_can_be_overridden(bench):
@@ -341,13 +366,16 @@ def test_a_run_id_is_never_reused(bench, monkeypatch, tmp_path):
     assert [p.name for p in earlier.iterdir()] == ['record.json']
 
 
-def test_non_git_root_is_refused(tmp_path, capsys):
-    """Provenance needs a git checkout: a plain directory is a setup error."""
-    (tmp_path / 'input').mkdir()
-    (tmp_path / 'input' / 'all_options.toml').write_text('[params.out]\npath = "x"\n')
-    code = cli.main(['run', '--proteus-root', str(tmp_path), '--runs-dir', str(tmp_path / 'r')])
-    assert code == 2
-    assert 'not the top of a git checkout' in capsys.readouterr().err
+def test_non_git_root_is_refused(tmp_path, monkeypatch, capsys):
+    """Provenance needs a git checkout: proteus from a plain directory is a setup error."""
+    make_checkout(tmp_path / 'PROTEUS')
+    monkeypatch.setenv('PYTHONPATH', str(tmp_path / 'PROTEUS' / 'src'))
+    argv = ['run', '--python', sys.executable, '--runs-dir', str(tmp_path / 'r')]
+    assert cli.main(argv) == 2
+    assert 'where proteus is imported from, is not the top of a git checkout' in (
+        capsys.readouterr().err
+    )
+    assert not (tmp_path / 'r').exists()
 
 
 def test_python_defaults_to_the_one_on_path(monkeypatch, tmp_path):

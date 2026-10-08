@@ -1,9 +1,9 @@
 """Tests for proteus_bench.checks: run checks and the comparability rule.
 
-Contract clauses: proteus must import from inside the PROTEUS root; a dirty
-tree fails; timing problems and backend mismatches fail with the offending
-values; comparability lists one reason per failed check, a non-ok outcome, a
-profiler and each collection note, and is ok only with no reasons.
+Contract clauses: a dirty tree fails; timing problems and backend mismatches
+fail with the offending values; comparability lists one reason per failed
+check, a non-ok outcome, a profiler and each collection note, and is ok only
+with no reasons.
 """
 
 from __future__ import annotations
@@ -16,23 +16,6 @@ import pytest
 from proteus_bench import checks
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
-
-
-def test_proteus_import_check(tmp_path):
-    """Only an import from inside --proteus-root passes; a sibling with a shared prefix does not."""
-    root = tmp_path / 'PROTEUS'
-    inside = root / 'src' / 'proteus' / '__init__.py'
-    assert checks.proteus_import_check(str(inside), root) == {
-        'name': 'proteus_import',
-        'ok': True,
-        'detail': str(inside),
-    }
-    other = tmp_path / 'PROTEUS-old' / 'src' / 'proteus' / '__init__.py'  # prefix of root
-    result = checks.proteus_import_check(str(other), root)
-    assert result['ok'] is False
-    assert result['detail'] == f'proteus imports from {other}, not {root}'
-    missing = checks.proteus_import_check(None, root)
-    assert missing['detail'] == f'proteus imports from nowhere, not {root}'
 
 
 def test_clean_tree_check():

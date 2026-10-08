@@ -15,14 +15,6 @@ def _check(name: str, ok: bool, detail: str) -> dict:
     return {'name': name, 'ok': ok, 'detail': detail}
 
 
-def proteus_import_check(origin: str | None, proteus_root: Path) -> dict:
-    """``proteus`` imports from the checkout whose git state the record names."""
-    if origin and Path(origin).resolve().is_relative_to(proteus_root.resolve()):
-        return _check('proteus_import', True, origin)
-    found = origin or 'nowhere'
-    return _check('proteus_import', False, f'proteus imports from {found}, not {proteus_root}')
-
-
 def clean_tree_check(proteus_git: dict) -> dict:
     """The PROTEUS checkout has no changes to tracked files."""
     describe = proteus_git.get('describe') or proteus_git['sha']

@@ -4,9 +4,10 @@ Contract clauses: git_state reports an 8-character sha, the branch (not when
 detached) and dirtiness of tracked files only, and refuses directories that
 are not the top of a work tree; module entries are editable (with the
 checkout's sha), git (with the VCS commit), pypi (no direct_url) or unknown;
-AGNI is read from <proteus-root>/AGNI and SOCRATES from $RAD_DIR; the
+AGNI is read from <PROTEUS checkout>/AGNI and SOCRATES from $RAD_DIR; the
 introspection script runs in the given interpreter and failures are errors;
-an empty RAD_DIR counts as unset.
+an empty RAD_DIR counts as unset; the PROTEUS checkout is the directory holding
+src/proteus and pyproject.toml, and an import from elsewhere or none is an error.
 """
 
 from __future__ import annotations
@@ -136,6 +137,31 @@ def test_introspect_env_runs_the_target_interpreter():
         provenance.introspect_env('/nonexistent/python')
     with pytest.raises(ValueError, match='failed to report'):
         provenance.introspect_env('false')
+
+
+def test_proteus_checkout_is_where_proteus_is_imported_from(tmp_path):
+    """``<root>/src/proteus/__init__.py`` gives ``<root>``, the directory with pyproject.toml."""
+    root = tmp_path / 'PROTEUS'
+    (root / 'src' / 'proteus').mkdir(parents=True)
+    (root / 'pyproject.toml').write_text('')
+    origin = root / 'src' / 'proteus' / '__init__.py'
+    assert provenance.proteus_checkout('python', str(origin)) == root
+
+
+def test_proteus_from_an_installed_wheel_is_refused(tmp_path):
+    """No pyproject.toml above the package means no checkout to name or read configs from."""
+    origin = tmp_path / 'lib' / 'site-packages' / 'proteus' / '__init__.py'
+    (tmp_path / 'lib' / 'site-packages' / 'proteus').mkdir(parents=True)
+    (tmp_path / 'pyproject.toml').write_text('')  # one level too high: must not count
+    with pytest.raises(ValueError, match='not from a PROTEUS checkout') as err:
+        provenance.proteus_checkout('/env/bin/python', str(origin))
+    assert f'{tmp_path / "lib"} has no pyproject.toml' in str(err.value)
+
+
+def test_proteus_not_importable_is_refused():
+    """No proteus in the target interpreter names that interpreter."""
+    with pytest.raises(ValueError, match='--python /env/bin/python cannot import proteus'):
+        provenance.proteus_checkout('/env/bin/python', None)
 
 
 def test_harness_state_from_its_checkout():

@@ -25,8 +25,8 @@ validation in `proteus-bench validate`.
 
 ## Running a benchmark
 
-With the PROTEUS environment activated, from the PROTEUS checkout, call
-proteus-bench from its own environment:
+With the PROTEUS environment activated, call proteus-bench from its own
+environment:
 
 ```bash
 ~/.venvs/proteus-bench/bin/proteus-bench run                  # the default suite
@@ -39,8 +39,9 @@ proteus-bench from its own environment:
 Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
 `timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. The proteus
 process runs with the BLAS and OpenMP thread counts set to 1, as the proteus CLI
-does itself. `proteus` must be imported from the PROTEUS checkout being
-measured, and that tree must be clean (no changes to tracked files);
+does itself. The run measures the PROTEUS checkout that `proteus` is imported
+from; to measure another checkout, activate its environment. That tree must be
+clean (no changes to tracked files);
 `--allow-failed-checks` runs anyway and marks the record as not comparable.
 PROTEUS stops a run itself when CVODE or an environment variable it needs is
 missing; `proteus doctor` checks them beforehand.

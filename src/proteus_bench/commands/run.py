@@ -1,7 +1,8 @@
 """``proteus-bench run``: run one benchmark suite through the proteus CLI and record it.
 
-Stages: load the suite, build the run config, check the PROTEUS tree, spawn
-proteus with ``PROTEUS_TIMING=1``, collect its outputs and write
+Stages: find the PROTEUS checkout ``proteus`` is imported from, load the suite,
+build the run config, check the PROTEUS tree, spawn proteus with
+``PROTEUS_TIMING=1``, collect its outputs and write
 ``<runs-dir>/<run_id>/record.json``. Failing checks stop the run before it is
 timed unless ``--allow-failed-checks`` is given; the record then says why the
 run is not comparable. Exit code: 0 when the run finished ok, 1 when it
@@ -31,9 +32,6 @@ PROFILE_DIR = 'profile'
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--suite', default='default', help='suite name in suites.toml')
-    parser.add_argument(
-        '--proteus-root', type=Path, help='PROTEUS checkout (default: $PROTEUS_DIR or cwd)'
-    )
     parser.add_argument(
         '--proteus-cmd', default='proteus', help='command that runs PROTEUS, split like a shell'
     )
@@ -111,7 +109,8 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
     """
     if args.python is None:
         raise ValueError('no python on PATH: activate the PROTEUS environment or pass --python')
-    root = (args.proteus_root or Path(os.environ.get('PROTEUS_DIR') or '.')).resolve()
+    env_report = provenance.introspect_env(args.python)
+    root = provenance.proteus_checkout(args.python, env_report['proteus'])
     suite = suites.load_suite(args.suite)
     adapter = record.detect_adapter(os.environ)
     label = args.machine_label or ('gha' if adapter == 'gha' else platform.node().split('.')[0])
@@ -120,8 +119,9 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
     run_config = suites.build_run_config(root, suite, run_id)
     proteus_git = provenance.git_state(root)
     if proteus_git is None:
-        raise ValueError(f'--proteus-root {root} is not the top of a git checkout')
-    env_report = provenance.introspect_env(args.python)
+        raise ValueError(
+            f'{root}, where proteus is imported from, is not the top of a git checkout'
+        )
     machine_section = machine.machine_section(label, args.machine_class)
     run_dir.mkdir(parents=True)
     try:
@@ -139,10 +139,7 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
         code=provenance.code_section(proteus_git, env_report, root, child_env),
         machine=machine_section,
         env=machine.env_section(child_env, env_report, args.profiler, profiler_env),
-        checks=[
-            checks.proteus_import_check(env_report['proteus'], root),
-            checks.clean_tree_check(proteus_git),
-        ],
+        checks=[checks.clean_tree_check(proteus_git)],
         timeout_s=args.timeout,
         proteus_root=root,
         argv=argv,
