@@ -59,9 +59,9 @@ def introspect_env(python: str) -> dict:
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, check=False)
     except OSError as err:
-        raise ValueError(f'cannot run --python {python}: {err}') from err
+        raise ValueError(f'cannot run {python}: {err}') from err
     if proc.returncode != 0:
-        raise ValueError(f'--python {python} failed to report its packages:\n{proc.stderr}')
+        raise ValueError(f'{python} failed to report its packages:\n{proc.stderr}')
     return json.loads(proc.stdout)
 
 
@@ -73,13 +73,11 @@ def proteus_checkout(python: str, origin: str | None) -> Path:
     ``ValueError`` when proteus is not importable or not from a checkout.
     """
     if origin is None:
-        raise ValueError(
-            f'--python {python} cannot import proteus; activate the PROTEUS environment'
-        )
+        raise ValueError(f'{python} cannot import proteus; activate the PROTEUS environment')
     root = Path(origin).parents[2]
     if not (root / 'pyproject.toml').is_file():
         raise ValueError(
-            f'--python {python} imports proteus from {origin}, not from a PROTEUS checkout '
+            f'{python} imports proteus from {origin}, not from a PROTEUS checkout '
             f'({root} has no pyproject.toml); install PROTEUS editable from its checkout'
         )
     return root

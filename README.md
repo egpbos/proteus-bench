@@ -41,9 +41,9 @@ proteus-bench run                  # the default suite
 proteus-bench run --timeout 21600  # kill the run after 6 h
 ```
 
-The run measures the PROTEUS checkout that `proteus` is imported from; to
-measure another checkout, activate its environment. `proteus` and `python`
-come from PATH; `--proteus-cmd` and `--python` select others.
+The run measures the PROTEUS checkout that the `proteus` command on PATH
+imports, in that command's environment; to measure another checkout, activate
+its environment.
 
 Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
 `timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. The proteus

@@ -79,8 +79,7 @@ def bench(tmp_path, git_repo, monkeypatch, capsys):
         earlier = set((tmp_path / 'runs').glob('*/record.json'))
         code = cli.main([
             'run', '--proteus-cmd', cmd,
-            '--runs-dir', str(tmp_path / 'runs'), '--machine-label', 'test',
-            '--python', sys.executable, *extra,
+            '--runs-dir', str(tmp_path / 'runs'), '--machine-label', 'test', *extra,
         ])  # fmt: skip
         captured = capsys.readouterr()
         out = captured.out + captured.err  # setup errors go to stderr, after no run dir
@@ -205,6 +204,30 @@ def test_the_checkout_measured_is_where_proteus_is_imported_from(bench, git_repo
     code, rec, _ = bench()
     assert code == 0
     assert rec['code']['proteus']['sha'] == sha[:8] != first['code']['proteus']['sha']
+    assert rec['timings']['phases']['loop'] == pytest.approx(LOOP_S + 15 * 5.0, abs=1e-6)
+
+
+def test_the_checkout_measured_belongs_to_the_command_that_runs(bench, git_repo, tmp_path):
+    """The checkout comes from the environment of the proteus command, not from ours.
+
+    Our PYTHONPATH finds the fixture's checkout; the command's environment finds
+    another one, and that one is recorded and run.
+    """
+    bench()  # creates the fixture's checkout, which our own environment imports
+    other = tmp_path / 'PROTEUS-other'
+    sha = make_checkout(other, git_repo, {'atmos_s': 20.0})
+    bin_dir = tmp_path / 'other-env' / 'bin'
+    bin_dir.mkdir(parents=True)
+    scripts = {
+        'python': f'PYTHONPATH={other / "src"} exec {sys.executable} "$@"',
+        'proteus': f'exec {sys.executable} -m proteus_bench.testing.fake_proteus "$@"',
+    }
+    for name, line in scripts.items():
+        (bin_dir / name).write_text(f'#!/bin/sh\n{line}\n')
+        (bin_dir / name).chmod(0o755)
+    code, rec, _ = bench(cmd=str(bin_dir / 'proteus'))
+    assert code == 0
+    assert rec['code']['proteus']['sha'] == sha[:8]
     assert rec['timings']['phases']['loop'] == pytest.approx(LOOP_S + 15 * 5.0, abs=1e-6)
 
 
@@ -370,29 +393,11 @@ def test_non_git_root_is_refused(tmp_path, monkeypatch, capsys):
     """Provenance needs a git checkout: proteus from a plain directory is a setup error."""
     make_checkout(tmp_path / 'PROTEUS')
     monkeypatch.setenv('PYTHONPATH', str(tmp_path / 'PROTEUS' / 'src'))
-    argv = ['run', '--python', sys.executable, '--runs-dir', str(tmp_path / 'r')]
+    argv = ['run', '--proteus-cmd', FAKE_CMD, '--runs-dir', str(tmp_path / 'r')]
     assert cli.main(argv) == 2
     assert 'where proteus is imported from, is not the top of a git checkout' in (
         capsys.readouterr().err
     )
-    assert not (tmp_path / 'r').exists()
-
-
-def test_python_defaults_to_the_one_on_path(monkeypatch, tmp_path):
-    """Without --python the PROTEUS interpreter is the python on PATH, not this one."""
-    (tmp_path / 'python').write_text('#!/bin/sh\n')
-    (tmp_path / 'python').chmod(0o755)
-    monkeypatch.setenv('PATH', str(tmp_path))
-    args = cli.build_parser().parse_args(['run'])
-    assert args.python == str(tmp_path / 'python')
-
-
-def test_no_python_on_path_is_a_setup_error(monkeypatch, tmp_path, capsys):
-    """With no python on PATH and no --python the run stops before anything else."""
-    monkeypatch.setenv('PATH', str(tmp_path))
-    code = cli.main(['run', '--runs-dir', str(tmp_path / 'r')])
-    assert code == 2
-    assert 'no python on PATH' in capsys.readouterr().err
     assert not (tmp_path / 'r').exists()
 
 

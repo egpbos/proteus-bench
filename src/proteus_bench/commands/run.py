@@ -35,11 +35,6 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--proteus-cmd', default='proteus', help='command that runs PROTEUS, split like a shell'
     )
-    parser.add_argument(
-        '--python',
-        default=shutil.which('python'),
-        help='interpreter of the PROTEUS environment (default: python on PATH)',
-    )
     parser.add_argument('--runs-dir', type=Path, default=Path('bench-runs'))
     parser.add_argument('--machine-label', help='default: short host name, or gha on CI')
     parser.add_argument('--machine-class', help='default: <os>-<arch>-<cpu model>')
@@ -107,10 +102,11 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
     The run directory is created here, exclusively, so a run id is never reused;
     the profiler hook needs it to exist.
     """
-    if args.python is None:
-        raise ValueError('no python on PATH: activate the PROTEUS environment or pass --python')
-    env_report = provenance.introspect_env(args.python)
-    root = provenance.proteus_checkout(args.python, env_report['proteus'])
+    exe, extra_words = resolve_command(args.proteus_cmd)
+    # The environment that runs the command is the one measured, as the profilers assume
+    python = str(Path(exe).resolve().parent / 'python')
+    env_report = provenance.introspect_env(python)
+    root = provenance.proteus_checkout(python, env_report['proteus'])
     suite = suites.load_suite(args.suite)
     adapter = record.detect_adapter(os.environ)
     label = args.machine_label or ('gha' if adapter == 'gha' else platform.node().split('.')[0])
@@ -125,7 +121,7 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
     machine_section = machine.machine_section(label, args.machine_class)
     run_dir.mkdir(parents=True)
     try:
-        argv, child_env, profiler_env, profiling = command(args, run_dir)
+        argv, child_env, profiler_env, profiling = command(args, run_dir, [exe, *extra_words])
     except ValueError:
         _discard_empty(run_dir)
         raise
@@ -164,20 +160,27 @@ def child_environment(run_dir: Path) -> dict:
     }
 
 
-def command(args: argparse.Namespace, run_dir: Path):
+def resolve_command(proteus_cmd: str) -> tuple[str, list[str]]:
+    """Absolute path of the command's executable and its other words.
+
+    Raises ``ValueError`` for a command not on PATH.
+    """
+    words = shlex.split(proteus_cmd)
+    exe = shutil.which(words[0]) if words else None
+    if exe is None:
+        raise ValueError(f'--proteus-cmd {proteus_cmd!r}: command not found on PATH')
+    return os.path.abspath(exe), words[1:]
+
+
+def command(args: argparse.Namespace, run_dir: Path, words: list[str]):
     """``(argv, env, profiler_env, profiling module or None)`` for the proteus process.
 
-    Raises ``ValueError`` for a command not on the child's PATH and for profiler
-    support that cannot be imported or used.
+    Raises ``ValueError`` for profiler support that cannot be imported or used.
     """
     env = child_environment(run_dir)
-    words = shlex.split(args.proteus_cmd)
-    exe = shutil.which(words[0], path=env.get('PATH')) if words else None
-    if exe is None:
-        raise ValueError(f'--proteus-cmd {args.proteus_cmd!r}: command not found on PATH')
     config = str(run_dir / record.ARTIFACTS['config'])
     # Offline, so a download never lands inside the timing; missing data fails the run
-    argv = [os.path.abspath(exe), *words[1:], 'start', '--offline', '-c', config]
+    argv = [*words, 'start', '--offline', '-c', config]
     if args.profiler == 'none':
         return argv, env, {}, None
     profiling = _profiling_module(args.profiler)

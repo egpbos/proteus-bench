@@ -133,7 +133,7 @@ def test_introspect_env_runs_the_target_interpreter():
     report = provenance.introspect_env(sys.executable)
     assert report['python'] == platform.python_version()
     assert set(report['dists']) <= set(provenance.MODULE_DISTS + provenance.PACKAGES)
-    with pytest.raises(ValueError, match='cannot run --python'):
+    with pytest.raises(ValueError, match='cannot run /'):
         provenance.introspect_env('/nonexistent/python')
     with pytest.raises(ValueError, match='failed to report'):
         provenance.introspect_env('false')
@@ -160,7 +160,7 @@ def test_proteus_from_an_installed_wheel_is_refused(tmp_path):
 
 def test_proteus_not_importable_is_refused():
     """No proteus in the target interpreter names that interpreter."""
-    with pytest.raises(ValueError, match='--python /env/bin/python cannot import proteus'):
+    with pytest.raises(ValueError, match='/env/bin/python cannot import proteus'):
         provenance.proteus_checkout('/env/bin/python', None)
 
 
