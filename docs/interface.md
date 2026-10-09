@@ -201,11 +201,14 @@ consecutive native frames into one `[native code]` block, or
 `[native code: Julia]` when any library in the run is Julia's (`libjulia-*`,
 `libLLVM-*jl`), and colours frames by component: `zalmoxis`, `proteus` and
 `aragog` from the first path element of Python frames, then `julia`, `native`
-and `other`.
+and `other`. Aragog and Zalmoxis both take the PROTEUS interior colour, Zalmoxis
+hatched; PROTEUS, other Python and native code take colours outside the module
+domains.
 
-`flame.html` is a single file: data, styles and code are inline, except d3 7.9.0
-and d3-flame-graph 5.0.0, which load from jsDelivr with subresource integrity
-hashes.
+`flame.html` is a single file: data, styles and code are inline, except d3 7.9.0,
+d3-flame-graph 5.0.0 and the PROTEUS design tokens (`tokens.css` of
+`@formingworlds/proteus-tokens` 1.3.0), which load from jsDelivr with subresource
+integrity hashes. It follows the reader's light or dark preference.
 
 ## Results store
 

@@ -20,6 +20,7 @@ src/proteus_bench/
   profiling.py      profiler commands, folded stacks and flame pages
   schema.py         loading the schemas; optional shape validation
   settings.py       flattening, hashing and comparing resolved PROTEUS settings
+  theme.py          head tags loading the PROTEUS design tokens, for the flame page and dashboard
   timing.py         reading and checking timing.jsonl
   suites.toml       benchmark suites; suites.py loads and validates them
   checks.py         run checks and the comparability rule
