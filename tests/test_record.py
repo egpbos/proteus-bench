@@ -135,3 +135,6 @@ def test_record_paths_are_home_relative(tmp_path, monkeypatch):
         'HOME': '~',
         'OTHER': '/home/alicebeth',
     }
+    monkeypatch.setenv('HOME', '/home/zoë')
+    path = record.write_record(tmp_path, {'env': {'knobs': {'CACHE': '/home/zoë/cache'}}})
+    assert json.loads(path.read_text(encoding='utf-8'))['env']['knobs'] == {'CACHE': '~/cache'}

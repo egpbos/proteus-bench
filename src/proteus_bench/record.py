@@ -173,7 +173,7 @@ def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, li
 
 def write_record(run_dir: Path, record: dict) -> Path:
     path = run_dir / 'record.json'
-    path.write_text(
-        home_pattern().sub('~', json.dumps(record, indent=2, allow_nan=False)) + '\n'
-    )
+    # Unescaped, so a home directory with non-ASCII characters still matches
+    text = json.dumps(record, indent=2, allow_nan=False, ensure_ascii=False)
+    path.write_text(home_pattern().sub('~', text) + '\n', encoding='utf-8')
     return path
