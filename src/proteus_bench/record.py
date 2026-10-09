@@ -15,7 +15,7 @@ from pathlib import Path
 from types import ModuleType
 
 from proteus_bench import checks, collect, settings
-from proteus_bench.runner import ProcessResult
+from proteus_bench.runner import ProcessResult, home_pattern
 
 SCHEMA = 'proteus-bench/1'
 # record.artifacts key -> file in the run directory; one key per file
@@ -171,11 +171,9 @@ def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, li
     }
 
 
-def home_relative(text: str) -> str:
-    return text.replace(f'{Path.home()}/', '~/')
-
-
 def write_record(run_dir: Path, record: dict) -> Path:
     path = run_dir / 'record.json'
-    path.write_text(home_relative(json.dumps(record, indent=2, allow_nan=False)) + '\n')
+    path.write_text(
+        home_pattern().sub('~', json.dumps(record, indent=2, allow_nan=False)) + '\n'
+    )
     return path

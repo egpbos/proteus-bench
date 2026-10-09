@@ -60,12 +60,20 @@ def timed_out(fired: bool, exit_code: int) -> bool:
     return fired and exit_code == -signal.SIGKILL
 
 
+def home_pattern() -> re.Pattern:
+    """The home directory as a whole path, also when it is the full value."""
+    return re.compile(rf'{re.escape(str(Path.home()))}(?![\w.-])')
+
+
 def private_names() -> list[tuple[re.Pattern, str]]:
     """Patterns for this machine's home directory, host name and user name, with their stand-ins."""
     host = platform.node()
     words = ((host, '<host>'), (host.split('.')[0], '<host>'), (getpass.getuser(), '<user>'))
-    return [(re.compile(re.escape(f'{Path.home()}/')), '~/')] + [
-        (re.compile(rf'\b{re.escape(name)}\b'), mark) for name, mark in words if name
+    # Not \b: an underscore next to a name, as in alice_cache, must still count as a boundary
+    return [(home_pattern(), '~')] + [
+        (re.compile(rf'(?<![A-Za-z0-9]){re.escape(name)}(?![A-Za-z0-9])'), mark)
+        for name, mark in words
+        if name
     ]
 
 

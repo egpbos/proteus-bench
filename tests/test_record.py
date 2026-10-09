@@ -126,7 +126,12 @@ def test_record_with_a_non_finite_value_is_refused(tmp_path):
 
 
 def test_record_paths_are_home_relative(tmp_path, monkeypatch):
-    """A knob that names a directory under home is written relative to ~."""
+    """Home and paths below it are written as ~; a longer name that starts like it stays."""
     monkeypatch.setenv('HOME', '/home/alice')
-    path = record.write_record(tmp_path, {'env': {'knobs': {'CACHE': '/home/alice/cache'}}})
-    assert json.loads(path.read_text()) == {'env': {'knobs': {'CACHE': '~/cache'}}}
+    knobs = {'CACHE': '/home/alice/cache', 'HOME': '/home/alice', 'OTHER': '/home/alicebeth'}
+    path = record.write_record(tmp_path, {'env': {'knobs': knobs}})
+    assert json.loads(path.read_text())['env']['knobs'] == {
+        'CACHE': '~/cache',
+        'HOME': '~',
+        'OTHER': '/home/alicebeth',
+    }

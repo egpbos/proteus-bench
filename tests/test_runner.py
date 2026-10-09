@@ -58,6 +58,7 @@ def test_log_loses_home_host_and_user(tmp_path, monkeypatch, capsys):
         'System username   alice',
         'FWL data path     /home/alice/data/',
         'Output path       /tmp/x-home-alice-y/ on node7',
+        'cache /tmp/alice_cache on node7_worker',
         'alicebeth node77',
     ]
     log = tmp_path / 'log.txt'
@@ -73,6 +74,7 @@ def test_log_loses_home_host_and_user(tmp_path, monkeypatch, capsys):
         'System username   <user>',
         'FWL data path     ~/data/',
         'Output path       /tmp/x-home-<user>-y/ on <host>',
+        'cache /tmp/<user>_cache on <host>_worker',
         'alicebeth node77',
     ]
     assert capsys.readouterr().out.splitlines() == lines

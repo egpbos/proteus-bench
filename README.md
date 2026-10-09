@@ -81,7 +81,8 @@ proteus-bench publish bench-runs/<run_id>
 
 This adds the run to the `results` branch of the store repository, which is
 public. A record holds no host or user name, and the run replaces the home
-directory, host name and user name in `log.txt` with `~`, `<host>` and `<user>`. For a
+directory, host name and user name in `log.txt` with `~`, `<host>` and `<user>`.
+The machine label is published as given, so choose one that does not identify you. For a
 store on GitHub it also starts the dashboard build with `gh`, or prints the
 command when `gh` is missing. Runs made in GitHub Actions are uploaded there as one
 artifact per run directory; download them first:

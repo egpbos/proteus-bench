@@ -204,6 +204,7 @@ def test_profile_artifacts_are_copied_and_raw_output_is_not(make_run_dir, tmp_pa
     assert stored['artifacts']['profile'] == base + 'stacks.folded.gz'
     folded = (tmp_path / 'tree' / base / 'stacks.folded.gz').read_bytes()
     assert gzip.decompress(folded) == b'a;b 3\n'  # not gzipped a second time
+    assert (tmp_path / 'tree' / base / 'flame.html').read_text() == '<html></html>'
     assert not (tmp_path / 'tree' / base / 'raw').exists()
 
 
