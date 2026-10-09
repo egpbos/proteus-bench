@@ -10,6 +10,8 @@ import datetime as dt
 import getpass
 import json
 import math
+import platform
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,8 +70,8 @@ def detect_adapter(env: dict) -> str:
 
 
 def trigger_section(adapter: str, env: dict) -> dict:
-    """Adapter, user and CI or scheduler identifiers; ``started_at`` is set at spawn."""
-    trigger = {'adapter': adapter, 'user': env.get('GITHUB_ACTOR') or getpass.getuser()}
+    """Adapter and CI or scheduler identifiers; ``started_at`` is set at spawn."""
+    trigger = {'adapter': adapter}
     if env.get('GITHUB_RUN_ID'):
         server = env.get('GITHUB_SERVER_URL', 'https://github.com')
         trigger['gha'] = {
@@ -172,7 +174,25 @@ def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, li
     }
 
 
+def home_relative(text: str) -> str:
+    return text.replace(f'{Path.home()}/', '~/')
+
+
+def scrub_log(path: Path) -> None:
+    """Replace the home directory, host name and user name in a log that will be published."""
+    text = home_relative(path.read_text(errors='replace'))
+    host = platform.node()
+    for name, mark in (
+        (host, '<host>'),
+        (host.split('.')[0], '<host>'),
+        (getpass.getuser(), '<user>'),
+    ):
+        if name:
+            text = re.sub(rf'\b{re.escape(name)}\b', mark, text)
+    path.write_text(text)
+
+
 def write_record(run_dir: Path, record: dict) -> Path:
     path = run_dir / 'record.json'
-    path.write_text(json.dumps(record, indent=2, allow_nan=False) + '\n')
+    path.write_text(home_relative(json.dumps(record, indent=2, allow_nan=False)) + '\n')
     return path

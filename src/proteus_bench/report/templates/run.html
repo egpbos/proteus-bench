@@ -75,7 +75,7 @@
 <tr><th scope="row">PROTEUS</th><td>{{ commit_link(proteus['sha']) }}{% if proteus['dirty'] %} <span class="warn">dirty tree</span>{% endif %}</td></tr>
 <tr><th scope="row">Branch / describe</th><td>{{ [proteus.get('branch'), proteus.get('describe')] | select | join(' / ') }}</td></tr>
 <tr><th scope="row">Harness</th><td>{{ record['harness']['version'] }} <span class="mono">{{ record['harness'].get('sha', '') }}</span></td></tr>
-<tr><th scope="row">Trigger</th><td>{{ trigger['adapter'] }}, by {{ trigger.get('user', 'unknown user') }}</td></tr>
+<tr><th scope="row">Trigger</th><td>{{ trigger['adapter'] }}</td></tr>
 {% if 'run_url' in trigger.get('gha', {}) %}<tr><th scope="row">GitHub Actions run</th><td>{{ https_link(trigger['gha']['run_url']) }}</td></tr>{% endif %}
 {% if 'slurm' in trigger %}<tr><th scope="row">Slurm</th><td>{% for k, v in trigger['slurm'].items() %}{{ k }} {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>{% endif %}
 {% for name, state in code['modules'] | dictsort(true) %}<tr><th scope="row">module {{ name }}</th><td>{{ state['source'] }}: {{ [state.get('version'), state.get('sha')] | select | join(' ') }}{% if state.get('dirty') %} <span class="warn">dirty tree</span>{% endif %}</td></tr>

@@ -26,7 +26,6 @@
   "trigger": {
     "adapter": "slurm",
     "started_at": "2026-09-25T03:10:00Z",
-    "user": "egpbos",
     "slurm": {
       "job_id": "31948135",
       "partition": "regularshort",
@@ -67,7 +66,6 @@
   "machine": {
     "label": "habrok-vink",
     "class": "habrok-vink",
-    "host": "vink15",
     "cpu_model": "Example CPU model (illustrative)",
     "n_cpus": 2,
     "mem_gb": 16.0,

@@ -40,7 +40,6 @@ def test_adapter_detection():
 def test_trigger_sections():
     """GHA gets a clickable run URL; Slurm records only the variables that are set."""
     gha = record.trigger_section('gha', GHA_ENV)
-    assert gha['user'] == 'egpbos'
     assert gha['gha'] == {
         'run_url': 'https://github.com/FormingWorlds/PROTEUS/actions/runs/1234567890',
         'run_id': 1234567890,
@@ -50,7 +49,7 @@ def test_trigger_sections():
     slurm = record.trigger_section('slurm', {'SLURM_JOB_ID': '7', 'SLURMD_NODENAME': 'vink15'})
     assert slurm['slurm'] == {'job_id': '7', 'node': 'vink15'}
     assert 'gha' not in slurm
-    assert slurm['user']
+    assert 'user' not in slurm  # a local user name is not published
 
 
 def test_utc_iso():
@@ -124,3 +123,33 @@ def test_record_with_a_non_finite_value_is_refused(tmp_path):
     assert not (tmp_path / 'record.json').exists()
     path = record.write_record(tmp_path, {'timings': {'wall_s': 1.5}})
     assert json.loads(path.read_text()) == {'timings': {'wall_s': 1.5}}
+
+
+def test_log_loses_home_host_and_user(tmp_path, monkeypatch):
+    """Home becomes ~, host and user names become markers; longer words that contain them stay."""
+    monkeypatch.setenv('HOME', '/home/alice')
+    monkeypatch.setenv('LOGNAME', 'alice')
+    monkeypatch.setattr(record.platform, 'node', lambda: 'node7.example.org')
+    log = tmp_path / 'log.txt'
+    log.write_text(
+        'System hostname   node7.example.org\n'
+        'System username   alice\n'
+        'FWL data path     /home/alice/data/\n'
+        'Output path       /tmp/x-home-alice-y/ on node7\n'
+        'alicebeth node77\n'
+    )
+    record.scrub_log(log)
+    assert log.read_text() == (
+        'System hostname   <host>\n'
+        'System username   <user>\n'
+        'FWL data path     ~/data/\n'
+        'Output path       /tmp/x-home-<user>-y/ on <host>\n'
+        'alicebeth node77\n'
+    )
+
+
+def test_record_paths_are_home_relative(tmp_path, monkeypatch):
+    """A knob that names a directory under home is written relative to ~."""
+    monkeypatch.setenv('HOME', '/home/alice')
+    path = record.write_record(tmp_path, {'env': {'knobs': {'CACHE': '/home/alice/cache'}}})
+    assert json.loads(path.read_text()) == {'env': {'knobs': {'CACHE': '~/cache'}}}

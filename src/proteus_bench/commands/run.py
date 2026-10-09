@@ -16,7 +16,6 @@ import contextlib
 import datetime as dt
 import importlib
 import os
-import platform
 import secrets
 import shlex
 import shutil
@@ -38,7 +37,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         '--proteus-cmd', default='proteus', help='command that runs PROTEUS, split like a shell'
     )
     parser.add_argument('--runs-dir', type=Path, default=Path('bench-runs'))
-    parser.add_argument('--machine-label', help='default: short host name, or gha on CI')
+    parser.add_argument('--machine-label', help='name of this machine in run ids; gha on CI')
     parser.add_argument('--machine-class', help='default: <os>-<arch>-<cpu model>')
     parser.add_argument('--timeout', type=float, help='kill the run after this many seconds')
     parser.add_argument(
@@ -81,6 +80,7 @@ def execute(ctx: record.RunContext) -> dict:
         ctx.run_dir / record.ARTIFACTS['log'],
         ctx.timeout_s,
     )
+    record.scrub_log(ctx.run_dir / record.ARTIFACTS['log'])
     record.copy_outputs(ctx)
     rec = record.build_record(ctx, result, collect_profile(ctx))
     record.write_record(ctx.run_dir, rec)
@@ -104,14 +104,16 @@ def prepare(args: argparse.Namespace) -> record.RunContext:
     The run directory is created here, exclusively, so a run id is never reused;
     the profiler hook needs it to exist.
     """
+    adapter = record.detect_adapter(os.environ)
+    if not args.machine_label and adapter != 'gha':
+        raise ValueError('pass --machine-label to name this machine in run ids')
+    label = args.machine_label or 'gha'
     exe, extra_words = resolve_command(args.proteus_cmd)
     # The environment that runs the command is the one measured, as the profilers assume
     python = str(Path(exe).resolve().parent / 'python')
     env_report = provenance.introspect_env(python)
     root, proteus_git = provenance.proteus_checkout(python, env_report['proteus'])
     suite = suites.load_suite(args.suite)
-    adapter = record.detect_adapter(os.environ)
-    label = args.machine_label or ('gha' if adapter == 'gha' else platform.node().split('.')[0])
     run_id = make_run_id(dt.datetime.now(dt.UTC), label, suite['name'])
     run_dir = args.runs_dir.resolve() / run_id
     run_config = suites.build_run_config(root, suite, run_id)

@@ -93,6 +93,14 @@ def _run_dir(out: str) -> Path:
     return Path(out.strip().splitlines()[-1])
 
 
+def test_local_run_needs_a_machine_label(tmp_path, monkeypatch, capsys):
+    """Outside CI the label is never derived from the host name, which would be published."""
+    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    assert cli.main(['run', '--runs-dir', str(tmp_path / 'runs')]) == 2
+    assert '--machine-label' in capsys.readouterr().err
+    assert not (tmp_path / 'runs').exists()
+
+
 def test_ok_run_writes_a_complete_valid_record(bench):
     """Exit 0, every file present, schema-valid, comparable, suite cap and timings applied."""
     code, rec, out = bench()
@@ -392,7 +400,15 @@ def test_non_git_root_is_refused(tmp_path, monkeypatch, capsys):
     """Provenance needs a git checkout: proteus from a plain directory is a setup error."""
     make_checkout(tmp_path / 'PROTEUS')
     monkeypatch.setenv('PYTHONPATH', str(tmp_path / 'PROTEUS' / 'src'))
-    argv = ['run', '--proteus-cmd', FAKE_CMD, '--runs-dir', str(tmp_path / 'r')]
+    argv = [
+        'run',
+        '--proteus-cmd',
+        FAKE_CMD,
+        '--runs-dir',
+        str(tmp_path / 'r'),
+        '--machine-label',
+        't',
+    ]
     assert cli.main(argv) == 2
     assert 'runs need PROTEUS installed from a git checkout' in capsys.readouterr().err
     assert not (tmp_path / 'r').exists()
