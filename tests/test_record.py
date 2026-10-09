@@ -125,29 +125,6 @@ def test_record_with_a_non_finite_value_is_refused(tmp_path):
     assert json.loads(path.read_text()) == {'timings': {'wall_s': 1.5}}
 
 
-def test_log_loses_home_host_and_user(tmp_path, monkeypatch):
-    """Home becomes ~, host and user names become markers; longer words that contain them stay."""
-    monkeypatch.setenv('HOME', '/home/alice')
-    monkeypatch.setenv('LOGNAME', 'alice')
-    monkeypatch.setattr(record.platform, 'node', lambda: 'node7.example.org')
-    log = tmp_path / 'log.txt'
-    log.write_text(
-        'System hostname   node7.example.org\n'
-        'System username   alice\n'
-        'FWL data path     /home/alice/data/\n'
-        'Output path       /tmp/x-home-alice-y/ on node7\n'
-        'alicebeth node77\n'
-    )
-    record.scrub_log(log)
-    assert log.read_text() == (
-        'System hostname   <host>\n'
-        'System username   <user>\n'
-        'FWL data path     ~/data/\n'
-        'Output path       /tmp/x-home-<user>-y/ on <host>\n'
-        'alicebeth node77\n'
-    )
-
-
 def test_record_paths_are_home_relative(tmp_path, monkeypatch):
     """A knob that names a directory under home is written relative to ~."""
     monkeypatch.setenv('HOME', '/home/alice')

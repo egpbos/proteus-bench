@@ -7,11 +7,8 @@ rewrites them to results-store paths.
 from __future__ import annotations
 
 import datetime as dt
-import getpass
 import json
 import math
-import platform
-import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -176,20 +173,6 @@ def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, li
 
 def home_relative(text: str) -> str:
     return text.replace(f'{Path.home()}/', '~/')
-
-
-def scrub_log(path: Path) -> None:
-    """Replace the home directory, host name and user name in a log that will be published."""
-    text = home_relative(path.read_text(errors='replace'))
-    host = platform.node()
-    for name, mark in (
-        (host, '<host>'),
-        (host.split('.')[0], '<host>'),
-        (getpass.getuser(), '<user>'),
-    ):
-        if name:
-            text = re.sub(rf'\b{re.escape(name)}\b', mark, text)
-    path.write_text(text)
 
 
 def write_record(run_dir: Path, record: dict) -> Path:

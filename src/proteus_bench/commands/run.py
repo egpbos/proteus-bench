@@ -80,7 +80,6 @@ def execute(ctx: record.RunContext) -> dict:
         ctx.run_dir / record.ARTIFACTS['log'],
         ctx.timeout_s,
     )
-    record.scrub_log(ctx.run_dir / record.ARTIFACTS['log'])
     record.copy_outputs(ctx)
     rec = record.build_record(ctx, result, collect_profile(ctx))
     record.write_record(ctx.run_dir, rec)

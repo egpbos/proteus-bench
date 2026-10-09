@@ -20,6 +20,7 @@ import time
 
 import pytest
 
+from proteus_bench import runner
 from proteus_bench.runner import max_rss_mb, spawn, timed_out
 
 pytestmark = [pytest.mark.smoke, pytest.mark.timeout(60)]
@@ -45,6 +46,36 @@ def test_output_is_logged_and_echoed_and_exit_code_kept(tmp_path, capsys):
     assert 'to stdout' in capsys.readouterr().out
     assert result.started_at.tzinfo is not None
     assert result.wall_s > 0
+
+
+def test_log_loses_home_host_and_user(tmp_path, monkeypatch, capsys):
+    """The log gets ~, <host> and <user>; longer words containing them stay, and stdout is unchanged."""
+    monkeypatch.setenv('HOME', '/home/alice')
+    monkeypatch.setenv('LOGNAME', 'alice')
+    monkeypatch.setattr(runner.platform, 'node', lambda: 'node7.example.org')
+    lines = [
+        'System hostname   node7.example.org',
+        'System username   alice',
+        'FWL data path     /home/alice/data/',
+        'Output path       /tmp/x-home-alice-y/ on node7',
+        'alicebeth node77',
+    ]
+    log = tmp_path / 'log.txt'
+    spawn(
+        [sys.executable, '-c', f'print({chr(10).join(lines)!r})'],
+        tmp_path,
+        dict(os.environ),
+        log,
+        None,
+    )
+    assert log.read_text().splitlines() == [
+        'System hostname   <host>',
+        'System username   <user>',
+        'FWL data path     ~/data/',
+        'Output path       /tmp/x-home-<user>-y/ on <host>',
+        'alicebeth node77',
+    ]
+    assert capsys.readouterr().out.splitlines() == lines
 
 
 def test_timeout_kills_the_process_group(tmp_path):
