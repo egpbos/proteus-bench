@@ -22,8 +22,6 @@ from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
 
-from proteus_bench import theme
-
 STACKS_FILE = 'stacks.folded.gz'
 FLAME_FILE = 'flame.html'
 
@@ -316,7 +314,7 @@ def write_flame_page(folded_lines: list[str], out_html: Path, meta: dict) -> int
         'META': ''.join(f'<span>{s}</span>' for s in spans),
         # '<' escaped so a frame name can never close the script element.
         'DATA': json.dumps(tree, separators=(',', ':')).replace('<', '\\u003c'),
-        'HEAD': theme.HEAD,
+        'HEAD': resources.files('proteus_bench').joinpath('tokens_head.html').read_text(),
     }
     template = resources.files('proteus_bench').joinpath('flame_template.html').read_text()
     page = re.sub(r'__(TITLE|META|DATA|HEAD)__', lambda m: fields[m.group(1)], template)

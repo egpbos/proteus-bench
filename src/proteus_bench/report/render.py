@@ -12,9 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
-from markupsafe import Markup
 
-from proteus_bench import theme
 from proteus_bench.report import fmt
 from proteus_bench.report.figures import TEMPLATES
 
@@ -22,7 +20,8 @@ PLOTLY_JS = 'https://cdn.jsdelivr.net/npm/plotly.js-basic-dist-min@4.1.1/plotly-
 PLOTLY_INTEGRITY = 'sha384-N2HZsG+IG/3J8CwhGGYz/kmzZ0sprpPWwjhor9ZI4lxuf47i9DXK2/NDGxMaJiEb'
 
 ENV = Environment(
-    loader=FileSystemLoader(Path(__file__).parent / 'templates'),
+    # The package root holds tokens_head.html, which the flame page shares
+    loader=FileSystemLoader([Path(__file__).parent / 'templates', Path(__file__).parents[1]]),
     autoescape=True,
     undefined=StrictUndefined,
     trim_blocks=True,
@@ -45,7 +44,6 @@ ENV.filters |= {
     )
 }
 ENV.globals |= {
-    'theme_head': Markup(theme.HEAD),
     'plotly_js': PLOTLY_JS,
     'plotly_integrity': PLOTLY_INTEGRITY,
     'plotly_templates': TEMPLATES,

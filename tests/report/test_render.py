@@ -9,11 +9,11 @@ an empty string; the pages load the tokens and plotly.js pinned by hash.
 from __future__ import annotations
 
 import json
+from importlib import resources
 
 import jinja2
 import pytest
 
-from proteus_bench import theme
 from proteus_bench.report.render import ENV, PLOTLY_INTEGRITY, PLOTLY_JS, render
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
@@ -47,9 +47,11 @@ def test_missing_values_fail_loudly():
 
 
 def test_pages_load_pinned_tokens_and_plotly():
-    """The compare page carries the tokens head; charts load plotly.js of one version by hash."""
+    """Pages carry the tokens head the flame page shares; charts load plotly.js by hash."""
     compare = render('compare.html', root='', data={'runs': []})
-    assert theme.TOKENS_INTEGRITY in compare
+    head = resources.files('proteus_bench').joinpath('tokens_head.html').read_text()
+    assert head.strip() in compare
+    assert '@formingworlds/proteus-tokens@1.3.0/tokens.css" integrity="sha384-' in head
     assert 'plotly' not in compare  # no charts, no plotly.js
     scripts = ENV.from_string(
         "{% from 'macros.html' import plotly_script %}{{ plotly_script('../') }}"

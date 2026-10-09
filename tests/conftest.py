@@ -1,5 +1,5 @@
 """Shared fixtures: fake proteus runs, synthetic run histories, profiling fixture
-files, run directories, isolated git stores, a fake gh and the PROTEUS design tokens."""
+files, run directories, isolated git stores and a fake gh."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import datetime as dt
 import json
 import os
 import random
-import re
 import shutil
 import subprocess
 import sys
@@ -288,22 +287,3 @@ def fake_gh(tmp_path, monkeypatch):
         )
 
     return SimpleNamespace(artifacts=artifacts, calls=calls)
-
-
-@pytest.fixture(scope='session')
-def tokens_css() -> Path:
-    """tokens.css of npm @formingworlds/proteus-tokens 1.3.0, identical to its jsDelivr copy."""
-    return Path(__file__).parent / 'fixtures' / 'proteus-tokens-1.3.0.css'
-
-
-@pytest.fixture(scope='session')
-def tokens(tokens_css) -> dict[str, dict[str, str]]:
-    """Token name -> value per theme: ``dark`` is ``:root``, ``light`` adds its overrides."""
-    css = tokens_css.read_text()
-
-    def block(selector: str) -> dict[str, str]:
-        body = css[css.index(selector + ' {') :].split('}', 1)[0]
-        return dict(re.findall(r'(--pt-[\w-]+):\s*([^;]+);', body))
-
-    dark = block(':root')
-    return {'dark': dark, 'light': dark | block('[data-theme="light"]')}

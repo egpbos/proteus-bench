@@ -28,6 +28,7 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 
+import proteus_plotly
 import pytest
 
 from proteus_bench import profiling
@@ -333,7 +334,7 @@ def test_flame_page_embeds_every_node_with_its_width(tmp_path, profiles):
     assert f'{profiles.scalene_total:,} samples' in text
 
 
-def test_every_colour_key_has_a_fill_and_a_legend_swatch(tmp_path, tokens):
+def test_every_colour_key_has_a_fill_and_a_legend_swatch(tmp_path):
     """The keys component() returns are defined and shown; hatches name patterns on the page."""
     out = tmp_path / 'flame.html'
     profiling.write_flame_page(['a (proteus/x.py) 3'], out, {})
@@ -352,7 +353,9 @@ def test_every_colour_key_has_a_fill_and_a_legend_swatch(tmp_path, tokens):
     )
     assert ('hatch-interior', '--pt-dom-interior', '--pt-paper') in hatches  # Aragog's colour
     for _, base, stripe in hatches:  # the stripes show in both themes
-        assert all(values[base] != values[stripe] for values in tokens.values())
+        for theme in ('light', 'dark'):
+            colours = proteus_plotly.colors(theme)
+            assert colours[base.removeprefix('--pt-')] != colours[stripe.removeprefix('--pt-')]
 
 
 def test_meta_values_are_escaped(tmp_path):
