@@ -8,7 +8,6 @@ every module imports and the validator runs with the optional ``jsonschema`` una
 from __future__ import annotations
 
 import importlib
-import pkgutil
 import subprocess
 import sys
 from importlib import metadata
@@ -34,7 +33,13 @@ def test_distribution_requires_only_tomli_w_outside_extras():
 
 def test_every_module_imports_and_validate_runs_without_jsonschema():
     """With jsonschema blocked, all modules import and validate still checks the tree rules."""
-    modules = [m.name for m in pkgutil.walk_packages(proteus_bench.__path__, 'proteus_bench.')]
+    root = Path(proteus_bench.__file__).parent
+    # Sub-packages have no __init__.py, which pkgutil.walk_packages does not descend into
+    modules = sorted(
+        '.'.join(('proteus_bench', *path.relative_to(root).with_suffix('').parts))
+        for path in root.rglob('*.py')
+        if path.name != '__init__.py'
+    )
     assert 'proteus_bench.commands.validate' in modules
     script = (
         'import sys, importlib\n'
