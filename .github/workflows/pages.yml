@@ -61,7 +61,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - run: pip install ".[analysis]"
+      - run: pip install ".[analysis,report]"
       - run: proteus-bench report --store results --out site --repo "$GITHUB_REPOSITORY"
       - uses: actions/upload-pages-artifact@v5
         with:

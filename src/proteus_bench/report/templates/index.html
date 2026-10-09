@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import commit_link, comparable_mark, flag_badge %}
+{% set title = 'Benchmark overview' %}
+{% block meta %}<span>{{ records | length }} runs</span><span>{{ cards | length }} series groups</span>{% endblock %}
+{% block body %}
+<section>
+<h2>How to read this</h2>
+<p class="note panel">Each card is one series group: a benchmark, its settings lineage and a machine class. Runs only count towards a baseline when they are comparable (checks passed, expected backends, same settings). The baseline is the median of recent comparable runs; a run is flagged when it differs from it by more than max(3 sigma, 5 %). A flag is <b>confirmed</b> (filled triangle) when the next comparable run shows the same change, <b>not yet confirmed</b> (outline) until there is one, and <b>not confirmed by the next run</b> (grey outline) when that run did not repeat it. Up triangles are regressions (slower), down triangles improvements. Open a series for its trend charts.</p>
+</section>
+
+<section>
+<h2>Series</h2>
+<p class="note">Latest run of each group; times are wall clock.</p>
+{% if cards %}
+<div class="cards">
+{% for card in cards %}
+<article class="panel card">
+<h3><a href="{{ card.group | series_href }}">{{ card.group[0] }}</a></h3>
+<p class="note">lineage <span class="mono">{{ card.group[1] }}</span> on {{ card.group[2] }}</p>
+{% if card.latest %}
+<dl class="stats">
+{% for label, value, change in card.stats %}
+<div><dt>{{ label }}</dt><dd class="value">{{ value }}</dd><dd class="note">{{ change }}</dd></div>
+{% endfor %}
+</dl>
+<div class="badges">
+{% for metric, flag in card.flags %}{{ flag_badge(flag, metric) }}{% else %}<span class="note">No flags on the latest run.</span>{% endfor %}
+</div>
+<p class="note">Latest run <a href="{{ card.latest['run_id'] | run_href }}">{{ card.latest['time'] | fmt_time }}</a>, PROTEUS {{ commit_link(card.latest['commit']) }}{% if not card.latest['comparable'] %} {{ comparable_mark(false) }}{% endif %}</p>
+{% else %}
+<p class="note">Not analysed yet.</p>
+{% endif %}
+</article>
+{% endfor %}
+</div>
+{% else %}
+<p class="note">No runs in the store yet.</p>
+{% endif %}
+</section>
+
+<section>
+<h2>Recent runs</h2>
+<p class="note">The {{ n_recent }} most recent runs, newest first.</p>
+{% if recent %}
+<div class="panel scroll"><table>
+<thead><tr><th>Run</th><th>Series</th><th>Commit</th><th>Status</th><th>Comparable</th><th class="num">Wall</th></tr></thead>
+<tbody>
+{% for r in recent %}
+{% set group = r | group_of %}
+<tr><td><a href="{{ r['run_id'] | run_href }}">{{ r['trigger']['started_at'] | fmt_time }}</a></td><td><a href="{{ group | series_href }}">{{ group | group_label }}</a></td><td>{{ commit_link(r['code']['proteus']['sha']) }}</td><td>{{ r['outcome']['status'] }}</td><td>{{ comparable_mark(r['comparability']['ok']) }}</td><td class="num">{{ r['timings']['wall_s'] | fmt_s }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}
+<p class="note">No runs in the store yet.</p>
+{% endif %}
+</section>
+{% endblock %}

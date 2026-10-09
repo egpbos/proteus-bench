@@ -3,19 +3,17 @@
 Ten records derived from ``examples/record.json``:
 
 - group all_options / default / habrok-vink, runs r1..r8 on 2026-09-18..25:
-  r4 is not comparable (CVODE missing, Radau fallback, two failed checks);
-  from r6 on ``interior_struct.zalmoxis.use_jax`` is true (a settings boundary);
-  r7 and r8 have an 8 % slower atmosphere (flagged); r8 names a flame page
-  (publisher HTML, which the site must not link); r2's log file is missing
-  from the store.
+  from r2 on ``interior_struct.zalmoxis.use_jax`` is true (a settings boundary
+  before r2, and init 66 % faster); r4 is not comparable (Aragog fell back to
+  Radau, so its expected_backends check failed); from r6 on the atmosphere is
+  8 % slower (a step, flagged on r6 and r7, both confirmed, and on r8, not yet
+  confirmed); r6 also has a one-off slow interior (flagged, not confirmed by
+  r7); r8 names a flame page (publisher HTML, which the site must not link);
+  r2's log file is missing from the store.
 - group all_options / default / gha-ubuntu-epyc7763, runs g1 (ok) and g2
   (failed), too few for a baseline.
 
-``fixtures/analysis.json`` is the matching analysis output, in the
-``proteus-bench-analysis/1`` shape of the brief. It was computed once from
-these records and is committed, so the dashboard tests do not depend on the
-analysis package. Its flags cover every ``confirmed`` state: r7 atmosphere
-true, r8 atmosphere null (no later run), r7 agni and r3 aragog false.
+The ``analysis`` fixture is ``proteus_bench.analysis.analyse`` of these records.
 """
 
 from __future__ import annotations
@@ -26,8 +24,12 @@ from pathlib import Path
 
 import pytest
 
+from proteus_bench.analysis import analyse
+from proteus_bench.report.site import build_site
+from proteus_bench.report.store import load_records
+from proteus_bench.settings import settings_hash
+
 EXAMPLE = Path(__file__).parent.parent.parent / 'examples' / 'record.json'
-ANALYSIS = Path(__file__).parent / 'fixtures' / 'analysis.json'
 JITTER = (1.0, 1.006, 0.994, 1.01, 0.998, 1.003, 0.997, 1.004)
 SUBMODULE = {
     'atmos': 'agni',
@@ -94,7 +96,8 @@ def fixture_record(run_id: str, started_at: str, sha: str, machine: str, **scena
     record['machine']['class'] = record['machine']['label'] = machine
     jax = scenario.get('jax', False)
     record['benchmark']['settings']['interior_struct.zalmoxis.use_jax'] = jax
-    interior = 12.0 if scenario.get('radau') else 3.5
+    record['benchmark']['settings_hash'] = settings_hash(record['benchmark']['settings'])
+    interior = scenario.get('interior', 12.0 if scenario.get('radau') else 3.5)
     record['timings'] = fixture_timings(
         scenario.get('jitter', 1.0), scenario.get('atmos', 15.0), interior, jax
     )
@@ -129,10 +132,12 @@ def fixture_records() -> list[dict]:
         day = 18 + i
         scenario = {
             'jitter': JITTER[i],
-            'jax': i >= 5,
+            'jax': i >= 1,
             'radau': i == 3,
-            'atmos': 16.2 if i >= 6 else 15.0,
+            'atmos': 16.2 if i >= 5 else 15.0,
         }
+        if i == 5:
+            scenario['interior'] = 5.5
         run_id = f'202609{day}T031000Z-habrok-default-r{i + 1}'
         records.append(
             fixture_record(
@@ -181,8 +186,8 @@ def records() -> list[dict]:
 
 
 @pytest.fixture
-def analysis() -> dict:
-    return json.loads(ANALYSIS.read_text())
+def analysis(records) -> dict:
+    return analyse(records)
 
 
 @pytest.fixture
@@ -190,3 +195,13 @@ def store(tmp_path, records) -> Path:
     path = tmp_path / 'store'
     write_store(path, records)
     return path
+
+
+@pytest.fixture(scope='session')
+def site(tmp_path_factory) -> Path:
+    """The fixture store's site with artifact links, built once for the tests that only read it."""
+    tmp = tmp_path_factory.mktemp('site')
+    write_store(tmp / 'store', fixture_records())
+    records = load_records(tmp / 'store')
+    build_site(records, analyse(records), tmp / 'site', tmp / 'store', 'egpbos/proteus-bench')
+    return tmp / 'site'

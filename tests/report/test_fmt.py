@@ -2,17 +2,15 @@
 
 Contract clauses: durations switch format at 100 s and 1 h; missing values
 render as n/a; relative changes carry a sign; slugs are file-name safe and the
-series-page separator cannot come from a slug; embedded JSON cannot close its
-script element.
+series-page separator cannot come from a slug; a commit URL keeps the sha in its
+last path segment.
 """
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
-from proteus_bench.report.fmt import fmt_rel, fmt_s, fmt_value, script_json, series_href, slug
+from proteus_bench.report.fmt import commit_url, fmt_rel, fmt_s, fmt_value, series_href, slug
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 
@@ -50,12 +48,12 @@ def test_slugs_and_series_paths_are_unambiguous():
     assert series_href(('a', 'b', 'c')) == 'series/a--b--c--d33b202c02.html'
 
 
-def test_script_json_cannot_close_the_script():
-    """``</script>`` inside a value is escaped yet decodes back to the same string."""
-    value = {'k': '</script><b>'}
-    text = script_json(value)
-    assert '</' not in text
-    assert json.loads(text) == value
+def test_commit_url_cannot_leave_the_commit_page():
+    """Slashes and dots in a sha are percent-encoded, so the URL stays on one commit page."""
+    assert commit_url('abd4ca53') == 'https://github.com/FormingWorlds/PROTEUS/commit/abd4ca53'
+    assert commit_url('../../x?y') == (
+        'https://github.com/FormingWorlds/PROTEUS/commit/..%2F..%2Fx%3Fy'
+    )
 
 
 @pytest.mark.parametrize('seconds', [0.0, 0.04])

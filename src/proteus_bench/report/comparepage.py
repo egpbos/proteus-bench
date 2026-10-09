@@ -7,8 +7,8 @@ the chosen pair.
 
 from __future__ import annotations
 
-from proteus_bench.report.fmt import fmt_time, group_label, group_of, script_json
-from proteus_bench.report.layout import page, section
+from proteus_bench.report.fmt import fmt_time, group_label, group_of
+from proteus_bench.report.render import render
 
 
 def run_totals(record: dict) -> dict[str, float]:
@@ -41,21 +41,5 @@ def compare_data(records: list[dict]) -> dict:
     return {'runs': runs}
 
 
-def render(records: list[dict]) -> str:
-    controls = """<div class="panel filters">
-<label>Run A <select id="cmp-a"></select></label>
-<label>Run B <select id="cmp-b"></select></label>
-<button id="cmp-swap" type="button">Swap</button>
-</div>
-<p id="cmp-status" class="note" aria-live="polite"></p>
-<div id="cmp-out"></div>
-<noscript><p class="note">The comparison needs JavaScript.</p></noscript>"""
-    note = (
-        'Delta is B minus A; positive means B is slower. Rows are phases and '
-        'phase.component totals, largest first. Runs with different iteration counts '
-        'are not like for like: compare loop totals with care.'
-    )
-    data = f'<script type="application/json" id="compare-data">{script_json(compare_data(records))}</script>'
-    return page(
-        'Compare two runs', section('Runs', controls + data, note), '', script='compare.js'
-    )
+def page(records: list[dict]) -> str:
+    return render('compare.html', root='', data=compare_data(records))

@@ -13,9 +13,6 @@ import argparse
 import os
 from pathlib import Path
 
-from proteus_bench.report.site import build_site
-from proteus_bench.report.store import load_records
-
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
@@ -35,7 +32,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def main(args: argparse.Namespace) -> int:
-    from proteus_bench.analysis import analyse  # on use, so other subcommands never need it
+    # on use, so the other subcommands never need the analysis and report extras
+    from proteus_bench.analysis import analyse
+    from proteus_bench.report.site import build_site
+    from proteus_bench.report.store import load_records
 
     if not args.store.is_dir():
         print(f'store {args.store} is not a directory')

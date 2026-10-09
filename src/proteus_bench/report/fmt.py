@@ -1,14 +1,8 @@
-"""Formatting and link helpers shared by the dashboard pages.
-
-Every string that comes from a record or the analysis passes through ``esc``
-before it reaches HTML, and through ``script_json`` before it reaches a
-``<script>`` block, because records are published by many machines.
-"""
+"""Formatting and link helpers shared by the dashboard pages and charts."""
 
 from __future__ import annotations
 
 import hashlib
-import html
 import json
 import re
 from urllib.parse import quote
@@ -22,11 +16,6 @@ CONFIRMATION = {
     None: 'not yet confirmed',
     False: 'not confirmed by the next run',
 }
-
-
-def esc(value) -> str:
-    """Escape for HTML text and attribute values; quotes always, so attributes cannot break."""
-    return html.escape(str(value), quote=True)
 
 
 def fmt_s(seconds: float | None) -> str:
@@ -99,19 +88,5 @@ def run_href(run_id: str) -> str:
     return f'runs/{run_id}.html'
 
 
-def commit_link(sha: str) -> str:
-    url = PROTEUS_COMMIT_URL.format(sha=quote(sha, safe=''))
-    return f'<a class="mono" href="{esc(url)}">{esc(sha[:8])}</a>'
-
-
-def https_link(url: str, text: str | None = None) -> str:
-    """A link for an ``https://`` URL; any other scheme is shown as plain text."""
-    shown = esc(url if text is None else text)
-    if url.startswith('https://'):
-        return f'<a href="{esc(url)}">{shown}</a>'
-    return shown
-
-
-def script_json(value) -> str:
-    """JSON safe to embed in ``<script type="application/json">``: no ``</script>`` break-out."""
-    return json.dumps(value, separators=(',', ':'), sort_keys=True).replace('<', '\\u003c')
+def commit_url(sha: str) -> str:
+    return PROTEUS_COMMIT_URL.format(sha=quote(sha, safe=''))

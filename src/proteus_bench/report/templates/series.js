@@ -1,4 +1,4 @@
-// Filter a series page's run table (and dim chart points) by settings key=value.
+// Filter a series page's run table (and dim chart points of other runs) by settings key=value.
 // Reads the index embedded as #settings-index: {key: {jsonValue: [run ids]}}.
 (() => {
   const source = document.getElementById('settings-index');
@@ -10,7 +10,6 @@
   const chips = document.getElementById('f-active');
   const status = document.getElementById('f-status');
   const rows = [...document.querySelectorAll('tr[data-run]')];
-  const points = [...document.querySelectorAll('.pt[data-run]')];
   const active = [];
 
   keySel.addEventListener('change', () => {
@@ -31,15 +30,28 @@
     apply();
   });
 
+  // Plotly greys out the points a trace does not list in selectedpoints; null selects all
+  function dim(allowed) {
+    for (const el of document.querySelectorAll('.js-plotly-plot')) {
+      el.data.forEach((trace, i) => {
+        if (!trace.ids) return;
+        const selected = allowed && trace.ids.flatMap((id, k) => (allowed.has(id) ? [k] : []));
+        Plotly.restyle(el, {selectedpoints: [selected]}, [i]);
+      });
+    }
+  }
+  let allowed = null;
+  document.addEventListener('charts-drawn', () => allowed && dim(allowed));
+
   function apply() {
-    let allowed = null;
+    allowed = null;
     for (const {key, value} of active) {
       const ids = new Set(index[key][value]);
       allowed = allowed === null ? ids : new Set([...allowed].filter(id => ids.has(id)));
     }
     const shown = id => allowed === null || allowed.has(id);
     rows.forEach(tr => { tr.hidden = !shown(tr.dataset.run); });
-    points.forEach(g => g.classList.toggle('dim', !shown(g.dataset.run)));
+    dim(allowed);
     chips.replaceChildren(...active.map((f, i) => {
       const li = document.createElement('li');
       const btn = document.createElement('button');

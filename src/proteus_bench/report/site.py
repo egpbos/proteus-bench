@@ -2,7 +2,7 @@
 
 Layout of the output directory::
 
-    index.html  compare.html  style.css  series.js  compare.js
+    index.html  compare.html  style.css  charts.js  series.js  compare.js
     series/<benchmark>--<lineage>--<machine_class>--<hash>.html
     runs/<run_id>.html
 
@@ -12,7 +12,7 @@ on GitHub, because store files come from publishers and the site is public.
 
 from __future__ import annotations
 
-from importlib import resources
+import shutil
 from pathlib import Path
 
 from proteus_bench.report import comparepage, overview, runpage, seriespage
@@ -20,7 +20,8 @@ from proteus_bench.report.fmt import GroupKey, group_of, run_href, series_href
 from proteus_bench.report.store import artifacts_of
 
 ANALYSIS_SCHEMA = 'proteus-bench-analysis/1'
-ASSETS = ('style.css', 'series.js', 'compare.js')
+TEMPLATES = Path(__file__).parent / 'templates'
+ASSETS = ('style.css', 'charts.js', 'series.js', 'compare.js')
 
 
 def group_series(analysis: dict) -> dict[GroupKey, dict[str, dict]]:
@@ -59,8 +60,7 @@ def build_site(
     pages = render_pages(records, analysis, store, repo)
     _prepare(out_dir)
     for name in ASSETS:
-        template = resources.files('proteus_bench.report.templates').joinpath(name)
-        (out_dir / name).write_text(template.read_text(encoding='utf-8'), encoding='utf-8')
+        shutil.copyfile(TEMPLATES / name, out_dir / name)
     written = []
     for relpath, html in pages.items():
         path = out_dir / relpath
@@ -90,10 +90,10 @@ def render_pages(
                 record, flags.get(run_id, []), store, repo, previous
             )
             previous = run_id
-    pages['index.html'] = overview.render(groups, records)
-    pages['compare.html'] = comparepage.render(records)
+    pages['index.html'] = overview.page(groups, records)
+    pages['compare.html'] = comparepage.page(records)
     for group, by_metric in groups.items():
-        pages[series_href(group)] = seriespage.render(group, by_metric, runs_of.get(group, []))
+        pages[series_href(group)] = seriespage.page(group, by_metric, runs_of.get(group, []))
     return pages
 
 
@@ -102,7 +102,7 @@ def _run_page(
 ) -> str:
     """The run page; any malformed part of the record is reported with its run id."""
     try:
-        return runpage.render(record, flags, artifacts_of(record, store, repo), previous)
+        return runpage.page(record, flags, artifacts_of(record, store, repo), previous)
     except (KeyError, TypeError, ValueError, AttributeError, IndexError) as err:
         raise ValueError(
             f'run {record["run_id"]}: malformed record, {type(err).__name__}: {err}'

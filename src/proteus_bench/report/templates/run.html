@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import chart, check_mark, commit_link, comparable_mark, flag_badge, https_link, plotly_script %}
+{% set title = 'Run ' ~ record['run_id'] %}
+{% set outcome, timings, bench = record['outcome'], record['timings'], record['benchmark'] %}
+{% set rusage = timings.get('rusage', {}) %}
+{% block meta %}<span>{{ record['trigger']['started_at'] | fmt_time }}</span><span>PROTEUS {{ commit_link(record['code']['proteus']['sha']) }}</span><span>{{ record['machine']['label'] }}</span>{% endblock %}
+{% block body %}
+{% if failed or record['comparability']['reasons'] or outcome['status'] != 'ok' %}
+<section class="callout" id="problems"><h2>Problems</h2><ul>
+{% for c in failed %}<li><b>Check failed: {{ c['name'] }}</b>{% if c.get('detail') %}: {{ c['detail'] }}{% endif %}</li>{% endfor %}
+{% for reason in record['comparability']['reasons'] %}<li>Not comparable: {{ reason }}</li>{% endfor %}
+{% if outcome['status'] != 'ok' %}<li><b>Run {{ outcome['status'] }}</b> (exit code {{ outcome['exit_code'] }}){% if outcome.get('error') %}: {{ outcome['error'] }}{% endif %}</li>{% endif %}
+</ul></section>
+{% endif %}
+
+<section>
+<h2>Summary</h2>
+<div class="panel scroll"><table class="kv"><tbody>
+{% set group = record | group_of %}
+<tr><th scope="row">Series</th><td><a href="{{ root }}{{ group | series_href }}">{{ group | group_label }}</a></td></tr>
+<tr><th scope="row">Status</th><td>{{ outcome['status'] }}, {{ outcome.get('termination', 'no termination recorded') }}</td></tr>
+<tr><th scope="row">Comparable</th><td>{{ comparable_mark(record['comparability']['ok']) }}</td></tr>
+<tr><th scope="row">Iterations</th><td>{{ outcome.get('n_iters', 'n/a') }}</td></tr>
+<tr><th scope="row">Simulated time</th><td>{{ '%.4g yr' | format(outcome['time_yr']) if 'time_yr' in outcome else 'n/a' }}</td></tr>
+<tr><th scope="row">Wall time</th><td>{{ timings['wall_s'] | fmt_s }}</td></tr>
+<tr><th scope="row">Start-up</th><td>{{ timings.get('startup_s') | fmt_s }}</td></tr>
+<tr><th scope="row">Peak RSS</th><td>{{ '%.0f MB' | format(rusage['max_rss_mb']) if 'max_rss_mb' in rusage else 'n/a' }}</td></tr>
+<tr><th scope="row">CPU user / sys</th><td>{{ rusage.get('user_s') | fmt_s }} / {{ rusage.get('sys_s') | fmt_s }}</td></tr>
+{% if bench.get('carry_over_of') %}<tr><th scope="row">Carry-over of</th><td><span class="mono">{{ bench['carry_over_of'] }}</span></td></tr>{% endif %}
+{% if flags %}<tr><th scope="row">Flags</th><td><div class="badges">{% for metric, flag in flags %}{{ flag_badge(flag, metric) }}{% endfor %}</div></td></tr>{% endif %}
+{% if previous %}<tr><th scope="row">Compare</th><td><a href="{{ root }}compare.html?a={{ previous | urlencode }}&b={{ record['run_id'] | urlencode }}">with the previous run of this series</a></td></tr>{% endif %}
+{% for key, value in record.get('fingerprint', {}).items() %}<tr><th scope="row">Fingerprint {{ key }}</th><td>{{ '%.6g' | format(value) }}</td></tr>{% endfor %}
+</tbody></table></div>
+</section>
+
+<section>
+<h2>Phases</h2>
+{% if phase_chart %}
+<div class="panel">{{ chart(phase_chart, 'Phases of the run, ' ~ (timed_s | fmt_s) ~ ' timed') }}</div>
+<details><summary>Table view</summary>
+<div class="panel scroll"><table><thead><tr><th>Phase</th><th class="num">Time</th><th class="num">Share</th></tr></thead><tbody>
+{% for name, dur in segments %}<tr><td>{{ name }}</td><td class="num">{{ dur | fmt_s }}</td><td class="num">{{ '{:.0%}'.format(dur / timed_s) }}</td></tr>{% endfor %}
+</tbody></table></div></details>
+{% else %}
+<p class="note">No phase timings recorded.</p>
+{% endif %}
+</section>
+
+<section>
+<h2>Main-loop iterations</h2>
+{% if iter_chart %}
+<div class="panel">{{ chart(iter_chart, 'Time per main-loop iteration by component, ' ~ iter_rows | length ~ ' iterations') }}</div>
+<details><summary>Table view</summary>
+<div class="panel scroll"><table><thead><tr><th class="num">Iteration</th><th class="num">Total</th>{% for n in iter_names %}<th class="num">{{ n }}</th>{% endfor %}</tr></thead><tbody>
+{% for it, row in iter_rows %}<tr><td class="num">{{ it['iter'] }}</td><td class="num">{{ it['dur_s'] | fmt_s }}</td>{% for n in iter_names %}<td class="num">{{ row[n] | fmt_s if n in row }}</td>{% endfor %}</tr>
+{% endfor %}
+</tbody></table></div></details>
+{% else %}
+<p class="note">No main-loop iterations recorded.</p>
+{% endif %}
+</section>
+
+<section>
+<h2>Components</h2>
+<div class="panel scroll"><table><thead><tr><th>Phase</th><th>Component</th><th>Submodule</th><th>Backend</th><th class="num">Total</th><th class="num">Calls</th></tr></thead><tbody>
+{% for c in components %}<tr><td>{{ c['phase'] }}</td><td>{{ c['component'] }}</td><td>{{ c.get('submodule') or '' }}</td><td>{{ c.get('backend') or '' }}</td><td class="num">{{ c['total_s'] | fmt_s }}</td><td class="num">{{ c['n_calls'] }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</section>
+
+<section>
+<h2>Provenance</h2>
+{% set code, proteus, trigger = record['code'], record['code']['proteus'], record['trigger'] %}
+<div class="panel scroll"><table class="kv"><tbody>
+<tr><th scope="row">PROTEUS</th><td>{{ commit_link(proteus['sha']) }}{% if proteus['dirty'] %} <span class="warn">dirty tree</span>{% endif %}</td></tr>
+<tr><th scope="row">Branch / describe</th><td>{{ [proteus.get('branch'), proteus.get('describe')] | select | join(' / ') }}</td></tr>
+<tr><th scope="row">Harness</th><td>{{ record['harness']['version'] }} <span class="mono">{{ record['harness'].get('sha', '') }}</span></td></tr>
+<tr><th scope="row">Trigger</th><td>{{ trigger['adapter'] }}, by {{ trigger.get('user', 'unknown user') }}</td></tr>
+{% if 'run_url' in trigger.get('gha', {}) %}<tr><th scope="row">GitHub Actions run</th><td>{{ https_link(trigger['gha']['run_url']) }}</td></tr>{% endif %}
+{% if 'slurm' in trigger %}<tr><th scope="row">Slurm</th><td>{% for k, v in trigger['slurm'].items() %}{{ k }} {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>{% endif %}
+{% for name, state in code['modules'] | dictsort(true) %}<tr><th scope="row">module {{ name }}</th><td>{{ state['source'] }}: {{ [state.get('version'), state.get('sha')] | select | join(' ') }}{% if state.get('dirty') %} <span class="warn">dirty tree</span>{% endif %}</td></tr>
+{% endfor %}
+{% for name, version in code.get('packages', {}) | dictsort(true) %}<tr><th scope="row">package {{ name }}</th><td>{{ version }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</section>
+
+<section>
+<h2>Machine and environment</h2>
+{% set env = record['env'] %}
+<div class="panel scroll"><table class="kv"><tbody>
+{% for key, value in record['machine'].items() %}<tr><th scope="row">{{ key }}</th><td>{{ value }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+<div class="panel scroll"><table class="kv"><tbody>
+{% for key in ('manager', 'python', 'julia', 'socrates_build') if key in env %}<tr><th scope="row">{{ key }}</th><td>{{ env[key] }}</td></tr>
+{% endfor %}
+{% for key, value in env['threads'] | dictsort(true) %}<tr><th scope="row">{{ key }}</th><td>{{ value }}</td></tr>
+{% endfor %}
+{% for key, value in env['knobs'] | dictsort(true) %}<tr><th scope="row">knob {{ key }}</th><td>{{ 'unset' if value is none else value }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</section>
+
+<section>
+<h2>Checks</h2>
+{% if checks %}
+<div class="panel scroll"><table><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody>
+{% for c in checks %}<tr><td>{{ c['name'] }}</td><td>{{ check_mark(c['ok']) }}</td><td>{{ c.get('detail', '') }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}
+<p class="note">No checks recorded.</p>
+{% endif %}
+</section>
+
+<section>
+<h2>Backends</h2>
+{% if backends %}
+<div class="panel scroll"><table><thead><tr><th>Submodule</th><th>Key</th><th>Value or call counts</th></tr></thead><tbody>
+{% for submodule, key, value in backends %}<tr><td>{{ submodule }}</td><td>{{ key }}</td><td>{{ value }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}
+<p class="note">No backends recorded.</p>
+{% endif %}
+</section>
+
+<section>
+<h2>Artifacts</h2>
+{% if artifacts %}
+<p class="note">Paths are relative to the results store. They link to its branch on GitHub when the site was built with a repository.</p>
+<div class="panel scroll"><table><thead><tr><th>Artifact</th><th>File</th></tr></thead><tbody>
+{% for a in artifacts %}<tr><td>{{ a.name }}</td><td>
+{%- if not a.present %}<code>{{ a.path }}</code> <span class="warn">missing from the store</span>
+{%- elif a.name == 'flame' %}<code>{{ a.path }}</code> <span class="note">not linked</span>{# publisher-supplied HTML is never linked #}
+{%- elif a.url %}{{ https_link(a.url, a.path) }}
+{%- else %}<code>{{ a.path }}</code>{% endif %}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}
+<p class="note">The record lists no artifacts.</p>
+{% endif %}
+</section>
+
+<section>
+<h2>Settings</h2>
+<p class="note">Benchmark {{ bench['name'] }}, lineage <span class="mono">{{ bench['lineage'] }}</span>, settings hash <span class="mono">{{ bench['settings_hash'] }}</span>.</p>
+{% if bench['overrides'] %}
+<div class="panel scroll"><table><thead><tr><th>Override</th><th>Value</th></tr></thead><tbody>
+{% for key, value in bench['overrides'] | dictsort(true) %}<tr><td>{{ key }}</td><td><code>{{ value }}</code></td></tr>
+{% endfor %}
+</tbody></table></div>
+{% endif %}
+<details><summary>All {{ bench['settings'] | length }} resolved settings</summary>
+<div class="panel scroll"><table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>
+{% for key, value in bench['settings'] | dictsort(true) %}<tr><td>{{ key }}</td><td><code>{{ value }}</code></td></tr>
+{% endfor %}
+</tbody></table></div></details>
+</section>
+{% endblock %}
+{% block scripts %}{{ plotly_script(root) }}{% endblock %}

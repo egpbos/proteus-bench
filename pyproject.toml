@@ -16,8 +16,13 @@ dependencies = ["tomli-w>=1"]
 
 [project.optional-dependencies]
 analysis = ["asv>=0.6.6,<0.7"]
+report = [
+    "jinja2>=3.1",
+    "plotly>=6",
+    "proteus-plotly @ git+https://github.com/egpbos/proteus-visual-language@proteus-plotly#subdirectory=figures/proteus-plotly",
+]
 publish = ["jsonschema>=4.18", "rfc3339-validator"]
-dev = ["pytest>=8", "pytest-cov>=5", "pytest-timeout>=2", "jsonschema>=4.18", "rfc3339-validator", "ruff>=0.16", "asv>=0.6.6,<0.7"]
+dev = ["pytest>=8", "pytest-cov>=5", "pytest-timeout>=2", "jsonschema>=4.18", "rfc3339-validator", "ruff>=0.16", "asv>=0.6.6,<0.7", "jinja2>=3.1", "plotly>=6"]
 
 [project.scripts]
 proteus-bench = "proteus_bench.cli:main"
@@ -28,7 +33,7 @@ version = { attr = "proteus_bench.__version__" }
 [tool.setuptools.package-data]
 "proteus_bench" = ["flame_template.html", "suites.toml"]
 "proteus_bench.schemas" = ["*.json"]
-"proteus_bench.report.templates" = ["*.css", "*.js"]
+"proteus_bench.report.templates" = ["*.css", "*.html", "*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -77,6 +82,8 @@ platforms = ["osx-arm64", "linux-64"]
 
 [tool.pixi.pypi-dependencies]
 proteus-bench = { path = ".", editable = true, extras = ["dev"] }
+# The report extra names proteus-plotly by its git branch; tests use the local clone
+proteus-plotly = { path = "../../proteus-visual-language/figures/proteus-plotly", editable = true }
 
 [tool.pixi.tasks]
 test = "pytest"
