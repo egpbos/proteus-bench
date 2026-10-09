@@ -1,5 +1,5 @@
 // Draws each chart (a script.figure holding {light, dark} Plotly figures, then its
-// div.plot) with the template of the reader's colour scheme, again when it changes.
+// figure.plot) with the template of the reader's colour scheme, again when it changes.
 // Clicking a point with a run-page path in its customdata opens that page.
 (() => {
   const light = matchMedia('(prefers-color-scheme: light)');
@@ -16,13 +16,15 @@
     document.dispatchEvent(new Event('charts-drawn'));
   }
 
-  draw().then(() => {
+  function openRunOnClick() {
     for (const {el} of plots) {
       el.on('plotly_click', e => {
         const href = e.points[0].customdata;
         if (typeof href === 'string') location.href = href;
       });
     }
-  });
-  light.addEventListener('change', draw);
+  }
+
+  draw().then(openRunOnClick, console.error);
+  light.addEventListener('change', () => draw().catch(console.error));
 })();

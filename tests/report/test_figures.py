@@ -175,10 +175,12 @@ def test_null_relative_values_and_unknown_runs():
     text = points_trace(trend(nulls))['hovertext'][1]
     assert 'regression n/a' in text
     assert 'threshold n/a' in text
+    unknown_flag = make_series([1.0, 2.0], flags=[flag('r9')])
+    unknown_step = make_series([1.0], steps=[{'after_run_id': 'r7'}])
     with pytest.raises(ValueError, match="'r9'"):
-        trend(make_series([1.0, 2.0], flags=[flag('r9')]))
+        trend(unknown_flag)
     with pytest.raises(ValueError, match="'r7'"):
-        trend(make_series([1.0], steps=[{'after_run_id': 'r7'}]))
+        trend(unknown_step)
 
 
 def test_hover_text_is_escaped():

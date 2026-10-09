@@ -23,7 +23,7 @@
 {# A Plotly chart: figures for both themes as JSON, drawn by charts.js #}
 {% macro chart(figures, label) %}
 <script type="application/json" class="figure">{{ figures | tojson }}</script>
-<div class="plot" role="img" aria-label="{{ label }}" style="height: {{ figures['light']['layout']['height'] }}px"></div>
+<figure class="plot" aria-label="{{ label }}" style="height: {{ figures['light']['layout']['height'] }}px"></figure>
 {% endmacro %}
 
 {% macro plotly_script(root) %}

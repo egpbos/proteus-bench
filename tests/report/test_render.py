@@ -41,8 +41,9 @@ def test_tojson_cannot_close_its_script():
 
 def test_missing_values_fail_loudly():
     """A misspelt name raises rather than rendering as an empty string."""
+    template = ENV.from_string('{{ recrod }}')
     with pytest.raises(jinja2.UndefinedError):
-        ENV.from_string('{{ recrod }}').render(record={})
+        template.render(record={})
 
 
 def test_pages_load_pinned_tokens_and_plotly():

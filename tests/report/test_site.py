@@ -70,7 +70,7 @@ class Page(HTMLParser):
             self.row_ids.append(attrs['data-run'])
         if tag == 'script' and attrs.get('type') == 'application/json':
             self._script = attrs.get('id') or attrs['class']
-        if tag == 'div' and attrs.get('class') == 'plot':
+        if tag == 'figure' and attrs.get('class') == 'plot':
             self.charts[attrs['aria-label'].split(': ')[0]] = self._figure
             self._figure = None
         if tag not in VOID:

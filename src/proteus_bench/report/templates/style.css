@@ -73,7 +73,7 @@ tr[hidden] { display: none; }
 .marks { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: .84rem; }
 .marks li { display: flex; align-items: center; gap: 6px; }
 
-.plot { width: 100%; }
+.plot { width: 100%; margin: 0; }
 .glyph { display: inline-block; width: 14px; text-align: center; line-height: 1; color: var(--pt-text-d2); }
 .glyph.dot { color: var(--pt-text-d); }
 .glyph.bad { color: var(--pt-danger); }
