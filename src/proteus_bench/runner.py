@@ -1,5 +1,8 @@
 """Spawn the proteus process, tee its output to a log, and measure it.
 
+The log is published, so it gets ``~``, ``<host>`` and ``<user>`` in place of
+this machine's home directory, host name and user name; stdout keeps them.
+
 The child runs in its own process group, so a timeout kills everything it
 started (Julia, profilers). Resource usage comes from ``os.wait4``, which
 covers the child and the descendants it reaped.
@@ -9,7 +12,10 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import getpass
 import os
+import platform
+import re
 import signal
 import subprocess
 import sys
@@ -54,12 +60,34 @@ def timed_out(fired: bool, exit_code: int) -> bool:
     return fired and exit_code == -signal.SIGKILL
 
 
+def home_pattern() -> re.Pattern:
+    """The home directory as a whole path, also when it is the full value."""
+    return re.compile(rf'{re.escape(str(Path.home()))}(?![\w.-])')
+
+
+def private_names() -> list[tuple[re.Pattern, str]]:
+    """Patterns for this machine's home directory, host name and user name, with their stand-ins."""
+    host = platform.node()
+    words = ((host, '<host>'), (host.split('.')[0], '<host>'), (getpass.getuser(), '<user>'))
+    # Not \b: an underscore next to a name, as in alice_cache, must still count as a boundary
+    return [(home_pattern(), '~')] + [
+        (re.compile(rf'(?<![A-Za-z0-9]){re.escape(name)}(?![A-Za-z0-9])'), mark)
+        for name, mark in words
+        if name
+    ]
+
+
 def _tee(stream, log) -> None:
-    """Copy the child's combined output to the log file and to our stdout."""
+    """Copy the child's combined output to the log file, without private names, and to our stdout."""
+    names = private_names()
     for line in iter(stream.readline, b''):
-        log.write(line)
+        text = line.decode(errors='replace')
+        public = text
+        for pattern, mark in names:
+            public = pattern.sub(mark, public)
+        log.write(public.encode())
         log.flush()
-        sys.stdout.write(line.decode(errors='replace'))
+        sys.stdout.write(text)
         sys.stdout.flush()
 
 

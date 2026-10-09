@@ -7,7 +7,6 @@ rewrites them to results-store paths.
 from __future__ import annotations
 
 import datetime as dt
-import getpass
 import json
 import math
 import shutil
@@ -16,7 +15,7 @@ from pathlib import Path
 from types import ModuleType
 
 from proteus_bench import checks, collect, settings
-from proteus_bench.runner import ProcessResult
+from proteus_bench.runner import ProcessResult, home_pattern
 
 SCHEMA = 'proteus-bench/1'
 # record.artifacts key -> file in the run directory; one key per file
@@ -68,8 +67,8 @@ def detect_adapter(env: dict) -> str:
 
 
 def trigger_section(adapter: str, env: dict) -> dict:
-    """Adapter, user and CI or scheduler identifiers; ``started_at`` is set at spawn."""
-    trigger = {'adapter': adapter, 'user': env.get('GITHUB_ACTOR') or getpass.getuser()}
+    """Adapter and CI or scheduler identifiers; ``started_at`` is set at spawn."""
+    trigger = {'adapter': adapter}
     if env.get('GITHUB_RUN_ID'):
         server = env.get('GITHUB_SERVER_URL', 'https://github.com')
         trigger['gha'] = {
@@ -174,5 +173,7 @@ def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, li
 
 def write_record(run_dir: Path, record: dict) -> Path:
     path = run_dir / 'record.json'
-    path.write_text(json.dumps(record, indent=2, allow_nan=False) + '\n')
+    # Unescaped, so a home directory with non-ASCII characters still matches
+    text = json.dumps(record, indent=2, allow_nan=False, ensure_ascii=False)
+    path.write_text(home_pattern().sub('~', text) + '\n', encoding='utf-8')
     return path

@@ -237,8 +237,8 @@ its store path.
 
 The record goes to `records/<YYYY>/<run_id>.json`. `<YYYY>` is the first four
 characters of the run id, which is the year of its UTC start. `<hex>` is the
-settings hash without its `sha256:` prefix. Every other file under `profile/`,
-such as raw profiler output, is copied to `profiles/<YYYY>/<run_id>/` as well.
+settings hash without its `sha256:` prefix. Other files in the run directory,
+such as raw profiler output, are not published.
 `timing.jsonl` and `log.txt` are gzipped with the gzip header time set to 0,
 and all other files are copied unchanged.
 

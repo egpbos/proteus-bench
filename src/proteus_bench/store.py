@@ -151,12 +151,6 @@ def _artifact_problems(run_dir: Path, record: dict) -> list[str]:
     return found
 
 
-def _files(run_dir: Path) -> list[str]:
-    top = [name for name in _TOP_LEVEL if (run_dir / name).is_file()]
-    profile = sorted(p for p in (run_dir / 'profile').rglob('*') if p.is_file())
-    return top + [p.relative_to(run_dir).as_posix() for p in profile]
-
-
 def stored_artifacts(run_dir: Path, record: dict) -> dict[str, str]:
     """Artifact key -> store path for every ``ARTIFACTS`` file the run has."""
     return {
@@ -168,7 +162,7 @@ def stored_artifacts(run_dir: Path, record: dict) -> dict[str, str]:
 
 def stage_run(run_dir: Path, record: dict, tree: Path) -> dict:
     """Copy one checked run into the store tree at ``tree``; return the stored record."""
-    for src in _files(run_dir):
+    for src in (p for p in ARTIFACTS.values() if (run_dir / p).is_file()):
         target = tree / store_path(src, record)
         # Runs with equal hashes differ only in per-run keys: keep the first file
         if src == ARTIFACTS['settings'] and target.exists():

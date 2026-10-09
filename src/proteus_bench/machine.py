@@ -92,7 +92,6 @@ def machine_section(label: str, machine_class: str | None) -> dict:
     return {
         'label': label,
         'class': machine_class or slug(f'{platform.system()}-{platform.machine()}-{cpu}'),
-        'host': platform.node(),
         'cpu_model': cpu or 'unknown',
         'n_cpus': usable_cpus(),
         'os': f'{platform.system()}-{platform.release()}',

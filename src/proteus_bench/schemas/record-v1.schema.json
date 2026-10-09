@@ -30,10 +30,10 @@
     "trigger": {
       "type": "object",
       "required": ["adapter", "started_at"],
+      "additionalProperties": false,
       "properties": {
         "adapter": {"enum": ["gha", "slurm", "local"]},
         "started_at": {"type": "string", "format": "date-time"},
-        "user": {"type": "string"},
         "gha": {"type": "object", "properties": {"run_url": {"type": "string"}, "run_id": {"type": "integer"}, "workflow": {"type": "string"}, "event": {"type": "string"}}},
         "slurm": {"type": "object", "properties": {"job_id": {"type": "string"}, "partition": {"type": "string"}, "node": {"type": "string"}}}
       }
@@ -50,10 +50,10 @@
     "machine": {
       "type": "object",
       "required": ["label", "class", "cpu_model", "n_cpus", "os", "arch"],
+      "additionalProperties": false,
       "properties": {
         "label": {"type": "string"},
         "class": {"type": "string", "description": "Comparability group, e.g. gha-ubuntu-epyc7763 or habrok-vink."},
-        "host": {"type": "string"},
         "cpu_model": {"type": "string"},
         "n_cpus": {"type": "integer", "minimum": 1},
         "mem_gb": {"type": "number", "minimum": 0},

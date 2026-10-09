@@ -43,9 +43,12 @@ way.
 With the PROTEUS environment active:
 
 ```bash
-proteus-bench run                  # the default suite
-proteus-bench run --timeout 21600  # kill the run after 6 h
+proteus-bench run --machine-label my-laptop                  # the default suite
+proteus-bench run --machine-label my-laptop --timeout 21600  # kill the run after 6 h
 ```
+
+The machine label names the machine in run ids and on the dashboard; it is
+required outside GitHub Actions.
 
 The run measures the PROTEUS checkout that the `proteus` command on PATH
 imports, in that command's environment; to measure another checkout, activate
@@ -76,7 +79,10 @@ From the separate proteus-bench environment:
 proteus-bench publish bench-runs/<run_id>
 ```
 
-This adds the run to the `results` branch of the store repository. For a
+This adds the run to the `results` branch of the store repository, which is
+public. A record holds no host or user name, and the run replaces the home
+directory, host name and user name in `log.txt` with `~`, `<host>` and `<user>`.
+The machine label is published as given, so choose one that does not identify you. For a
 store on GitHub it also starts the dashboard build with `gh`, or prints the
 command when `gh` is missing. Runs made in GitHub Actions are uploaded there as one
 artifact per run directory; download them first:

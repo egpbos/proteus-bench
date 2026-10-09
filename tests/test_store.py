@@ -188,8 +188,8 @@ def test_settings_file_is_kept_once_per_hash(make_run_dir, tmp_path):
     assert sum('module = "spider"' in t for t in texts) == 1
 
 
-def test_profile_is_copied_whole(make_run_dir, tmp_path):
-    """All of profile/ is copied unchanged; profile and flame point into it."""
+def test_profile_artifacts_are_copied_and_raw_output_is_not(make_run_dir, tmp_path):
+    """profile and flame are copied unchanged; raw profiler output, which holds local paths, is not."""
     artifacts = {'flame': 'profile/flame.html', 'profile': 'profile/stacks.folded.gz'}
     run_dir = make_run_dir(RUN_A, artifacts=artifacts)
     (run_dir / 'profile' / 'raw').mkdir(parents=True)
@@ -204,7 +204,8 @@ def test_profile_is_copied_whole(make_run_dir, tmp_path):
     assert stored['artifacts']['profile'] == base + 'stacks.folded.gz'
     folded = (tmp_path / 'tree' / base / 'stacks.folded.gz').read_bytes()
     assert gzip.decompress(folded) == b'a;b 3\n'  # not gzipped a second time
-    assert (tmp_path / 'tree' / base / 'raw' / 'scalene-profile.json').read_text() == '{}'
+    assert (tmp_path / 'tree' / base / 'flame.html').read_text() == '<html></html>'
+    assert not (tmp_path / 'tree' / base / 'raw').exists()
 
 
 @pytest.mark.parametrize(
