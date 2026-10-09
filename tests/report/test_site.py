@@ -9,7 +9,8 @@ steps and boundaries; the run page puts failed checks and not-comparable
 reasons first and sorts failed checks first; the series filter index holds
 exactly the settings keys that differ, and the run table rows carry run ids;
 record and analysis text never reaches the HTML unescaped, and only https URLs
-become links; groups whose names differ only in case get separate pages; a
+become links; runs with a base commit give every series chart a twin in commit
+order and the page an order switch; groups whose names differ only in case get separate pages; a
 rebuild removes pages of deleted runs; bad input is refused with its source.
 """
 
@@ -22,6 +23,7 @@ from pathlib import Path
 import proteus_plotly
 import pytest
 
+from proteus_bench.analysis import analyse
 from proteus_bench.report.fmt import series_href
 from proteus_bench.report.site import build_site
 from proteus_bench.report.store import load_records
@@ -462,3 +464,27 @@ def test_zero_baseline_and_null_relative_values_render(tmp_path, records, analys
     assert 'baseline median is 0' in index
     assert 'total regression n/a, not yet confirmed' in index
     assert 'threshold n/a' in (site / HABROK).read_text()
+
+
+def test_history_charts_and_switch_need_a_base_commit(tmp_path, records):
+    """With code.proteus.base every chart gets a commit-ordered twin and the page a switch."""
+    (tmp_path / 'a').mkdir()
+    assert (
+        'id="order"'
+        not in (build(tmp_path / 'a', records, analyse(records)) / HABROK).read_text()
+    )
+    for i, record in enumerate(records):
+        record['code']['proteus']['base'] = {
+            'sha': f'base000{i % 3}',
+            'committed_at': f'2026-08-0{3 - i % 3}T00:00:00Z',
+            'subject': f'Change things (#{700 + i % 3})',
+        }
+    (tmp_path / 'b').mkdir()
+    text = (build(tmp_path / 'b', records, analyse(records)) / HABROK).read_text()
+    assert 'id="order"' in text
+    page = Page(text)
+    history = page.charts['total by PROTEUS commit']['light']
+    assert history['layout']['xaxis']['ticktext'] == ['#702', '#701', '#700']
+    assert sorted(points_of(history)['ids']) == sorted(
+        points_of(page.charts['total']['light'])['ids']
+    )

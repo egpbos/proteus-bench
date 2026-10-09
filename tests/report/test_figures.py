@@ -12,7 +12,10 @@ n/a; an unknown run id raises; iteration time not attributed to a component is
 ``other``; components stack in module order, unknown ones after them and
 ``other`` last, each in its module's domain colour, the second module of a
 domain hatched; phases use no domain or status colour and their labels read on
-their fill in both themes; empty timings give no bars.
+their fill in both themes; empty timings give no bars; the history chart orders
+runs by the commit time of their base, leaves out runs without one, labels
+commits by pull request, and joins each commit's median comparable run with a
+line that breaks where the settings change.
 """
 
 from __future__ import annotations
@@ -263,3 +266,60 @@ def test_phases_use_no_module_or_status_colour_and_labels_read():
             assert contrast(c[fill], c[label]) >= 4.5, (fill, theme)
     # a fixed white label fails on the verdant loop fill
     assert contrast(LIGHT['verdant'], '#FFFFFF') < 4.5
+
+
+def base(sha: str, day: int, subject: str = 'Change things') -> dict:
+    return {'sha': sha, 'committed_at': f'2026-08-{day:02d}T12:00:00Z', 'subject': subject}
+
+
+def placed(*runs) -> dict:
+    """A series of (base or None, value, comparable, settings hash) runs, in run order."""
+    series = make_series([v for _, v, _, _ in runs], comparable=[c for _, _, c, _ in runs])
+    for point, (b, _, _, settings) in zip(series['points'], runs, strict=True):
+        point |= {'base': b, 'settings_hash': settings}
+    return series
+
+
+def history(series) -> dict:
+    return figures.history(series, '../', 'large', 'light').to_plotly_json()
+
+
+def test_history_orders_runs_by_commit_time_not_run_time():
+    """A run made later of an older commit lands left of it; runs without a base are left out."""
+    old, new = (
+        base('aaaa0000', 1, 'Old (#678)'),
+        base('bbbb1111', 20, 'Merge pull request #900 from x/y'),
+    )
+    fig = history(placed((new, 2.0, True, 's'), (None, 9.0, True, 's'), (old, 1.0, True, 's')))
+    assert fig['layout']['xaxis']['ticktext'] == ['#678', '#900']
+    trace = points_trace(fig)
+    assert trace['ids'] == ['r2', 'r0']
+    assert trace['x'] == [0, 1]
+    assert trace['customdata'] == ['../runs/r2.html', '../runs/r0.html']
+
+
+def test_history_line_joins_commit_medians_and_breaks_at_settings_change():
+    """Three runs of one commit give their median; a ring is not counted; new settings break the line."""
+    a, b, c = base('a0000000', 1), base('b0000000', 2), base('c0000000', 3)
+    runs = [
+        (a, 1.0, True, 's1'),
+        (a, 5.0, True, 's1'),
+        (a, 2.0, True, 's1'),
+        (a, 99.0, False, 's1'),
+    ]
+    runs += [(b, 3.0, True, 's1'), (c, 7.0, True, 's2'), (c, 8.0, True, 's3')]
+    fig = history(placed(*runs))
+    line = fig['data'][0]
+    assert line['x'] == [0, 1, None, 2, None, 2]
+    assert line['y'] == [2.0, 3.0, None, 7.0, None, 8.0]  # s2 and s3 never share a median
+    assert [a['x'] for a in fig['layout']['annotations']] == pytest.approx([1.5, 1.5])
+    xs = points_trace(fig)['x'][:4]
+    assert xs == sorted(xs) and max(xs) - min(xs) <= 0.6  # side by side around position 0
+    assert sum(xs) == pytest.approx(0)
+
+
+def test_commit_label_falls_back_to_the_sha():
+    assert figures.commit_label(base('abcd1234', 1, 'Fix a bug (#916)')) == '#916'
+    assert figures.commit_label(base('abcd1234', 1, 'Merge pull request #7 from a/b')) == '#7'
+    assert figures.commit_label(base('abcd1234', 1, 'Refer to #916 in the docs')) == 'abcd1234'
+    assert figures.commit_label({'sha': 'abcd1234', 'committed_at': 'x'}) == 'abcd1234'

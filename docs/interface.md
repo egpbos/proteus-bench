@@ -123,6 +123,11 @@ One JSON file per run. See `record-v1.schema.json` for every field. Key points:
 - `timings.components` has one row per (phase, component, submodule, backend).
   The phase's unattributed remainder is a row with `component = other`, so the
   rows for a phase add up to its entry in `timings.phases`.
+- `code.proteus.base` places the run on the PROTEUS history: the newest
+  `origin/main` commit that the measured HEAD contains, so a run of main plus
+  local patches counts as the main commit it builds on. It is absent when the
+  checkout has no `origin/main`; fetch before running, or the base is the last
+  fetched main commit.
 - `comparability` says whether the run may enter baselines, and if not, why.
   Examples: uncommitted changes in PROTEUS, an unexpected backend such as the Radau
   fallback, or a physics fingerprint that doesn't match the series.
@@ -142,8 +147,9 @@ The `schema` field (`proteus-bench-analysis/1`) only names the format.
     `loop_per_iter_median`, `init.<component>`,
     `loop.<component>.per_iter_median`, `submodule.<name>.total`.
   - `unit`: `s`, or `count` for `n_iters`.
-  - `points[]`: `run_id`, `commit`, `time` (the run's `trigger.started_at`),
-    `value`, `comparable`; ordered by time, then run id.
+  - `points[]`: `run_id`, `commit`, `base` (the record's `code.proteus.base`
+    or `null`), `time` (the run's `trigger.started_at`), `value`, `comparable`,
+    `settings_hash`; ordered by time, then run id.
   - `baseline`: `median`, `sigma` (1.4826 x MAD), `n` over the last 10
     comparable points of the latest settings segment, or `null` with fewer
     than 3.

@@ -54,6 +54,9 @@ The run measures the PROTEUS checkout that the `proteus` command on PATH
 imports, in that command's environment; to measure another checkout, activate
 its environment. PROTEUS must be installed from a git checkout
 (`pip install -e`); a PROTEUS installed from a wheel is refused.
+The record places the run on the PROTEUS history at the newest `origin/main`
+commit the checkout contains, which is how the series pages order runs by
+commit; fetch in the PROTEUS checkout first so that ref is current.
 
 Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
 `timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. The proteus

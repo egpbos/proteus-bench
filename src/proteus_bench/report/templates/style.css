@@ -45,7 +45,7 @@ td { overflow-wrap: break-word; }
 table.kv td { overflow-wrap: anywhere; }
 td .mono, td.mono { overflow-wrap: normal; }
 table.kv .mono, table.kv code { overflow-wrap: anywhere; }
-tr[hidden] { display: none; }
+tr[hidden], .by-run[hidden], .by-commit[hidden] { display: none; }
 
 .ok { color: var(--good-ink); white-space: nowrap; }
 .fail { color: var(--bad-ink); font-weight: 600; white-space: nowrap; }
@@ -98,3 +98,5 @@ button:hover:not(:disabled) { border-color: var(--pt-azure); }
 .delta span { position: absolute; top: 1px; height: 8px; border-radius: 2px; }
 .delta .bad { background: var(--pt-danger); left: 50%; }
 .delta .good { background: var(--pt-positive); right: 50%; }
+.order { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; border: 0; }
+.order legend { float: left; margin-right: 4px; font-size: .86rem; color: var(--pt-text-d2); }
