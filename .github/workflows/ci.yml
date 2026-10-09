@@ -75,3 +75,4 @@ jobs:
             -Dsonar.tests=tests
             -Dsonar.python.version=3.11,3.12,3.13
             -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.coverage.exclusions=src/proteus_bench/report/templates/*.js
