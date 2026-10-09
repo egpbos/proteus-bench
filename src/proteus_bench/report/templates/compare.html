@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% set title = 'Compare two runs' %}
+{% block body %}
+<section>
+<h2>Runs</h2>
+<p class="note">Delta is B minus A; positive means B is slower. Rows are phases and phase.component totals, largest first. Runs with different iteration counts are not like for like: compare loop totals with care.</p>
+<div class="panel filters">
+<label>Run A <select id="cmp-a"></select></label>
+<label>Run B <select id="cmp-b"></select></label>
+<button id="cmp-swap" type="button">Swap</button>
+</div>
+<p id="cmp-status" class="note" aria-live="polite"></p>
+<div id="cmp-out"></div>
+<noscript><p class="note">The comparison needs JavaScript.</p></noscript>
+<script type="application/json" id="compare-data">{{ data | tojson }}</script>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ root }}compare.js"></script>{% endblock %}

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{ title }}</title>
+{% include 'tokens_head.html' %}
+<link rel="stylesheet" href="{{ root }}style.css">
+</head>
+<body>
+<main>
+<nav class="nav"><a href="{{ root }}index.html">Overview</a><a href="{{ root }}compare.html">Compare runs</a></nav>
+<header>
+<div class="eyebrow">proteus-bench</div>
+<h1>{{ title }}</h1>
+<div class="meta">{% block meta %}{% endblock %}</div>
+</header>
+{% block body %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -20,6 +20,7 @@ src/proteus_bench/
   profiling.py      profiler commands, folded stacks and flame pages
   schema.py         loading the schemas; optional shape validation
   settings.py       flattening, hashing and comparing resolved PROTEUS settings
+  tokens_head.html  head tags loading the PROTEUS design tokens, for the flame page and dashboard
   timing.py         reading and checking timing.jsonl
   suites.toml       benchmark suites; suites.py loads and validates them
   checks.py         run checks and the comparability rule
@@ -32,6 +33,7 @@ src/proteus_bench/
   store.py          results store layout, run-directory checks and staging
   publishing.py     pushing checked runs to the store branch
   lineage.py        settings lineages and carry-over runs
+  report/           static dashboard: page data, Plotly figures, templates/ (Jinja2 HTML, CSS, JS)
   testing/          fake proteus stub used by the tests
 tests/              mirrors src/proteus_bench/
 examples/           example timing.jsonl and run record (illustrative values)
@@ -47,7 +49,8 @@ Commands: `pixi run test`, `pixi run lint`, `proteus-bench validate <files>`.
    environment for runs, so installing it must never change it beyond the package
    itself. The one exception is `tomli-w`, which writes the run config. The rest (analyse, report, publish, lineage-check, validate) runs
    from a separate proteus-bench environment and may use third-party packages through
-   extras where they cut code or maintenance, as the `analysis` extra does with asv.
+   extras where they cut code or maintenance, as the `analysis` extra does with asv and
+   the `report` extra with Jinja2 and Plotly.
 2. **Never import PROTEUS.** Run the `proteus` CLI as a subprocess and read its output
    files. This keeps the harness independent of the PROTEUS version being measured.
 3. **Interfaces are versioned files.** `timing.jsonl` and the run record are defined in

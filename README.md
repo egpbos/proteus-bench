@@ -5,7 +5,10 @@ It runs PROTEUS, records per-phase and per-module timings along with the exact
 versions of every module, and publishes a history dashboard.
 
 Status: early development. The interfaces (`docs/interface.md`) are drafted, and
-the runner and publishing work; the dashboard is not written yet. Design discussion:
+the runner, publishing and the dashboard (`proteus-bench report --store DIR --out
+SITE`, deployed by `.github/workflows/pages.yml`) work. The dashboard is a static
+site: Jinja2 pages styled by the PROTEUS design tokens, with Plotly charts that
+follow the reader's light or dark preference. Design discussion:
 [FormingWorlds/PROTEUS#916](https://github.com/FormingWorlds/PROTEUS/issues/916).
 
 ## Installation
@@ -21,15 +24,16 @@ proteus-bench is installed twice, for two kinds of use:
   ```
 
 - Everything else (analysis, reports, publishing, validation) runs from an
-  environment of its own, usually with both extras:
+  environment of its own, usually with all three extras:
 
   ```bash
   python -m venv ~/.venvs/proteus-bench
-  ~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis,publish] @ git+https://github.com/egpbos/proteus-bench"
+  ~/.venvs/proteus-bench/bin/pip install "proteus-bench[analysis,publish,report] @ git+https://github.com/egpbos/proteus-bench"
   ```
 
 `analysis` (asv's step detector) is needed by `analyse` and the dashboard
-build; `publish` (jsonschema and rfc3339-validator) by `publish` and `lineage-check`,
+build; `report` (Jinja2, Plotly and proteus-plotly, the PROTEUS Plotly theme) by
+the dashboard build; `publish` (jsonschema and rfc3339-validator) by `publish` and `lineage-check`,
 which refuse records they cannot check against the schema.
 `validate` uses jsonschema when it is there and checks the timing rules either
 way.

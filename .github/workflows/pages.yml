@@ -1,0 +1,70 @@
+name: Dashboard
+# A push to the results branch cannot start a workflow that exists only on
+# main, so the dashboard rebuilds daily and on demand; `proteus-bench publish`
+# dispatches it after pushing a record.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "40 6 * * *"
+# One group for every trigger: all runs publish to the same github-pages
+# environment, so the group is deliberately not scoped by ref.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+permissions: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      exists: ${{ steps.results.outputs.exists }}
+    steps:
+      - name: Check that the results branch exists
+        id: results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if answer=$(gh api "repos/$GITHUB_REPOSITORY/branches/results" --jq .name 2>&1); then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif grep -q 'HTTP 404' <<< "$answer"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No results branch yet, so there is no dashboard to build. Publish a run first."
+          else
+            echo "::error::Could not check for the results branch: $answer"
+            exit 1
+          fi
+
+  deploy:
+    needs: check
+    if: needs.check.outputs.exists == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6
+      # The code: main for the schedule and for a dispatch without --ref
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # The data, which publishers write: read as untrusted input, never executed
+      - uses: actions/checkout@v7
+        with:
+          ref: results
+          path: results
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install ".[analysis,report]"
+      - run: proteus-bench report --store results --out site --repo "$GITHUB_REPOSITORY"
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - uses: actions/deploy-pages@v5
+        id: deployment

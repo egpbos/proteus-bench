@@ -4,35 +4,41 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>__TITLE__</title>
+__HEAD__
 <style>
-:root{color-scheme:light;--ground:#f6f7f6;--surface:#fcfcfb;--ink:#141a18;--muted:#56605b;--rule:#d9dedb;--accent:#1f6f5c;
-  --zalmoxis:#2a78d6;--proteus:#eb6834;--aragog:#1baf7a;--other:#eda100;--julia:#e87ba4;--native:#c9cdca;--hl:#4a3aa7;
-  --sans:system-ui,-apple-system,"Segoe UI",sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
-@media (prefers-color-scheme:dark){:root{color-scheme:dark;--ground:#121513;--surface:#1a1a19;--ink:#eef1ef;--muted:#a3ada8;--rule:#2d3431;--accent:#56b79d;
-  --zalmoxis:#3987e5;--proteus:#d95926;--aragog:#199e70;--other:#c98500;--julia:#d55181;--native:#5b625e;--hl:#9085e9}}
+:root{color-scheme:dark;
+  --aragog:var(--pt-dom-interior);--zalmoxis:url(#hatch-interior);--proteus:var(--pt-verdant);
+  --other:var(--pt-text-d3);--native:var(--pt-line-d);--julia:url(#hatch-native);--hl:var(--pt-text-d)}
+:root[data-theme=light]{color-scheme:light}
 *{box-sizing:border-box}
-body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--sans);padding-inline:16px;padding-block:28px 56px}
-main{max-width:1400px;margin:0 auto;display:grid;gap:22px}
-h1{font-size:1.7rem;line-height:1.2;font-weight:600;margin:0;text-wrap:balance} h2{font-size:1.05rem;font-weight:600;margin:0 0 8px}
-p{margin:0} .note{font-size:.86rem;color:var(--muted)} code{font-family:var(--mono);font-size:.85em}
-.eyebrow{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);font-weight:600}
-.meta{color:var(--muted);font-size:.86rem;margin-top:6px} .meta span+span::before{content:"·";margin:0 8px}
-.panel{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:14px 16px}
+body{margin:0;background:var(--pt-void);color:var(--pt-text-d);font:15px/1.55 var(--pt-font-body);padding-inline:16px;padding-block:28px 56px}
+main{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+h1{font-family:var(--pt-font-display);font-size:1.7rem;line-height:1.2;font-weight:600;margin:0;text-wrap:balance} h2{font-size:1.05rem;font-weight:600;margin:0 0 8px}
+p{margin:0} .note{font-size:.86rem;color:var(--pt-text-d2)} code{font-family:var(--pt-font-mono);font-size:.85em}
+.eyebrow{font-family:var(--pt-font-mono);font-size:.72rem;letter-spacing:var(--pt-track-label);text-transform:uppercase;color:var(--pt-azure)}
+.meta{color:var(--pt-text-d2);font-size:.86rem;margin-top:6px} .meta span+span::before{content:"·";margin:0 8px}
+.panel{background:var(--pt-basalt);border:1px solid var(--pt-line-d);border-radius:8px;padding:14px 16px}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.bar input{font:inherit;padding:6px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--ground);color:var(--ink);min-width:0;width:min(340px,100%)}
-.bar button{font:inherit;font-size:.88rem;padding:6px 12px;border:1px solid var(--rule);border-radius:6px;background:var(--ground);color:var(--ink);cursor:pointer}
-.bar button:hover{border-color:var(--accent)} :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar input{font:inherit;padding:6px 10px;border:1px solid var(--pt-line-d);border-radius:6px;background:var(--pt-void);color:var(--pt-text-d);min-width:0;width:min(340px,100%)}
+.bar button{font:inherit;font-size:.88rem;padding:6px 12px;border:1px solid var(--pt-line-d);border-radius:6px;background:var(--pt-void);color:var(--pt-text-d);cursor:pointer}
+.bar button:hover{border-color:var(--pt-azure)} :focus-visible{outline:2px solid var(--pt-magma);outline-offset:2px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.84rem;list-style:none;padding:0;margin:10px 0 0}
-.legend li{display:flex;align-items:center;gap:6px} .sw{width:12px;height:12px;border-radius:3px}
-#chart{overflow-x:auto;margin-top:12px} #status{font-size:.84rem;color:var(--muted)}
-/* d3-flame-graph 5.0.0 base styles (inlined), themed */
-.d3-flame-graph rect{stroke:var(--surface);fill-opacity:.92}.d3-flame-graph rect:hover{stroke:var(--ink);stroke-width:.6;cursor:pointer}
-.d3-flame-graph-label{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:11.5px;font-family:var(--sans);margin-left:4px;margin-right:4px;line-height:1.5;padding:0;font-weight:400;color:#111;text-align:left}
-.d3-flame-graph .fade{opacity:.45!important}
-.d3-flame-graph-tip{background-color:#111;border:none;border-radius:4px;padding:6px 10px;min-width:250px;max-width:560px;text-align:left;color:#fff;z-index:10;font:12px/1.45 var(--mono)}
+.legend li{display:flex;align-items:center;gap:6px} .sw{width:14px;height:14px;flex:none}
+#chart{overflow-x:auto;margin-top:12px} #status{font-size:.84rem;color:var(--pt-text-d2)}
+/* d3-flame-graph injects its own styles after these, so the overrides are scoped to win */
+#chart rect{stroke:var(--pt-basalt);fill-opacity:.92} #chart rect:hover{stroke:var(--pt-text-d);stroke-width:.6}
+#chart .d3-flame-graph-label{font-size:11.5px;font-family:var(--pt-font-body);color:var(--pt-text-d)}
+#chart :is([fill="var(--aragog)"],[fill="var(--zalmoxis)"],[fill="var(--proteus)"])~foreignObject div{color:var(--pt-ink)}
+#chart [fill="var(--hl)"]~foreignObject div{color:var(--pt-void)}
+#chart .fade{opacity:.45!important}
+body .d3-flame-graph-tip{background:var(--pt-basalt-2);border:1px solid var(--pt-line-d);border-radius:4px;box-shadow:var(--pt-shadow-2);padding:6px 10px;max-width:560px;color:var(--pt-text-d);font:12px/1.45 var(--pt-font-mono)}
 </style>
 </head>
 <body>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+  <pattern id="hatch-interior" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--pt-dom-interior)"/><rect width="1.5" height="6" fill="var(--pt-paper)" fill-opacity=".7"/></pattern>
+  <pattern id="hatch-native" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--pt-line-d)"/><rect width="1.5" height="6" fill="var(--pt-text-d3)" fill-opacity=".7"/></pattern>
+</defs></svg>
 <main>
 <header>
   <div class="eyebrow">CPU flame graph</div>
@@ -44,9 +50,12 @@ p{margin:0} .note{font-size:.86rem;color:var(--muted)} code{font-family:var(--mo
   <h2>Reading it</h2>
   <p class="note">Each box is a function. Width is the share of CPU samples spent in it and everything it called. Stacks grow upward from the root. Click a box to zoom in; hover for exact numbers. Colour marks the component.</p>
   <ul class="legend">
-    <li><span class="sw" style="background:var(--zalmoxis)"></span>Zalmoxis</li><li><span class="sw" style="background:var(--proteus)"></span>PROTEUS</li>
-    <li><span class="sw" style="background:var(--aragog)"></span>Aragog</li><li><span class="sw" style="background:var(--other)"></span>other Python (MORS, CALLIOPE, ...)</li>
-    <li><span class="sw" style="background:var(--julia)"></span>native code: Julia (AGNI, JIT)</li><li><span class="sw" style="background:var(--native)"></span>native code: interpreter, numpy/scipy, libc</li>
+    <li><svg class="sw" viewBox="0 0 14 14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="var(--aragog)"/></svg>Aragog</li>
+    <li><svg class="sw" viewBox="0 0 14 14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="var(--zalmoxis)"/></svg>Zalmoxis (hatched)</li>
+    <li><svg class="sw" viewBox="0 0 14 14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="var(--proteus)"/></svg>PROTEUS</li>
+    <li><svg class="sw" viewBox="0 0 14 14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="var(--other)"/></svg>other Python (MORS, CALLIOPE, ...)</li>
+    <li><svg class="sw" viewBox="0 0 14 14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="var(--julia)"/></svg>native code: Julia (AGNI, JIT; hatched)</li>
+    <li><svg class="sw" viewBox="0 0 14 14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="var(--native)"/></svg>native code: interpreter, numpy/scipy, libc</li>
   </ul>
 </section>
 
@@ -61,7 +70,7 @@ p{margin:0} .note{font-size:.86rem;color:var(--muted)} code{font-family:var(--mo
 </section>
 
 <section class="note">
-  <h2 style="font-size:.95rem;color:var(--ink)">Method and caveats</h2>
+  <h2 style="font-size:.95rem;color:var(--pt-text-d)">Method and caveats</h2>
   <p>Built from folded stacks (<code>stacks.folded.gz</code> next to this page). Consecutive native frames are merged into one block. Widths are shares of samples under profiling, which inflates Python-heavy code more than native code; they are not minutes of a plain run. Measure phase durations with the run's timing record and use this page for what is hot inside a phase. JIT-compiled JAX kernels are opaque to the profiler.</p>
 </section>
 </main>
@@ -70,13 +79,10 @@ p{margin:0} .note{font-size:.86rem;color:var(--muted)} code{font-family:var(--mo
 <script>
 const DATA = __DATA__;
 let chart, inverted = false;
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 let sumAll = 0; (function s(n){ sumAll += n.value || 0; (n.children || []).forEach(s); })(DATA);
 const pct = v => (100 * v / sumAll).toFixed(2) + '%';
 function render() {
   const el = document.getElementById('chart'); el.innerHTML = '';
-  const colours = {}, colour = k => colours[k] ??= css('--' + k);
-  const hl = css('--hl');
   const escape = s => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
   const tip = flamegraph.tooltip.defaultFlamegraphTooltip().html(d =>
     `<b>${escape(d.data.name)}</b><br>${d.value.toLocaleString()} samples · ${pct(d.value)} of total`);
@@ -84,7 +90,7 @@ function render() {
     .width(Math.max(el.clientWidth, 640)).cellHeight(18).minFrameSize(1).transitionDuration(250)
     .selfValue(true).inverted(inverted).sort(true).tooltip(tip)
     .setSearchMatch((d, term) => d.data.name.toLowerCase().includes(term.toLowerCase()))
-    .setColorMapper(d => d.highlight ? hl : colour(d.data.k || 'native'));
+    .setColorMapper(d => d.highlight ? 'var(--hl)' : `var(--${d.data.k || 'native'})`);
   d3.select('#chart').datum(DATA).call(chart);
   const q = document.getElementById('q').value.trim(); if (q) chart.search(q);
 }
@@ -95,7 +101,6 @@ document.getElementById('q').addEventListener('input', e => {
 document.getElementById('reset').addEventListener('click', () => chart.resetZoom());
 document.getElementById('flip').addEventListener('click', e => { inverted = !inverted; e.target.setAttribute('aria-pressed', inverted); e.target.textContent = inverted ? 'Flame (bottom-up)' : 'Icicle (top-down)'; render(); });
 let t; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(render, 200); });
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
 render();
 </script>
 </body>

@@ -1,0 +1,33 @@
+{% macro commit_link(sha) %}<a class="mono" href="{{ sha | commit_url }}">{{ sha[:8] }}</a>{% endmacro %}
+
+{% macro https_link(url, text=none) %}
+{%- if url.startswith('https://') %}<a href="{{ url }}">{{ text or url }}</a>{% else %}{{ text or url }}{% endif -%}
+{% endmacro %}
+
+{# Direction in the icon (up: slower), confirmation in its fill and in words, so colour is never the only cue #}
+{% macro flag_badge(flag, metric='') %}
+{%- set regression = flag['kind'] == 'regression' -%}
+{%- set icons = ('▲', '△') if regression else ('▼', '▽') -%}
+<span class="badge {{ 'bad' if regression else 'good' }}"><span class="icon" aria-hidden="true">{{ icons[0] if flag['confirmed'] is true else icons[1] }}</span>
+{%- if metric %}{{ metric }} {% endif %}{{ flag['kind'] }} {{ flag['delta_rel'] | fmt_rel }}, {{ flag | confirmation }}</span>
+{%- endmacro %}
+
+{% macro comparable_mark(ok) %}
+{%- if ok %}<span class="ok">✓ comparable</span>{% else %}<span class="warn">○ not comparable</span>{% endif -%}
+{% endmacro %}
+
+{% macro check_mark(ok) %}
+{%- if ok %}<span class="ok">✓ ok</span>{% else %}<span class="fail">✕ failed</span>{% endif -%}
+{% endmacro %}
+
+{# A Plotly chart: figures for both themes as JSON, drawn by charts.js #}
+{% macro chart(figures, label) %}
+<script type="application/json" class="figure">{{ figures | tojson }}</script>
+<figure class="plot" aria-label="{{ label }}" style="height: {{ figures['light']['layout']['height'] }}px"></figure>
+{% endmacro %}
+
+{% macro plotly_script(root) %}
+<script type="application/json" id="plotly-templates">{{ plotly_templates | tojson }}</script>
+<script src="{{ plotly_js }}" integrity="{{ plotly_integrity }}" crossorigin="anonymous"></script>
+<script src="{{ root }}charts.js"></script>
+{% endmacro %}

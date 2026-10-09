@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import chart, commit_link, comparable_mark, flag_badge, plotly_script %}
+{% set title = 'Series ' ~ (group | group_label) %}
+{% block meta %}{% for part in group %}<span>{{ part }}</span>{% endfor %}<span>{{ records | length }} runs</span>{% endblock %}
+
+{% macro panel(p) %}
+{% set s = p.series %}
+<figure class="panel fig">
+<figcaption><b class="mono">{{ s['key']['metric'] }}</b><span class="note">latest {{ (s['points'][-1]['value'] if s['points'] else none) | fmt_value(s['unit']) }}</span></figcaption>
+{% if p.chart %}
+{{ chart(p.chart, s['key']['metric'] ~ ': ' ~ s['points'] | length ~ ' runs') }}
+<details><summary>Table view</summary>
+<div class="scroll"><table><thead><tr><th>Run</th><th>Commit</th><th class="num">Value</th><th>Comparable</th><th>Flag</th></tr></thead><tbody>
+{% for point in s['points'] | reverse %}
+<tr><td><a href="{{ root }}{{ point['run_id'] | run_href }}">{{ point['time'] | fmt_time }}</a></td><td>{{ commit_link(point['commit']) }}</td><td class="num">{{ point['value'] | fmt_value(s['unit']) }}</td><td>{{ comparable_mark(point['comparable']) }}</td><td>{% for flag in s['flags'] if flag['run_id'] == point['run_id'] %}{{ flag_badge(flag) }}{% endfor %}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% if s['baseline'] %}<p class="note">Baseline median {{ s['baseline']['median'] | fmt_value(s['unit']) }}, sigma {{ '%.3g' | format(s['baseline']['sigma']) }}, over {{ s['baseline']['n'] }} runs.</p>{% endif %}
+{% for b in s['boundaries'] %}<p class="note">Settings changed before run {{ b['run_id'] }}: {{ b['changed_keys'] | join(', ') or 'none listed' }}.</p>{% endfor %}
+{% for step in s['steps'] %}<p class="note">Step at run {{ step['after_run_id'] }}: {{ step['before'] | fmt_value(s['unit']) }} to {{ step['after'] | fmt_value(s['unit']) }} ({{ step['delta_rel'] | fmt_rel }}).</p>{% endfor %}
+</details>
+{% else %}
+<p class="note">No runs.</p>
+{% endif %}
+</figure>
+{% endmacro %}
+
+{% block body %}
+<section>
+<h2>Trends</h2>
+<p class="note">One mark per run, oldest on the left, evenly spaced. Hover a mark for details; click it to open the run. Detection never compares across a settings change.</p>
+<div class="panel"><ul class="marks">
+<li><span class="glyph dot" aria-hidden="true">●</span>comparable run</li>
+<li><span class="glyph ring" aria-hidden="true">○</span>not comparable (not in baselines)</li>
+<li><span class="glyph bad" aria-hidden="true">▲</span>regression, confirmed</li>
+<li><span class="glyph bad" aria-hidden="true">△</span>regression, not yet confirmed</li>
+<li><span class="glyph ring" aria-hidden="true">△</span>regression, not confirmed by the next run</li>
+<li><span class="glyph good" aria-hidden="true">▼</span>improvement (same fills)</li>
+<li><span class="glyph band" aria-hidden="true"></span>baseline median &#177; 3 sigma; dashed: &#177;5 %</li>
+<li><span class="glyph" aria-hidden="true">│</span>settings changed (hover the label for keys)</li>
+<li><span class="glyph" aria-hidden="true">┊</span>detected step</li>
+</ul></div>
+{% if headline or multiples %}
+{% if headline %}<div class="grid2">{% for p in headline %}{{ panel(p) }}{% endfor %}</div>{% endif %}
+{% for heading, panels in multiples %}
+<h3>{{ heading }}</h3>
+<div class="multiples">{% for p in panels %}{{ panel(p) }}{% endfor %}</div>
+{% endfor %}
+{% else %}
+<p class="note">No analysed series for this group yet.</p>
+{% endif %}
+</section>
+
+<section>
+<h2>Runs</h2>
+{% if settings_index %}
+<div class="panel filters" id="filters">
+<label>Setting <select id="f-key"><option value="">choose a setting</option>{% for key in settings_index %}<option value="{{ key }}">{{ key }}</option>{% endfor %}</select></label>
+<label>Value <select id="f-value" disabled></select></label>
+<button id="f-add" type="button" disabled>Add filter</button>
+<ul id="f-active" class="chips"></ul>
+<p id="f-status" class="note" aria-live="polite">{{ settings_index | length }} settings differ between runs.</p>
+</div>
+<script type="application/json" id="settings-index">{{ settings_index | tojson }}</script>
+{% else %}
+<p class="note">All runs in this group have the same settings.</p>
+{% endif %}
+<div class="panel scroll"><table>
+<thead><tr><th>Run</th><th>Commit</th>{% for metric, unit, values in table_metrics %}<th class="num">{{ metric }}</th>{% endfor %}<th>Status</th><th>Comparable</th></tr></thead>
+<tbody>
+{% for r in records | reverse %}
+<tr data-run="{{ r['run_id'] }}"><td><a href="{{ root }}{{ r['run_id'] | run_href }}">{{ r['trigger']['started_at'] | fmt_time }}</a></td><td>{{ commit_link(r['code']['proteus']['sha']) }}</td>{% for metric, unit, values in table_metrics %}<td class="num">{{ values.get(r['run_id']) | fmt_value(unit) }}</td>{% endfor %}<td>{{ r['outcome']['status'] }}</td><td>{{ comparable_mark(r['comparability']['ok']) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</section>
+{% endblock %}
+{% block scripts %}{{ plotly_script(root) }}<script src="{{ root }}series.js"></script>{% endblock %}

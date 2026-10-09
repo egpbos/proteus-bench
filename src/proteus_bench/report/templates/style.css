@@ -1,0 +1,100 @@
+/* proteus-bench dashboard on the PROTEUS design tokens (tokens.css, loaded first).
+   Status words mix their colour with the text colour, which keeps them readable on
+   both themes; icons and marks use the status colour itself. */
+:root {
+  color-scheme: dark;
+  --bad-ink: color-mix(in srgb, var(--pt-danger) 70%, var(--pt-text-d));
+  --good-ink: color-mix(in srgb, var(--pt-positive) 70%, var(--pt-text-d));
+  --warn-ink: color-mix(in srgb, var(--pt-warning) 70%, var(--pt-text-d));
+}
+:root[data-theme="light"] { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--pt-void); color: var(--pt-text-d);
+  font: 15px/1.6 var(--pt-font-body); padding-inline: 16px; padding-block: 20px 64px;
+}
+main { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 30px; }
+main > * { min-width: 0; }
+h1 { font-family: var(--pt-font-display); font-size: 1.7rem; line-height: 1.2; font-weight: 600; margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
+h2 { font-size: 1.12rem; font-weight: 600; margin: 0 0 10px; }
+h3 { font-size: .95rem; font-weight: 600; margin: 18px 0 8px; }
+p { margin: 0; }
+section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+section > h2 { margin: 0; }
+code, .mono { font-family: var(--pt-font-mono); font-size: .85em; overflow-wrap: anywhere; }
+a { color: var(--pt-azure); }
+:focus-visible { outline: 2px solid var(--pt-magma); outline-offset: 2px; }
+.nav { display: flex; gap: 18px; font-size: .88rem; }
+.eyebrow { font-family: var(--pt-font-mono); font-size: .72rem; letter-spacing: var(--pt-track-label); text-transform: uppercase; color: var(--pt-azure); }
+.meta { color: var(--pt-text-d2); font-size: .86rem; margin-top: 8px; }
+.meta span + span::before { content: "\00b7"; margin: 0 8px; }
+.note { font-size: .86rem; color: var(--pt-text-d2); }
+.panel { background: var(--pt-basalt); border: 1px solid var(--pt-line-d); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+.scroll { overflow-x: auto; }
+.callout { border-left: 3px solid var(--pt-danger); background: var(--pt-basalt); border-radius: 0 6px 6px 0; padding: 12px 16px; }
+.callout ul { margin: 0; padding-left: 1.1em; }
+details > summary { cursor: pointer; font-size: .88rem; color: var(--pt-azure); margin: 6px 0; }
+
+table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--pt-line-d); vertical-align: top; }
+th { font-weight: 500; color: var(--pt-text-d2); font-size: .74rem; letter-spacing: .05em; text-transform: uppercase; }
+table.kv th { text-transform: none; letter-spacing: 0; font-size: .84rem; width: 34%; }
+tr:last-child td, tr:last-child th { border-bottom: 0; }
+td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+td { overflow-wrap: break-word; }
+table.kv td { overflow-wrap: anywhere; }
+td .mono, td.mono { overflow-wrap: normal; }
+table.kv .mono, table.kv code { overflow-wrap: anywhere; }
+tr[hidden] { display: none; }
+
+.ok { color: var(--good-ink); white-space: nowrap; }
+.fail { color: var(--bad-ink); font-weight: 600; white-space: nowrap; }
+.warn { color: var(--warn-ink); white-space: nowrap; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.badge {
+  display: inline-flex; gap: 5px; align-items: baseline; border: 1px solid var(--pt-line-d);
+  border-radius: 10px; padding: 0 8px; font-size: .78rem; background: var(--pt-void); overflow-wrap: anywhere;
+}
+.badge.bad .icon { color: var(--pt-danger); }
+.badge.good .icon { color: var(--pt-positive); }
+
+.cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); }
+.card { display: grid; gap: 10px; align-content: start; }
+.card h3 { margin: 0; font-size: 1.05rem; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 0; }
+.stats dt { font-size: .74rem; color: var(--pt-text-d2); letter-spacing: .04em; text-transform: uppercase; }
+.stats dd { margin: 0; }
+.stats .value { font-size: 1.25rem; font-weight: 600; }
+
+.grid2 { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.multiples { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.fig { margin: 0; padding: 10px 12px; }
+.fig figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; margin-bottom: 4px; }
+.marks { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: .84rem; }
+.marks li { display: flex; align-items: center; gap: 6px; }
+
+.plot { width: 100%; margin: 0; }
+.glyph { display: inline-block; width: 14px; text-align: center; line-height: 1; color: var(--pt-text-d2); }
+.glyph.dot { color: var(--pt-text-d); }
+.glyph.bad { color: var(--pt-danger); }
+.glyph.good { color: var(--pt-positive); }
+.glyph.band { height: 10px; background: var(--pt-basalt-2); border-block: 1px solid var(--pt-text-d2); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.filters label { display: grid; gap: 2px; font-size: .8rem; color: var(--pt-text-d2); min-width: 0; flex: 0 1 360px; }
+.filters select { width: 100%; }
+#cmp-out p { overflow-wrap: anywhere; }
+select, button {
+  font: inherit; font-size: .88rem; padding: 5px 10px; border: 1px solid var(--pt-line-d); border-radius: 6px;
+  background: var(--pt-void); color: var(--pt-text-d); max-width: 100%;
+}
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--pt-azure); }
+.filters .note { flex-basis: 100%; }
+.chips { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
+.chips:empty { display: none; }
+.chips button { font-size: .8rem; padding: 1px 8px; border-radius: 999px; font-family: var(--pt-font-mono); }
+.delta { position: relative; height: 10px; min-width: 80px; background: linear-gradient(var(--pt-line-d), var(--pt-line-d)) center / 1px 100% no-repeat; }
+.delta span { position: absolute; top: 1px; height: 8px; border-radius: 2px; }
+.delta .bad { background: var(--pt-danger); left: 50%; }
+.delta .good { background: var(--pt-positive); right: 50%; }

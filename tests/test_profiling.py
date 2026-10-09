@@ -6,7 +6,9 @@ JAX_DISABLE_JIT=0) and the py-spy raw recipe, and refuses unknown or unusable
 profilers; profiler_of maps output files to profilers; scalene_to_folded keeps
 every sample and refuses empty profiles; collapse_native merges each run of native
 frames into one block, Julia or not; the flame page holds the whole tree with self
-values summing to the total, in valid HTML with escaped text; collect writes
+values summing to the total, in valid HTML with escaped text; every colour key has
+a fill and a legend swatch, Zalmoxis the interior colour of Aragog hatched, and every
+hatch stripes in a second token in both themes; collect writes
 stacks.folded.gz and flame.html, returns their paths, and refuses ambiguous input.
 package_dirs starts a subprocess and is tested in test_profiling_package_dirs.py.
 
@@ -26,6 +28,7 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 
+import proteus_plotly
 import pytest
 
 from proteus_bench import profiling
@@ -298,7 +301,7 @@ def page_data(path: Path) -> dict:
     parser.feed(path.read_text())
     parser.close()
     assert parser.open == []
-    (script,) = parser.scripts
+    _, script = parser.scripts  # the theme switch in the head, then the page's own
     return json.loads(script.split('const DATA = ', 1)[1].split(';\n', 1)[0])
 
 
@@ -329,6 +332,30 @@ def test_flame_page_embeds_every_node_with_its_width(tmp_path, profiles):
     assert 'A &lt;b&gt; title' in text
     assert 'A <b> title' not in text
     assert f'{profiles.scalene_total:,} samples' in text
+
+
+def test_every_colour_key_has_a_fill_and_a_legend_swatch(tmp_path):
+    """The keys component() returns are defined and shown; hatches name patterns on the page."""
+    out = tmp_path / 'flame.html'
+    profiling.write_flame_page(['a (proteus/x.py) 3'], out, {})
+    text = out.read_text()
+    fills = dict(re.findall(r'--(\w+):(var\(--pt-[\w-]+\)|url\(#[\w-]+\))', text))
+    for key in ('zalmoxis', 'proteus', 'aragog', 'julia', 'native', 'other'):
+        assert key in fills, key
+        assert f'rx="3" fill="var(--{key})"' in text, key  # its legend swatch
+    assert fills['aragog'] == 'var(--pt-dom-interior)'
+    assert fills['zalmoxis'] == 'url(#hatch-interior)'
+    ids = set(re.findall(r' id="([\w-]+)"', text))
+    assert set(re.findall(r'url\(#([\w-]+)\)', text)) <= ids
+    hatches = re.findall(
+        r'<pattern id="([\w-]+)".*?fill="var\((--pt-[\w-]+)\)".*?fill="var\((--pt-[\w-]+)\)"',
+        text,
+    )
+    assert ('hatch-interior', '--pt-dom-interior', '--pt-paper') in hatches  # Aragog's colour
+    for _, base, stripe in hatches:  # the stripes show in both themes
+        for theme in ('light', 'dark'):
+            colours = proteus_plotly.colors(theme)
+            assert colours[base.removeprefix('--pt-')] != colours[stripe.removeprefix('--pt-')]
 
 
 def test_meta_values_are_escaped(tmp_path):
