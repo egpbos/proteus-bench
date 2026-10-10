@@ -12,8 +12,8 @@ src/proteus and pyproject.toml, and an import from elsewhere or none is an error
 
 from __future__ import annotations
 
+import os
 import platform
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -154,21 +154,36 @@ def test_proteus_checkout_is_the_git_checkout_proteus_is_imported_from(tmp_path,
 
 
 def test_base_is_the_newest_origin_main_commit_in_head(tmp_path, git_repo):
-    """A commit on top of origin/main is placed at origin/main; without the ref there is no base."""
+    """A commit on top of origin/main is placed at origin/main, with its commit time in UTC."""
     root = tmp_path / 'PROTEUS'
     (root / 'src' / 'proteus').mkdir(parents=True)
     (root / 'src' / 'proteus' / '__init__.py').write_text('')
-    main = git_repo(root)
+    git_repo(root)
     origin = str(root / 'src' / 'proteus' / '__init__.py')
     assert 'base' not in provenance.proteus_checkout('python', origin)[1]
-    git = ['git', '-C', str(root)]
-    subprocess.run([*git, 'update-ref', 'refs/remotes/origin/main', main], check=True)
-    subprocess.run([*git, 'commit', '-q', '--allow-empty', '-m', 'timing patch'], check=True)
+    env = os.environ | {
+        'GIT_AUTHOR_NAME': 'fixture',
+        'GIT_AUTHOR_EMAIL': 'fixture@example.invalid',
+        'GIT_COMMITTER_NAME': 'fixture',
+        'GIT_COMMITTER_EMAIL': 'fixture@example.invalid',
+        'GIT_COMMITTER_DATE': '2026-08-01T12:00:00+02:00',
+    }
+
+    def git(*args):
+        cmd = ['git', '-C', str(root), '-c', 'commit.gpgsign=false', *args]
+        return subprocess.run(cmd, env=env, check=True, capture_output=True, text=True).stdout
+
+    git('commit', '-q', '--allow-empty', '-m', 'Change things (#700)')
+    main = git('rev-parse', 'HEAD').strip()
+    git('update-ref', 'refs/remotes/origin/main', main)
+    git('commit', '-q', '--allow-empty', '-m', 'timing patch')
     _, state = provenance.proteus_checkout('python', origin)
     assert state['sha'] != main[:8]
-    assert state['base']['sha'] == main[:8]
-    assert state['base']['subject'] == 'fixture'
-    assert re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ', state['base']['committed_at'])
+    assert state['base'] == {
+        'sha': main[:8],
+        'committed_at': '2026-08-01T10:00:00Z',
+        'subject': 'Change things (#700)',
+    }
 
 
 def test_proteus_installed_from_a_wheel_is_refused(tmp_path, git_repo):

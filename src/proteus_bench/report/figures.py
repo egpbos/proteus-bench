@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import html
 import re
+from datetime import datetime
 from statistics import median
 
 import plotly.graph_objects as go
@@ -272,7 +273,10 @@ def by_commit(points: list[dict]) -> list[tuple[dict, list[dict]]]:
     for p in points:
         if p['base']:
             groups.setdefault(p['base']['sha'], (p['base'], []))[1].append(p)
-    return sorted(groups.values(), key=lambda g: (g[0]['committed_at'], g[0]['sha']))
+    return sorted(
+        groups.values(),
+        key=lambda g: (datetime.fromisoformat(g[0]['committed_at']), g[0]['sha']),
+    )
 
 
 def history(series: dict, root: str, size: str, theme: str) -> go.Figure:

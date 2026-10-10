@@ -319,7 +319,16 @@ def test_history_line_joins_commit_medians_and_breaks_at_settings_change():
 
 
 def test_commit_label_falls_back_to_the_sha():
+    """A squash or merge subject gives #<PR>; any other subject, or none, gives the sha."""
     assert figures.commit_label(base('abcd1234', 1, 'Fix a bug (#916)')) == '#916'
     assert figures.commit_label(base('abcd1234', 1, 'Merge pull request #7 from a/b')) == '#7'
     assert figures.commit_label(base('abcd1234', 1, 'Refer to #916 in the docs')) == 'abcd1234'
     assert figures.commit_label({'sha': 'abcd1234', 'committed_at': 'x'}) == 'abcd1234'
+
+
+def test_history_orders_by_time_across_utc_offsets():
+    """09:30+00:00 is later than 10:00+02:00 (08:00 UTC), though it sorts first as text."""
+    early = {'sha': 'e0000000', 'committed_at': '2026-08-01T10:00:00+02:00', 'subject': '(#1)'}
+    late = {'sha': 'f0000000', 'committed_at': '2026-08-01T09:30:00+00:00', 'subject': '(#2)'}
+    fig = history(placed((late, 1.0, True, 's'), (early, 2.0, True, 's')))
+    assert fig['layout']['xaxis']['ticktext'] == ['#1', '#2']
