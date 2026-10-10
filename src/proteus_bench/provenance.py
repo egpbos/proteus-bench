@@ -6,6 +6,7 @@ by their checkout's git SHA.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import subprocess
 import urllib.parse
@@ -25,6 +26,8 @@ MODULE_DISTS = (
 )
 PACKAGES = ('jax', 'jaxlib', 'numpy', 'scipy', 'juliacall', 'scalene')
 SHA_LEN = 8
+# The PROTEUS history a run is placed on: a patched checkout counts as the main commit it builds on
+BASE_REF = 'origin/main'
 
 
 def git(path: Path, *args: str) -> str | None:
@@ -51,6 +54,20 @@ def git_state(path: Path) -> dict | None:
         state['branch'] = branch
     state['describe'] = git(path, 'describe', '--tags', '--always', '--dirty')
     return state
+
+
+def base_commit(path: Path) -> dict | None:
+    """The newest ``BASE_REF`` commit that HEAD contains, or None without that ref."""
+    sha = git(path, 'merge-base', 'HEAD', BASE_REF)
+    if sha is None:
+        return None
+    seconds, _, subject = git(path, 'show', '-s', '--format=%ct%n%s', sha).partition('\n')
+    committed = dt.datetime.fromtimestamp(int(seconds), dt.UTC)
+    return {
+        'sha': sha[:SHA_LEN],
+        'committed_at': committed.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'subject': subject,
+    }
 
 
 def introspect_env(python: str) -> dict:
@@ -81,6 +98,9 @@ def proteus_checkout(python: str, origin: str | None) -> tuple[Path, dict]:
             f'{python} imports proteus from {origin}; runs need PROTEUS installed from '
             'a git checkout (pip install -e), not from a wheel or a copy'
         )
+    base = base_commit(root)
+    if base:
+        state['base'] = base
     return root, state
 
 

@@ -178,7 +178,17 @@
         "sha": {"$ref": "#/$defs/sha"},
         "dirty": {"type": "boolean"},
         "branch": {"type": "string"},
-        "describe": {"type": "string"}
+        "describe": {"type": "string"},
+        "base": {
+          "type": "object",
+          "description": "The newest origin/main commit in HEAD's history: where the measured code sits on main.",
+          "required": ["sha", "committed_at"],
+          "properties": {
+            "sha": {"$ref": "#/$defs/sha"},
+            "committed_at": {"type": "string", "format": "date-time"},
+            "subject": {"type": "string"}
+          }
+        }
       }
     },
     "module_state": {

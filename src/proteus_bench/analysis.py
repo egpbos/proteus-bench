@@ -126,6 +126,7 @@ def _identity(record: dict) -> dict:
         'key': (bench['name'], bench['lineage'], record['machine']['class']),
         'run_id': record['run_id'],
         'commit': record['code']['proteus'].get('sha'),
+        'base': record['code']['proteus'].get('base'),
         'time': started_at,
         'sort': (started, record['run_id']),
         'comparable': record['comparability']['ok'] is True,
@@ -138,7 +139,10 @@ def _series(key: tuple, rows: list[tuple[dict, float]]) -> dict:
     rows = sorted(rows, key=lambda row: row[0]['sort'])
     unit = 'count' if key[3] == 'n_iters' else 's'
     points = [
-        {name: ident[name] for name in ('run_id', 'commit', 'time', 'comparable')}
+        {
+            name: ident[name]
+            for name in ('run_id', 'commit', 'base', 'time', 'comparable', 'settings_hash')
+        }
         | {'value': value}
         for ident, value in rows
     ]

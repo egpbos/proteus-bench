@@ -1,7 +1,9 @@
 """A series page: trend charts for one (benchmark, lineage, machine class) group, and its runs.
 
 Headline metrics get large charts; phase, component and submodule metrics get
-small multiples sorted by size (baseline median, else latest value). The run
+small multiples sorted by size (baseline median, else latest value). Each
+chart is drawn twice, in run order and in PROTEUS commit order, and a switch
+shows one or the other. The run
 table can be filtered by any settings key whose value differs between the
 group's runs, from a JSON index embedded in the page.
 """
@@ -62,13 +64,18 @@ def page(group: GroupKey, by_metric: dict[str, dict], records: list[dict]) -> st
         multiples=multiples,
         table_metrics=[(m, by_metric[m]['unit'], values[m]) for m in shown],
         settings_index=settings_index(records),
+        has_history=any(
+            p['history'] for p in headline + [q for _, ps in multiples for q in ps]
+        ),
     )
 
 
 def _panel(series: dict, size: str) -> dict:
-    """A chart with its series, or no chart for a series without points."""
+    """Trend and history charts with their series; None for a chart without points."""
     chart = figures.themed(figures.trend, series, ROOT, size) if series['points'] else None
-    return {'series': series, 'chart': chart}
+    placed = figures.by_commit(series['points'])
+    history = figures.themed(figures.history, series, ROOT, size) if placed else None
+    return {'series': series, 'chart': chart, 'history': history}
 
 
 def settings_index(records: list[dict]) -> dict[str, dict[str, list[str]]]:

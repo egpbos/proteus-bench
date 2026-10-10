@@ -1,3 +1,17 @@
+// Switch the trend charts between run order and PROTEUS commit order. Charts drawn
+// while hidden have no width, so the ones that appear are resized.
+(() => {
+  const order = document.getElementById('order');
+  if (!order) return;
+  order.addEventListener('change', () => {
+    const byCommit = order.querySelector('input:checked').value === 'commit';
+    for (const el of document.querySelectorAll('.by-run, .by-commit')) {
+      el.hidden = el.classList.contains('by-commit') !== byCommit;
+      if (!el.hidden) el.querySelectorAll('.js-plotly-plot').forEach(plot => Plotly.Plots.resize(plot));
+    }
+  });
+})();
+
 // Filter a series page's run table (and dim chart points of other runs) by settings key=value.
 // Reads the index embedded as #settings-index: {key: {jsonValue: [run ids]}}.
 (() => {

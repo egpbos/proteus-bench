@@ -13,11 +13,20 @@ then, grey when the next run did not confirm it). It draws the baseline band
 (median +- 3 sigma, dashed lines at +-5 %), the trend through comparable runs,
 broken at settings boundaries, and boundary and step markers. Clicking a point
 opens its run page, whose path is the point's ``customdata``.
+
+The history chart puts runs at the PROTEUS main commit they measured
+(``code.proteus.base``), oldest commit on the left, so runs made later of older
+code fall into place. Runs of one commit sit side by side; a line joins the
+median of each commit's comparable runs with the same settings, and breaks where
+the settings change.
 """
 
 from __future__ import annotations
 
 import html
+import re
+from datetime import datetime
+from statistics import median
 
 import plotly.graph_objects as go
 import proteus_plotly
@@ -29,6 +38,8 @@ SIGMAS = 3.0
 REL_FLOOR = 0.05  # the analysis' smallest flag threshold, max(3 sigma, 5 %)
 HEIGHTS = {'large': 260, 'small': 210}
 MAX_X_LABELS = 6
+SPREAD = 0.12  # x offset between runs of one commit
+PR_NUMBER = re.compile(r'\(#(\d+)\)$|^Merge pull request #(\d+)')
 LEGEND = {'orientation': 'h', 'x': 0, 'y': 1, 'yanchor': 'bottom'}
 # A component's usual module: its colour is the module's domain colour, and the
 # second component of one domain (structure, escape) is hatched.
@@ -86,7 +97,9 @@ def trend(series: dict, root: str, size: str, theme: str) -> go.Figure:
     index = {p['run_id']: i for i, p in enumerate(points)}
     flags = {_index_of(index, f['run_id'], series): f for f in series['flags']}
     cuts = [_index_of(index, b['run_id'], series) for b in series['boundaries']]
-    fig = go.Figure(layout=_trend_layout(points, series['unit'], size))
+    fig = go.Figure(
+        layout=_trend_layout([p['time'][5:10] for p in points], series['unit'], size)
+    )
     fig.add_traces(_band(series['baseline'], points, c))
     fig.add_trace(_trend_line(points, cuts, c))
     fig.add_trace(_points(points, flags, series['unit'], root, c))
@@ -117,16 +130,17 @@ def _index_of(index: dict, run_id: str, series: dict) -> int:
     return index[run_id]
 
 
-def _trend_layout(points: list[dict], unit: str, size: str) -> dict:
-    every = -(-len(points) // MAX_X_LABELS)
-    ticks = list(range(0, len(points), every))
+def _trend_layout(labels: list[str], unit: str, size: str) -> dict:
+    """Layout for evenly spaced x positions, at most ``MAX_X_LABELS`` of them labelled."""
+    every = -(-len(labels) // MAX_X_LABELS)
+    ticks = list(range(0, len(labels), every))
     return _layout(
         HEIGHTS[size],
         showlegend=False,
         xaxis={
-            'range': [-0.5, len(points) - 0.5],
+            'range': [-0.5, len(labels) - 0.5],
             'tickvals': ticks,
-            'ticktext': [html.escape(points[i]['time'][5:10]) for i in ticks],
+            'ticktext': [html.escape(labels[i]) for i in ticks],
             'showgrid': False,
             'zeroline': False,
         },
@@ -234,6 +248,93 @@ def _points(
         y=[p['value'] for p in points],
         ids=[p['run_id'] for p in points],
         customdata=[root + run_href(p['run_id']) for p in points],
+        mode='markers',
+        marker={
+            'symbol': [m[0] for m in marks],
+            'color': [m[1] for m in marks],
+            'size': [m[2] for m in marks],
+            'line': {'width': 1.5, 'color': [m[1] for m in marks]},
+        },
+        hoverinfo='text',
+        hovertext=texts,
+        hoverlabel={'align': 'left'},
+    )
+
+
+def commit_label(base: dict) -> str:
+    """``#<PR>`` from a squash or merge commit subject, else the short sha."""
+    match = PR_NUMBER.search(base.get('subject', ''))
+    return f'#{match[1] or match[2]}' if match else base['sha']
+
+
+def by_commit(points: list[dict]) -> list[tuple[dict, list[dict]]]:
+    """(base, points) per main commit, oldest first; points without a base are left out."""
+    groups = {}
+    for p in points:
+        if p['base']:
+            groups.setdefault(p['base']['sha'], (p['base'], []))[1].append(p)
+    return sorted(
+        groups.values(),
+        key=lambda g: (datetime.fromisoformat(g[0]['committed_at']), g[0]['sha']),
+    )
+
+
+def history(series: dict, root: str, size: str, theme: str) -> go.Figure:
+    """The history chart of one series; ``root`` prefixes the run-page paths."""
+    c = proteus_plotly.colors(theme)
+    commits = by_commit(series['points'])
+    labels = [commit_label(base) for base, _ in commits]
+    fig = go.Figure(layout=_trend_layout(labels, series['unit'], size))
+    xs, ys, settings = [], [], None
+    for i, (_, runs) in enumerate(commits):
+        by_settings = {}
+        for p in runs:
+            if p['comparable']:
+                by_settings.setdefault(p['settings_hash'], []).append(p['value'])
+        for settings_hash, values in by_settings.items():
+            if settings is not None and settings_hash != settings:
+                xs.append(None)
+                ys.append(None)
+                text = f'settings changed at {labels[i]}'
+                shape, note = _marker(i - 0.5, 'settings', text, 'top', c)
+                fig.add_shape(shape)
+                fig.add_annotation(note)
+            settings = settings_hash
+            xs.append(i)
+            ys.append(median(values))
+    line = {'color': c['text-d'], 'width': 1.5}
+    fig.add_trace(
+        go.Scatter(x=xs, y=ys, mode='lines', line=line, opacity=0.45, hoverinfo='skip')
+    )
+    fig.add_trace(_commit_points(commits, labels, series['unit'], root, c))
+    return fig
+
+
+def _commit_points(
+    commits: list[tuple[dict, list[dict]]], labels: list[str], unit: str, root: str, c: dict
+) -> go.Scatter:
+    xs, rows = [], []
+    for i, (base, runs) in enumerate(commits):
+        spread = min(SPREAD, 0.6 / len(runs))
+        for k, p in enumerate(runs):
+            xs.append(i + (k - (len(runs) - 1) / 2) * spread)
+            rows.append((labels[i], base, p))
+    marks = [_mark(p, None, c) for _, _, p in rows]
+    texts = [
+        hover(
+            f'{label} {base["sha"]}, {base["committed_at"][:10]}',
+            base.get('subject', '')[:80],
+            f'run {fmt_time(p["time"])}',
+            fmt_value(p['value'], unit),
+            'comparable' if p['comparable'] else 'not comparable',
+        )
+        for label, base, p in rows
+    ]
+    return go.Scatter(
+        x=xs,
+        y=[p['value'] for _, _, p in rows],
+        ids=[p['run_id'] for _, _, p in rows],
+        customdata=[root + run_href(p['run_id']) for _, _, p in rows],
         mode='markers',
         marker={
             'symbol': [m[0] for m in marks],

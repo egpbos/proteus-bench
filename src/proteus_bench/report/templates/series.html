@@ -8,7 +8,12 @@
 <figure class="panel fig">
 <figcaption><b class="mono">{{ s['key']['metric'] }}</b><span class="note">latest {{ (s['points'][-1]['value'] if s['points'] else none) | fmt_value(s['unit']) }}</span></figcaption>
 {% if p.chart %}
-{{ chart(p.chart, s['key']['metric'] ~ ': ' ~ s['points'] | length ~ ' runs') }}
+<div class="by-run">{{ chart(p.chart, s['key']['metric'] ~ ': ' ~ s['points'] | length ~ ' runs') }}</div>
+{% if p.history %}
+<div class="by-commit" hidden>{{ chart(p.history, s['key']['metric'] ~ ' by PROTEUS commit') }}</div>
+{% else %}
+<p class="note by-commit" hidden>No run of this series records its PROTEUS main commit.</p>
+{% endif %}
 <details><summary>Table view</summary>
 <div class="scroll"><table><thead><tr><th>Run</th><th>Commit</th><th class="num">Value</th><th>Comparable</th><th>Flag</th></tr></thead><tbody>
 {% for point in s['points'] | reverse %}
@@ -29,6 +34,13 @@
 <section>
 <h2>Trends</h2>
 <p class="note">One mark per run, oldest on the left, evenly spaced. Hover a mark for details; click it to open the run. Detection never compares across a settings change.</p>
+{% if has_history %}
+<fieldset class="panel order" id="order"><legend>Order runs by</legend>
+<label><input type="radio" name="order" value="run" checked> run date</label>
+<label><input type="radio" name="order" value="commit"> PROTEUS commit</label>
+</fieldset>
+<p class="note by-commit" hidden>Each position is a PROTEUS main commit, oldest on the left, labelled with its pull request. Runs of one commit sit side by side, and the line joins the median of each commit's comparable runs with the same settings. Flags, steps and baselines are shown in run order only.</p>
+{% endif %}
 <div class="panel"><ul class="marks">
 <li><span class="glyph dot" aria-hidden="true">●</span>comparable run</li>
 <li><span class="glyph ring" aria-hidden="true">○</span>not comparable (not in baselines)</li>
