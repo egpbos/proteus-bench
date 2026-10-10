@@ -109,6 +109,21 @@ shutdown
 The fake stub in `proteus_bench.testing.fake_proteus` produces this layout.
 Its `TimingWriter` class is a reference emitter.
 
+### PROTEUS without the emitter
+
+PROTEUS versions without `timing.jsonl` (everything before the emitter, back to
+#678) still log one `[IT_TIMING] iter=N <component>=<s> ... other=<s> total=<s>`
+line per main-loop iteration under `PROTEUS_TIMING=1`. For such a run
+proteus-bench sets `timings.source` to `log` and builds the timings from those
+lines (`proteus_bench.logtiming`): the runner notes when each line arrives, an
+iteration starts at its arrival minus its `total`, the loop runs from the first
+iteration's start to the last line, init is everything before (start-up
+included) and shutdown everything after. Init has no breakdown, and there are
+no backend events, submodules or init-stage flags, so the `expected_backends`
+check is replaced by `timing_log` (at least one such line). PROTEUS before #777
+ignores `PROTEUS_OUTPUT_PATH`; its outputs are read from
+`<checkout>/output/<run_id>`.
+
 ## Run record
 
 One JSON file per run. See `record-v1.schema.json` for every field. Key points:

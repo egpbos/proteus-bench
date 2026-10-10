@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 import tomli_w
 
-from proteus_bench import cli, machine, record, schema
+from proteus_bench import cli, machine, record, schema, store
 from proteus_bench.commands import run as run_command
 from proteus_bench.commands.run import make_run_id
 
@@ -99,6 +99,25 @@ def test_local_run_needs_a_machine_label(tmp_path, monkeypatch, capsys):
     assert cli.main(['run', '--runs-dir', str(tmp_path / 'runs')]) == 2
     assert '--machine-label' in capsys.readouterr().err
     assert not (tmp_path / 'runs').exists()
+
+
+def test_proteus_without_the_emitter_is_timed_from_its_log(bench):
+    """No timing.jsonl and output under the checkout, as before #777: timings from [IT_TIMING]."""
+    code, rec, out = bench({'legacy': True})
+    run_dir = _run_dir(out)
+    assert code == 0
+    assert schema.shape_problems('record', rec) == []
+    assert rec['timings']['source'] == 'log'
+    assert rec['comparability'] == {'ok': True, 'reasons': []}
+    assert [c['name'] for c in rec['checks']] == ['clean_tree', 'timing_log']
+    assert rec['backends'] == {}
+    assert rec['outcome'] == {'exit_code': 0, 'n_iters': 16, 'status': 'ok'}
+    assert [r['iter'] for r in rec['timings']['per_iter']] == list(range(1, 17))
+    assert rec['timings']['per_iter'][0]['components']['atmos'] == pytest.approx(780.0)
+    assert 'spans' not in rec['artifacts']
+    assert rec['artifacts']['settings'] == 'init_coupler.toml'  # found under the checkout
+    assert rec['fingerprint']
+    assert store.check_run(run_dir)[1] == []
 
 
 def test_ok_run_writes_a_complete_valid_record(bench):
