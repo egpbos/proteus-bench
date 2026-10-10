@@ -20,15 +20,25 @@ LINE = re.compile(r'\[IT_TIMING\] iter=(\d+) (.*)')
 FIELD = re.compile(r'(\w+)=(\S+)')
 
 
-def iterations(lines: list[tuple[float, str]]) -> list[tuple[float, int, dict[str, float]]]:
-    """(arrival, iteration, seconds per key) of each ``[IT_TIMING]`` line, in order."""
-    found = []
+def iterations(lines: list[tuple[float, str]]) -> tuple[list, int]:
+    """(arrival, iteration, seconds per key) of each ``[IT_TIMING]`` line, in order, and
+    the number of lines left out for a missing ``total`` or a non-numeric value, such as
+    the torn last line of a killed run.
+    """
+    found, bad = [], 0
     for arrival, text in lines:
         match = LINE.search(text)
-        if match:
+        if not match:
+            continue
+        try:
             fields = {key: float(value) for key, value in FIELD.findall(match[2])}
+        except ValueError:
+            fields = {}
+        if 'total' in fields:
             found.append((arrival, int(match[1]), fields))
-    return found
+        else:
+            bad += 1
+    return found, bad
 
 
 def timings_section(iters: list, wall_s: float, rusage: dict) -> dict:
@@ -88,7 +98,11 @@ def outcome(iters: list, exit_code: int, timed_out: bool, timeout_s) -> dict:
     return out | {'status': 'ok' if exit_code == 0 else 'failed'}
 
 
-def check(iters: list) -> dict:
-    """At least one ``[IT_TIMING]`` line; without one PROTEUS_TIMING had no effect."""
+def check(iters: list, bad: int) -> dict:
+    """At least one ``[IT_TIMING]`` line and none unreadable; without any, PROTEUS_TIMING had
+    no effect.
+    """
     detail = f'{len(iters)} [IT_TIMING] lines, no timing.jsonl'
-    return {'name': 'timing_log', 'ok': bool(iters), 'detail': detail}
+    if bad:
+        detail += f'; {bad} unreadable lines left out'
+    return {'name': 'timing_log', 'ok': bool(iters) and not bad, 'detail': detail}

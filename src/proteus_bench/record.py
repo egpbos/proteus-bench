@@ -146,10 +146,10 @@ def _timing_sections(ctx: RunContext, result: ProcessResult) -> tuple:
         expected = checks.expected_backends_check(backends, ctx.suite['expected_backends'])
         outcome = collect.outcome(events, result.exit_code, result.timed_out, ctx.timeout_s)
         return [timing_check, expected], backends, outcome, timings_section(events, result)
-    iters = logtiming.iterations(result.timing_lines)
+    iters, bad = logtiming.iterations(result.timing_lines)
     outcome = logtiming.outcome(iters, result.exit_code, result.timed_out, ctx.timeout_s)
     timings = logtiming.timings_section(iters, result.wall_s, result.rusage)
-    return [logtiming.check(iters)], {}, outcome, timings
+    return [logtiming.check(iters, bad)], {}, outcome, timings
 
 
 def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, list]) -> dict:

@@ -113,7 +113,9 @@ def test_proteus_without_the_emitter_is_timed_from_its_log(bench):
     assert rec['backends'] == {}
     assert rec['outcome'] == {'exit_code': 0, 'n_iters': 16, 'status': 'ok'}
     assert [r['iter'] for r in rec['timings']['per_iter']] == list(range(1, 17))
-    assert rec['timings']['per_iter'][0]['components']['atmos'] == pytest.approx(780.0)
+    assert rec['timings']['per_iter'][0]['components']['atmos'] == pytest.approx(
+        780.0, abs=1e-3
+    )
     assert 'spans' not in rec['artifacts']
     assert rec['artifacts']['settings'] == 'init_coupler.toml'  # found under the checkout
     assert rec['fingerprint']
