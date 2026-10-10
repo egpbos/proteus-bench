@@ -12,6 +12,7 @@ init-stage flags.
 
 from __future__ import annotations
 
+import math
 import re
 
 from proteus_bench.collect import ROUND, component_row
@@ -22,8 +23,8 @@ FIELD = re.compile(r'(\w+)=(\S+)')
 
 def iterations(lines: list[tuple[float, str]]) -> tuple[list, int]:
     """(arrival, iteration, seconds per key) of each ``[IT_TIMING]`` line, in order, and
-    the number of lines left out for a missing ``total`` or a non-numeric value, such as
-    the torn last line of a killed run.
+    the number of lines left out for a missing ``total`` or a non-numeric or non-finite
+    value, such as the torn last line of a killed run.
     """
     found, bad = [], 0
     for arrival, text in lines:
@@ -34,7 +35,7 @@ def iterations(lines: list[tuple[float, str]]) -> tuple[list, int]:
             fields = {key: float(value) for key, value in FIELD.findall(match[2])}
         except ValueError:
             fields = {}
-        if 'total' in fields:
+        if 'total' in fields and all(math.isfinite(v) for v in fields.values()):
             found.append((arrival, int(match[1]), fields))
         else:
             bad += 1

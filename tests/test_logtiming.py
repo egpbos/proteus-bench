@@ -5,7 +5,7 @@ init, loop and shutdown add up to the wall time; loop components sum over
 iterations and 'other' takes the rest of the loop, gaps between iterations
 included; per-iteration rows hold the components without 'other' and 'total';
 other output lines are ignored, and a line without a total or with a non-numeric
-value is left out and fails the check; without iterations there are no phases
+or non-finite value is left out and fails the check; without iterations there are no phases
 and the check fails; the status comes from the exit code.
 """
 
@@ -90,6 +90,7 @@ def test_without_iterations_there_are_no_phases_and_the_check_fails():
     [
         '[ INFO  ] [IT_TIMING] iter=3 interior=1.000 atm',  # cut before total
         '[ INFO  ] [IT_TIMING] iter=3 interior=1.0x0 total=2.000',
+        '[ INFO  ] [IT_TIMING] iter=3 interior=nan total=2.000',  # JSON has no NaN
     ],
 )
 def test_unreadable_lines_are_left_out_and_fail_the_check(torn):
