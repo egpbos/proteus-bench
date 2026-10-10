@@ -25,13 +25,16 @@ def component_rows(events: list[dict]) -> list[dict]:
     for phase in (p for p in PHASES if p in totals_by_phase):
         totals = totals_by_phase[phase]
         attributed = sorted(totals['attributed'].items(), key=lambda kv: -kv[1][0])
-        rows += [_row(phase, key, total_s, n_calls) for key, (total_s, n_calls) in attributed]
+        rows += [
+            component_row(phase, key, total_s, n_calls)
+            for key, (total_s, n_calls) in attributed
+        ]
         # Children may overrun their phase by the checker's 1 ms slack
-        rows.append(_row(phase, ('other', None, None), max(0.0, totals['other']), 0))
+        rows.append(component_row(phase, ('other', None, None), max(0.0, totals['other']), 0))
     return rows
 
 
-def _row(phase: str, key: tuple, total_s: float, n_calls: int) -> dict:
+def component_row(phase: str, key: tuple, total_s: float, n_calls: int) -> dict:
     component, submodule, backend = key
     return {
         'phase': phase,

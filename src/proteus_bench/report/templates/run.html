@@ -24,6 +24,7 @@
 <tr><th scope="row">Simulated time</th><td>{{ '%.4g yr' | format(outcome['time_yr']) if 'time_yr' in outcome else 'n/a' }}</td></tr>
 <tr><th scope="row">Wall time</th><td>{{ timings['wall_s'] | fmt_s }}</td></tr>
 <tr><th scope="row">Start-up</th><td>{{ timings.get('startup_s') | fmt_s }}</td></tr>
+<tr><th scope="row">Timings from</th><td>{{ "PROTEUS's [IT_TIMING] log lines" if timings.get('source') == 'log' else 'timing.jsonl' }}</td></tr>
 <tr><th scope="row">Peak RSS</th><td>{{ '%.0f MB' | format(rusage['max_rss_mb']) if 'max_rss_mb' in rusage else 'n/a' }}</td></tr>
 <tr><th scope="row">CPU user / sys</th><td>{{ rusage.get('user_s') | fmt_s }} / {{ rusage.get('sys_s') | fmt_s }}</td></tr>
 {% if bench.get('carry_over_of') %}<tr><th scope="row">Carry-over of</th><td><span class="mono">{{ bench['carry_over_of'] }}</span></td></tr>{% endif %}
