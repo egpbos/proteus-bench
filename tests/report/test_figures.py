@@ -229,7 +229,7 @@ def test_iteration_bars(records):
     }
     assert list(bars) == ['interior', 'structure', 'atmos', 'outgas', 'other']
     assert bars['structure']['y'] == pytest.approx([0, 0, 140.0, 0, 0, 140.0])
-    assert bars['atmos']['hovertext'][0] == 'iteration 1, atmos: 13:00 min'
+    assert bars['atmos']['hovertext'][0] == 'iteration 1 (init stage), atmos: 13:00 min'
 
 
 def test_phase_bar_segments(records):

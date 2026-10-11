@@ -1,8 +1,8 @@
 """Tests for proteus_bench.analysis: series, noise model, flags, steps and boundaries.
 
 Contract clauses: metrics are derived from a record's timings (every non-null phase,
-init rows summed per component, every iteration in the per-iteration medians,
-components counted over the iterations they ran in); points are ordered by
+init rows summed per component, init-stage iterations left out of per-iteration
+medians, components counted over the iterations they ran in); points are ordered by
 start time, then run id; only comparable runs enter baselines, flags, steps and
 boundaries; sigma is 1.4826 x MAD; a flag needs |delta| > max(3 sigma, 5 %) and
 |delta| above the unit's absolute floor; ``confirmed`` is None without a next
@@ -74,12 +74,12 @@ def test_record_metrics_from_the_example_record(example_record):
     assert metrics['setup'] == pytest.approx(3.5)
     assert 'shutdown' not in metrics  # a null phase is not a zero
     assert metrics['n_iters'] == 6
-    # Iterations 1..6 take 784.7, 19.7, 159.7, 19.7, 19.7, 159.7 s: median (19.7 + 159.7) / 2.
-    # Leaving out iteration 1 would give 19.7 s.
-    assert metrics['loop_per_iter_median'] == pytest.approx(89.7)
-    assert abs(metrics['loop_per_iter_median'] - 19.7) > 1
+    # Iterations 2..6 take 19.7, 159.7, 19.7, 19.7, 159.7 s: median 19.7 s. Keeping the
+    # init-stage iteration 1 (784.7 s) would move the median to (19.7 + 159.7) / 2.
+    assert metrics['loop_per_iter_median'] == pytest.approx(19.7)
+    assert abs(metrics['loop_per_iter_median'] - 89.7) > 1
     # Structure re-solves run in iterations 3 and 6 (140 s each). Counting the other
-    # iterations as 0 s would give a median of 0 s.
+    # steady iterations as 0 s would give a median of 0 s.
     assert metrics['loop.structure.per_iter_median'] == pytest.approx(140.0)
     assert metrics['loop.atmos.per_iter_median'] == pytest.approx(15.0)
     assert metrics['init.other'] == pytest.approx(0.0, abs=1e-12)
@@ -107,9 +107,10 @@ def test_init_rows_of_one_component_are_summed(example_record):
     assert metrics['submodule.zalmoxis.total'] == pytest.approx(2098.0)
 
 
-def test_iteration_limits_and_malformed_records(example_record):
-    """No iterations give no loop medians; bad time, type or missing field raise."""
-    example_record['timings']['per_iter'] = []
+def test_steady_iteration_limits_and_malformed_records(example_record):
+    """No steady iteration gives no loop medians; bad time, type or missing field raise."""
+    for row in example_record['timings']['per_iter']:
+        row['init_stage'] = True
     metrics = record_metrics(example_record)
     assert 'loop_per_iter_median' not in metrics
     assert not [name for name in metrics if name.startswith('loop.')]

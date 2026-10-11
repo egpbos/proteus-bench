@@ -4,8 +4,7 @@ Contract clauses: the stub writes the files the harness reads from a real run;
 init_coupler.toml holds the merged resolved config without the [fake] table;
 timing lines appear only when PROTEUS_TIMING is on, and in each the steps plus
 other add up to total; an error exits 1 before shutdown and a hard kill leaves
-a torn last line; legacy mode prints no [INIT_TIMING] or [BACKEND] line;
-scenario typos are errors.
+a torn last line; scenario typos are errors.
 """
 
 from __future__ import annotations
@@ -27,7 +26,11 @@ FIELDS = re.compile(r'(\w+)=([0-9.]+)')
 
 def timing_lines(out: str, mark: str) -> list[dict[str, float]]:
     return [
-        {k: float(v) for k, v in FIELDS.findall(line.split(mark, 1)[1]) if k != 'iter'}
+        {
+            k: float(v)
+            for k, v in FIELDS.findall(line.split(mark, 1)[1])
+            if k not in ('iter', 'init_stage')
+        }
         for line in out.splitlines()
         if mark in line
     ]
@@ -61,6 +64,8 @@ def test_timing_lines_add_up_and_follow_the_scenario(run_fake):
     # init: structure 1138, equilibrate 2 x 1 outgas + 420 + 420/2, star 2
     assert init['total'] == pytest.approx(1138 + 2 + 420 + 210 + 2, abs=1e-3)
     assert iters[0]['atmos'] == pytest.approx(780.0, abs=1e-3)  # the long first AGNI solve
+    assert '[IT_TIMING] iter=1 init_stage=1 ' in out
+    assert '[IT_TIMING] iter=2 init_stage=0 ' in out
     assert '[BACKEND] aragog solver=cvode' in out
     assert out == (outdir / 'proteus_00.log').read_text()  # the log file has the same lines
 
@@ -71,13 +76,6 @@ def test_no_timing_lines_without_proteus_timing(run_fake):
     assert code == 0
     assert '_TIMING]' not in out
     assert '[BACKEND]' in out
-
-
-def test_legacy_mode_logs_only_iterations(run_fake):
-    """PROTEUS before the timing PR: [IT_TIMING] lines, no [INIT_TIMING] or [BACKEND]."""
-    _, _, out = run_fake({'timing': 'legacy'}, iters=2)
-    assert len(timing_lines(out, '[IT_TIMING]')) == 2
-    assert '[INIT_TIMING]' not in out and '[BACKEND]' not in out
 
 
 def test_error_exits_1_before_shutdown(run_fake):
@@ -104,7 +102,7 @@ def test_hard_kill_leaves_a_torn_last_line(tmp_path):
     )
     assert proc.returncode == 137
     last = proc.stdout.splitlines()[-1]
-    assert last.startswith('[ INFO  ] [IT_TIMING] iter=3 ')
+    assert last.startswith('[ INFO  ] [IT_TIMING] iter=3 init_stage=0 ')
     assert 'total=' not in last and last.endswith(' atm')
 
 
@@ -115,7 +113,5 @@ def test_scenario_rejects_typos_instead_of_running_the_default():
     assert scenario({'fail': 'kill'})['fail'] == 'kill'
     with pytest.raises(ValueError, match=r"fail = 'kil'"):
         scenario({'fail': 'kil'})
-    with pytest.raises(ValueError, match=r"timing = 'jsonl'"):
-        scenario({'timing': 'jsonl'})
     with pytest.raises(ValueError, match=r"unknown \[fake\] keys \['atmos_first'\]"):
         scenario({'atmos_first': 1.0})

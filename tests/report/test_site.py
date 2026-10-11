@@ -228,7 +228,7 @@ def test_flags_show_three_confirmation_states(site):
     dark = marks(charts['loop.atmos.per_iter_median']['dark'])
     assert dark[f'20260922T031000Z-{run}5'][1] == proteus_plotly.colors('dark')['text-d']
     # median per-iteration atmosphere 16.2 x 1.003 s on r6 against the r2, r3, r5
-    # baseline median 15 x 0.998 s: +8.5 %
+    # baseline median 15 x 0.998 s: +8.5 %; without the init-stage exclusion it is lower
     r6 = (site / R6).read_text()
     assert 'loop.atmos.per_iter_median regression +8.5 %, confirmed' in r6
     assert 'loop.interior.per_iter_median regression' in r6

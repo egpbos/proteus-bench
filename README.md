@@ -60,9 +60,8 @@ commit; fetch in the PROTEUS checkout first so that ref is current.
 
 Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
 `init_coupler.toml`, `config.toml` and `log.txt`. The timings come from the
-lines PROTEUS logs under `PROTEUS_TIMING=1`: `[IT_TIMING]` per iteration (any
-PROTEUS since #678), and `[INIT_TIMING]` and `[BACKEND]` where PROTEUS has
-them (docs/interface.md, "Timing log lines"). The proteus
+lines PROTEUS logs under `PROTEUS_TIMING=1` (docs/interface.md, "Timing log
+lines"). The proteus
 process runs with the BLAS and OpenMP thread counts set to 1, as the proteus CLI
 does itself. The PROTEUS tree must be clean (no changes to tracked files);
 `--allow-failed-checks` runs anyway and marks the record as not comparable.
@@ -76,6 +75,19 @@ fails the run. Fetch the data once beforehand: `proteus get reference` covers
 the `dummy` suite; the `default` suite also needs the data `proteus get` fetches
 for its modules (`stellar`, `spectral`, `surfaces`, and
 `interiordata --config-path input/all_options.toml`).
+
+### Older PROTEUS commits
+
+PROTEUS logs all the timing lines since FormingWorlds/PROTEUS#983. To benchmark
+an older commit (back to #678), patch it first, in a clean checkout with the
+full history:
+
+```bash
+proteus-bench prepare <commit> --proteus path/to/PROTEUS
+```
+
+This leaves the checkout on branch `bench/<sha>`, one commit with the patches
+on top of `<commit>`. Install that commit as usual (`pip install -e`, with its own module versions), then run.
 
 ## Publishing
 

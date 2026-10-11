@@ -14,31 +14,43 @@ against it. The values in `examples/record.json` are illustrative.
 
 ## Timing log lines
 
-Under `PROTEUS_TIMING=1`, PROTEUS logs where the wall time of a run goes:
+Under `PROTEUS_TIMING=1`, PROTEUS (since FormingWorlds/PROTEUS#983) logs where
+the wall time of a run goes:
 
-| Line | Since | Meaning |
-|---|---|---|
-| `[IT_TIMING] iter=N <component>=<s> ... other=<s> total=<s>` | #678 | one per main-loop iteration |
-| `[INIT_TIMING] <step>=<s> ... other=<s> total=<s>` | FormingWorlds/PROTEUS#983 | once, just before the loop: data, structure, equilibrate, stellar, orbit |
-| `[BACKEND] <submodule> <key>=<value>` | FormingWorlds/PROTEUS#983 | a module's choice, e.g. `aragog solver=cvode` |
+| Line | Meaning |
+|---|---|
+| `[INIT_TIMING] <step>=<s> ... other=<s> total=<s>` | once, just before the loop: data, structure, equilibrate, stellar, orbit |
+| `[IT_TIMING] iter=N init_stage=0\|1 <component>=<s> ... other=<s> total=<s>` | one per main-loop iteration; `init_stage` is 1 when the iteration began in the init stage |
+| `[BACKEND] <submodule> <key>=<value>` | a module's choice, e.g. `aragog solver=cvode` |
 
 Seconds have three decimals, and in each line the steps plus `other` add up to
 `total`. A PROTEUS test pins this form, since a change to it breaks readers. A
 key the reader does not know becomes a component of its own, so a new step or
 module needs no reader change.
 
+PROTEUS from #678 to before #983 logs only `[IT_TIMING]`, without
+`init_stage`. `proteus-bench prepare COMMIT` makes such a commit log all three
+lines: it creates branch `bench/<sha>` at the commit and commits the patches in
+`src/proteus_bench/proteus_patches/` on top, applied with a three-way merge
+(so the clone needs the history). The record's `code.proteus.base` is still the
+original commit. `scripts/check-proteus-patches.sh` applies the patches to
+every first-parent commit on main from #678 on and checks the result; rerun it
+when #983 changes.
+
 proteus-bench builds a record's timings from these lines
 (`proteus_bench.logtiming`). The runner notes when each line arrives; an
 iteration starts at its arrival minus its `total`, the loop runs from the first
 iteration's start to the last line, init is everything before and shutdown
-everything after. With an `[INIT_TIMING]` line, init is broken into its steps,
+everything after. Init is broken into the `[INIT_TIMING]` steps,
 `startup_s` is the time before PROTEUS's init began, and init's `other` row
-holds the rest (start-up included). `[BACKEND]` lines fill `backends` and the
+holds the rest (start-up included). Each component's `submodule` is the module
+the run's config selects for it (`atmos` is `atmos_clim.module`, and so on;
+`proteus_bench.logtiming.SECTIONS`). `[BACKEND]` lines fill `backends` and the
 `expected_backends` check runs; without them it is left out. A `timing_log`
-check needs at least one `[IT_TIMING]` line and no unreadable one (a torn,
-garbled or non-finite line). Components carry no submodule, and every iteration counts in the
-per-iteration medians, including the first ones (init stage).
-PROTEUS before #777 ignores `PROTEUS_OUTPUT_PATH`; its outputs are read from
+check needs the `[INIT_TIMING]` line, at least one `[IT_TIMING]` line and no
+unreadable one (torn, garbled, non-finite, or without `init_stage`).
+Per-iteration medians leave out the init-stage iterations. PROTEUS before #777
+ignores `PROTEUS_OUTPUT_PATH`; its outputs are read from
 `<checkout>/output/<run_id>`.
 
 ### Component names

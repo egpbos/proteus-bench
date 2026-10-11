@@ -7,8 +7,9 @@ Usage mirrors the real command::
 It writes what the harness reads from a real run, into
 ``$PROTEUS_OUTPUT_PATH/<params.out.path>`` (default ``./output``):
 ``init_coupler.toml``, ``runtime_helpfile.csv`` and ``proteus_00.log``. Like
-PROTEUS, it prints ``[INIT_TIMING]`` and ``[IT_TIMING]`` lines when
-``PROTEUS_TIMING=1`` and a ``[BACKEND]`` line for Aragog. Times come from a
+PROTEUS since #983, it prints ``[INIT_TIMING]`` and ``[IT_TIMING]`` lines when
+``PROTEUS_TIMING=1`` (the first iteration in the init stage) and a ``[BACKEND]``
+line for Aragog. Times come from a
 synthetic clock shaped like the 2026 Hábrók scaling runs (a long first structure
 solve, periodic in-loop re-solves), so a run finishes at once unless
 ``[fake] sleep_scale`` asks for real sleeping; the logged seconds are synthetic.
@@ -41,12 +42,8 @@ FAKE_DEFAULTS = {
     'fail': 'none',  # none | error (exception, exit 1) | kill (hard exit mid-line)
     'fail_at_iter': 3,
     'sleep_scale': 0.0,  # real seconds slept per synthetic second
-    # log: PROTEUS with [INIT_TIMING] and [BACKEND] lines; legacy: PROTEUS before
-    # #777, with only [IT_TIMING] and its output always under ./output
-    'timing': 'log',
 }
 FAIL_MODES = ('none', 'error', 'kill')
-TIMING_MODES = ('log', 'legacy')
 
 # Defaults the stub "resolves" into init_coupler.toml, like PROTEUS's attrs defaults
 RESOLVED_DEFAULTS = {
@@ -107,9 +104,8 @@ def scenario(overrides: dict) -> dict:
     if unknown:
         raise ValueError(f'unknown [fake] keys {unknown}; allowed: {sorted(FAKE_DEFAULTS)}')
     merged = {**FAKE_DEFAULTS, **overrides}
-    for key, allowed in (('fail', FAIL_MODES), ('timing', TIMING_MODES)):
-        if merged[key] not in allowed:
-            raise ValueError(f'[fake] {key} = {merged[key]!r}; allowed: {allowed}')
+    if merged['fail'] not in FAIL_MODES:
+        raise ValueError(f'[fake] fail = {merged["fail"]!r}; allowed: {FAIL_MODES}')
     return merged
 
 
@@ -142,7 +138,7 @@ class _Run:
         self.clock.advance(2.0)
         steps['stellar'] = 2.0
         self.info('Wrote init_coupler.toml')
-        if self.timing and f['timing'] == 'log':
+        if self.timing:
             steps |= {'other': self.clock.now - sum(steps.values()), 'total': self.clock.now}
             self.info(f'[INIT_TIMING] {_seconds(steps)}')
 
@@ -159,7 +155,7 @@ class _Run:
         self.clock.advance(0.2)  # unattributed bookkeeping
         times |= {'other': 0.2, 'total': self.clock.now - t_iter}
         if self.timing:
-            self.info(f'[IT_TIMING] iter={n} {_seconds(times)}')
+            self.info(f'[IT_TIMING] iter={n} init_stage={int(n <= 1)} {_seconds(times)}')
         self.rows.append((1e3 * n, 3000.0 - 50 * n, 1.0 - 0.01 * n, 1e5 / n, 250.0 + n))
 
     def _stages(self, n: int):
@@ -172,7 +168,7 @@ class _Run:
 
     def _fail(self, n: int, times: dict) -> None:
         if self.fake['fail'] == 'kill':
-            self.info(f'[IT_TIMING] iter={n} {_seconds(times)} atm', end='')  # torn line
+            self.info(f'[IT_TIMING] iter={n} init_stage=0 {_seconds(times)} atm', end='')  # torn
             os._exit(137)
         raise RuntimeError('fake atmosphere solver failure')
 
@@ -193,8 +189,7 @@ def run(cfg: dict, outdir: Path, timing: bool) -> int:
 
 def _simulate(r: _Run) -> int:
     """Run every stage through ``r``; return the process exit code."""
-    if r.fake['timing'] == 'log':
-        r.info(f'[BACKEND] aragog solver={r.fake["aragog_solver"]}')
+    r.info(f'[BACKEND] aragog solver={r.fake["aragog_solver"]}')
     (r.outdir / 'init_coupler.toml').write_text(_dump_toml(r.cfg))
     n_max = r.cfg['params']['stop']['iters']['maximum']
     try:
@@ -225,8 +220,6 @@ def main(argv: list[str] | None = None) -> int:
         .get('path', RESOLVED_DEFAULTS['params']['out']['path'])
     )
     root = Path(os.environ.get('PROTEUS_OUTPUT_PATH', '').strip() or 'output').expanduser()
-    if cfg.get('fake', {}).get('timing') == 'legacy':
-        root = Path('output')
     timing = os.environ.get('PROTEUS_TIMING', '').lower() in ('1', 'true', 'yes', 'on')
     return run(cfg, root / name, timing)
 

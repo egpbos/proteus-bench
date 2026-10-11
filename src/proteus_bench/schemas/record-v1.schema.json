@@ -144,6 +144,7 @@
             "properties": {
               "iter": {"type": "integer", "minimum": 0},
               "dur_s": {"$ref": "#/$defs/seconds"},
+              "init_stage": {"type": "boolean", "description": "The iteration began in PROTEUS's init stage; per-iteration medians leave it out."},
               "components": {"type": "object", "additionalProperties": {"$ref": "#/$defs/seconds"}}
             }
           }

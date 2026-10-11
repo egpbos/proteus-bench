@@ -121,7 +121,7 @@ def benchmark_section(ctx: RunContext, flat: dict) -> dict:
     }
 
 
-def _timing_sections(ctx: RunContext, result: ProcessResult) -> tuple:
+def _timing_sections(ctx: RunContext, result: ProcessResult, flat: dict) -> tuple:
     """(checks, backends, outcome, timings) from PROTEUS's timing log lines."""
     parsed = logtiming.parse(result.timing_lines)
     run_checks = [logtiming.check(parsed)]
@@ -131,7 +131,8 @@ def _timing_sections(ctx: RunContext, result: ProcessResult) -> tuple:
         )
         run_checks.append(expected)
     outcome = logtiming.outcome(parsed, result.exit_code, result.timed_out, ctx.timeout_s)
-    timings = logtiming.timings_section(parsed, result.wall_s, result.rusage)
+    names = logtiming.modules(flat)
+    timings = logtiming.timings_section(parsed, result.wall_s, result.rusage, names)
     return run_checks, parsed['backends'], outcome, timings
 
 
@@ -143,7 +144,7 @@ def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, li
     profile_artifacts, profile_notes = profile
     flat, notes = collect.resolved_settings(ctx.run_dir / ARTIFACTS['settings'], ctx.run_config)
     fingerprint, fp_notes = collect.fingerprint(ctx.output_dir / 'runtime_helpfile.csv')
-    run_checks, backends, outcome, timings = _timing_sections(ctx, result)
+    run_checks, backends, outcome, timings = _timing_sections(ctx, result, flat)
     all_checks = [*ctx.checks, *run_checks]
     profiler = ctx.env['knobs']['profiler']
     return {

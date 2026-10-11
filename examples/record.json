@@ -215,6 +215,7 @@
       {
         "iter": 1,
         "dur_s": 784.7,
+        "init_stage": true,
         "components": {
           "interior": 3.5,
           "outgas": 1.0,
@@ -224,6 +225,7 @@
       {
         "iter": 2,
         "dur_s": 19.7,
+        "init_stage": false,
         "components": {
           "interior": 3.5,
           "outgas": 1.0,
@@ -233,6 +235,7 @@
       {
         "iter": 3,
         "dur_s": 159.7,
+        "init_stage": false,
         "components": {
           "interior": 3.5,
           "structure": 140.0,
@@ -243,6 +246,7 @@
       {
         "iter": 4,
         "dur_s": 19.7,
+        "init_stage": false,
         "components": {
           "interior": 3.5,
           "outgas": 1.0,
@@ -252,6 +256,7 @@
       {
         "iter": 5,
         "dur_s": 19.7,
+        "init_stage": false,
         "components": {
           "interior": 3.5,
           "outgas": 1.0,
@@ -261,6 +266,7 @@
       {
         "iter": 6,
         "dur_s": 159.7,
+        "init_stage": false,
         "components": {
           "interior": 3.5,
           "structure": 140.0,

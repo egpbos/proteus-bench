@@ -5,8 +5,7 @@ init_coupler.toml, config.toml and log.txt into
 ``<runs-dir>/<run_id>/`` and prints that directory; the suite's iteration cap
 and output name reach proteus; the PROTEUS checkout is the one proteus is
 imported from, and none or one without git is a setup error; timings come
-from PROTEUS's timing log lines, with init steps and the backend when PROTEUS
-logs them; failed, torn, timed-out and fallback-solver runs are recorded as not
+from PROTEUS's timing log lines, components named by the config's modules; failed, torn, timed-out and fallback-solver runs are recorded as not
 comparable with the reason; failing checks stop the
 run before anything is written unless --allow-failed-checks; a missing
 proteus command is a setup error; thread counts are forced to 1 for the child
@@ -114,27 +113,6 @@ def test_local_run_needs_a_machine_label(tmp_path, monkeypatch, capsys):
     assert not (tmp_path / 'runs').exists()
 
 
-def test_proteus_before_the_timing_pr_is_timed_from_its_iterations(bench):
-    """Only [IT_TIMING] lines and output under the checkout, as before #777."""
-    code, rec, out = bench({'timing': 'legacy'})
-    run_dir = _run_dir(out)
-    assert code == 0
-    assert schema.shape_problems('record', rec) == []
-    assert rec['comparability'] == {'ok': True, 'reasons': []}
-    assert [c['name'] for c in rec['checks']] == ['clean_tree', 'timing_log']
-    assert rec['backends'] == {}
-    assert rec['outcome'] == {'exit_code': 0, 'n_iters': 16, 'status': 'ok'}
-    assert [r['iter'] for r in rec['timings']['per_iter']] == list(range(1, 17))
-    assert rec['timings']['per_iter'][0]['components']['atmos'] == pytest.approx(
-        780.0, abs=1e-3
-    )
-    assert step_totals(rec, 'init') == {}
-    assert 'startup_s' not in rec['timings']
-    assert rec['artifacts']['settings'] == 'init_coupler.toml'  # found under the checkout
-    assert rec['fingerprint']
-    assert store.check_run(run_dir)[1] == []
-
-
 def test_radau_backend_is_not_comparable(bench):
     """[BACKEND] aragog solver=radau while the suite expects CVODE: recorded, but not comparable."""
     code, rec, _ = bench({'aragog_solver': 'radau'})
@@ -156,6 +134,9 @@ def test_ok_run_writes_a_complete_valid_record(bench):
     assert rec['comparability'] == {'ok': True, 'reasons': []}
     assert rec['outcome']['n_iters'] == 16  # the suite cap, not the stub's default of 4
     assert step_totals(rec, 'init') == pytest.approx(INIT_STEPS, abs=1e-3)
+    modules = {r['component']: r['submodule'] for r in rec['timings']['components']}
+    assert modules['structure'] == 'zalmoxis' and modules['atmos'] == 'agni'
+    assert [r['init_stage'] for r in rec['timings']['per_iter'][:2]] == [True, False]
     assert sum(step_totals(rec, 'loop').values()) == pytest.approx(LOOP_STEPS_S, abs=0.05)
     assert [r['iter'] for r in rec['timings']['per_iter']] == list(range(1, 17))
     assert 0 <= rec['timings']['startup_s'] <= rec['timings']['wall_s']
@@ -180,6 +161,7 @@ def test_ok_run_writes_a_complete_valid_record(bench):
         'expected_backends',
     ]
     assert cli.main(['validate', str(run_dir / 'record.json')]) == 0
+    assert store.check_run(run_dir)[1] == []  # publishable as it is
 
 
 def test_error_run_is_failed(bench):

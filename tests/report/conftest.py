@@ -50,7 +50,7 @@ def fixture_timings(j: float, atmos: float, interior: float, jax: bool) -> dict:
             comps['structure'] = 140.0
         comps = {k: round(v * j, 3) for k, v in comps.items()}
         dur = round(sum(comps.values()) + 0.2, 3)
-        per_iter.append({'iter': n, 'dur_s': dur, 'components': comps})
+        per_iter.append({'iter': n, 'dur_s': dur, 'init_stage': n == 1, 'components': comps})
     structure = (600.0, 'jax', 3) if jax else (1768.0, 'numpy', 3)
     init_rows = [
         ('structure', 'zalmoxis', structure[1], round(structure[0] * j, 3), structure[2]),
