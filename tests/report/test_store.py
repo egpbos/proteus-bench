@@ -156,18 +156,19 @@ def test_symlinked_artifacts_are_refused(tmp_path):
     (store / 'logs' / 'a.log').symlink_to(secret)
     with pytest.raises(ValueError, match='symlinks are not allowed'):
         artifact_source(store, 'logs/a.log')
-    (store / 'spans').symlink_to(tmp_path)
+    (store / 'configs').symlink_to(tmp_path)
     with pytest.raises(ValueError, match='resolves outside the store'):
-        artifact_source(store, 'spans/secret.txt')
+        artifact_source(store, 'configs/secret.txt')
 
 
 def test_artifact_links_need_a_repository_and_the_file(store, records):
-    """r2: its spans link to the results branch; its log is missing; without a repo, no links."""
+    """r2: its config links to the results branch; its log is missing; without a repo, no links."""
     r2 = records[1]
     by_name = {a.name: a for a in artifacts_of(r2, store, 'egpbos/proteus-bench')}
-    spans = f'spans/2026/{r2["run_id"]}.timing.jsonl.gz'
+    config = f'configs/2026/{r2["run_id"]}.toml'
     assert (
-        by_name['spans'].url == f'https://github.com/egpbos/proteus-bench/blob/results/{spans}'
+        by_name['config'].url
+        == f'https://github.com/egpbos/proteus-bench/blob/results/{config}'
     )
     assert by_name['log'].present is False
     assert by_name['log'].url is None

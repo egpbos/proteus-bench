@@ -42,7 +42,7 @@ jobs:
           manifest-path: pyproject.toml
           environments: ${{ matrix.environment }}
       - run: pixi run -e ${{ matrix.environment }} test --cov=proteus_bench --cov-report=xml --cov-report=term
-      - run: pixi run -e ${{ matrix.environment }} proteus-bench validate examples/timing.jsonl examples/record.json
+      - run: pixi run -e ${{ matrix.environment }} proteus-bench validate examples/record.json
       - if: matrix.environment == 'default'
         uses: actions/upload-artifact@v7
         with:

@@ -24,6 +24,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from proteus_bench.logtiming import MARKS
+
 MIB = 2**20
 
 
@@ -34,7 +36,7 @@ class ProcessResult:
     started_at: dt.datetime  # UTC wall clock just before spawn
     wall_s: float  # monotonic, spawn to reap
     rusage: dict  # max_rss_mb, user_s, sys_s
-    # (seconds since spawn, line) of each [IT_TIMING] line, for runs without timing.jsonl
+    # (seconds since spawn, line) of each timing log line
     timing_lines: list[tuple[float, str]] = field(default_factory=list)
 
 
@@ -84,7 +86,7 @@ def _tee(stream, log, t_start: float, timing_lines: list) -> None:
     names = private_names()
     for line in iter(stream.readline, b''):
         text = line.decode(errors='replace')
-        if '[IT_TIMING]' in text:
+        if any(mark in text for mark in MARKS):
             timing_lines.append((time.monotonic() - t_start, text))
         public = text
         for pattern, mark in names:

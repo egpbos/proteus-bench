@@ -1,15 +1,12 @@
 """Tests for proteus_bench.checks: run checks and the comparability rule.
 
-Contract clauses: a dirty tree fails; timing problems and backend mismatches
-fail with the offending values; comparability lists one reason per failed
+Contract clauses: a dirty tree fails; backend mismatches fail with the offending
+values; comparability lists one reason per failed
 check, a non-ok outcome, a profiler and each collection note, and is ok only
 with no reasons.
 """
 
 from __future__ import annotations
-
-import json
-from pathlib import Path
 
 import pytest
 
@@ -27,41 +24,6 @@ def test_clean_tree_check():
     dirty = checks.clean_tree_check({'sha': 'abd4ca53', 'dirty': True})
     assert dirty['ok'] is False
     assert 'abd4ca53' in dirty['detail']
-
-
-def _write_events(path: Path, events: list[dict]) -> Path:
-    path.write_text(''.join(json.dumps(ev) + '\n' for ev in events))
-    return path
-
-
-def test_timing_contract_check(good_events, tmp_path):
-    """Valid events pass; a missing file and a broken tree fail with the problem text."""
-    events, check = checks.timing_contract_check(
-        _write_events(tmp_path / 't.jsonl', good_events)
-    )
-    assert events == good_events
-    assert check['ok'] is True
-    assert checks.timing_contract_check(tmp_path / 'absent.jsonl') == (
-        [],
-        {'name': 'timing_contract', 'ok': False, 'detail': 'no events'},
-    )
-    broken = [dict(ev) for ev in good_events]
-    broken[0]['v'] = 99
-    _, check = checks.timing_contract_check(_write_events(tmp_path / 'b.jsonl', broken))
-    assert check['ok'] is False
-    assert 'unsupported version' in check['detail']
-
-
-def test_unparsable_timing_file_fails_the_check_without_raising(good_events, tmp_path):
-    """A malformed line before the last one fails the check and yields no events."""
-    path = _write_events(tmp_path / 't.jsonl', good_events)
-    lines = path.read_text().splitlines()
-    lines[1] = '{not json'
-    path.write_text('\n'.join(lines) + '\n')
-    events, check = checks.timing_contract_check(path)
-    assert events == []
-    assert check['ok'] is False
-    assert 't.jsonl:2: not valid JSON' in check['detail']
 
 
 def test_expected_backends_check():

@@ -1,8 +1,6 @@
-"""``proteus-bench validate``: check timing.jsonl and run-record files.
+"""``proteus-bench validate``: check run-record files against the record schema.
 
-``*.jsonl`` files are read as timing events (shape per line, then the span
-tree rules); other files as one run record (shape). Exit code 1 when any file
-has problems, so CI can use it as a contract check.
+Exit code 1 when any file has problems, so CI can use it as a contract check.
 """
 
 from __future__ import annotations
@@ -11,7 +9,7 @@ import argparse
 import json
 from pathlib import Path
 
-from proteus_bench import schema, timing
+from proteus_bench import schema
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -19,18 +17,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def problems_for(path: Path) -> list[str]:
-    """Problems found in one file; shape checks are skipped when unavailable."""
-    if path.suffix == '.jsonl':
-        try:
-            events = timing.read_events(path)
-        except ValueError as err:
-            return [str(err)]
-        shape = [
-            f'event {i}: {p}'
-            for i, ev in enumerate(events)
-            for p in schema.shape_problems('timing', ev) or []
-        ]
-        return shape + timing.check_events(events)
+    """Problems found in one file; the shape is not checked without jsonschema."""
     try:
         record = json.loads(path.read_text())
     except json.JSONDecodeError as err:
@@ -40,7 +27,7 @@ def problems_for(path: Path) -> list[str]:
 
 def main(args: argparse.Namespace) -> int:
     if not schema.available():
-        print('note: shape not checked (install jsonschema); tree rules still apply')
+        print('note: shape not checked (install proteus-bench[publish])')
     failed = False
     for path in args.files:
         found = problems_for(path)

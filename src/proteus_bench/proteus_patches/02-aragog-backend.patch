@@ -1,0 +1,9 @@
+diff --git a/src/proteus/interior_energetics/aragog.py b/src/proteus/interior_energetics/aragog.py
+--- a/src/proteus/interior_energetics/aragog.py
++++ b/src/proteus/interior_energetics/aragog.py
+@@ -351,2 +351,5 @@
+     ):
++        if interior_o.aragog_solver is None:
++            _method = str(config.interior_energetics.aragog.solver_method or '')
++            log.info('[BACKEND] aragog solver=%s', _method if _method in ('cvode', 'bdf') else 'radau')
+         if interior_o.aragog_solver is None:

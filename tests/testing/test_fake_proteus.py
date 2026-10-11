@@ -1,10 +1,10 @@
 """Tests for the fake proteus stub (proteus_bench.testing.fake_proteus).
 
 Contract clauses: the stub writes the files the harness reads from a real run;
-timing.jsonl only when PROTEUS_TIMING is on; init_coupler.toml holds the merged
-resolved config without the [fake] table; failures leave data the harness can
-still read (clean error with run_end, or a hard kill with a torn last line);
-the legacy [IT_TIMING] log lines agree with the spans.
+init_coupler.toml holds the merged resolved config without the [fake] table;
+timing lines appear only when PROTEUS_TIMING is on, and in each the steps plus
+other add up to total; an error exits 1 before shutdown and a hard kill leaves
+a torn last line; scenario typos are errors.
 """
 
 from __future__ import annotations
@@ -18,22 +18,30 @@ import tomllib
 import pytest
 
 from proteus_bench.testing.fake_proteus import FAKE_DEFAULTS, scenario
-from proteus_bench.timing import attributed_totals, check_events, read_events
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
+
+FIELDS = re.compile(r'(\w+)=([0-9.]+)')
+
+
+def timing_lines(out: str, mark: str) -> list[dict[str, float]]:
+    return [
+        {
+            k: float(v)
+            for k, v in FIELDS.findall(line.split(mark, 1)[1])
+            if k not in ('iter', 'init_stage')
+        }
+        for line in out.splitlines()
+        if mark in line
+    ]
 
 
 def test_outputs_and_resolved_config(run_fake):
     """All output files appear, and overrides replace only the keys they name."""
-    code, outdir, events = run_fake(iters=2)
+    code, outdir, _ = run_fake(iters=2)
     assert code == 0
     names = sorted(p.name for p in outdir.iterdir())
-    assert names == [
-        'init_coupler.toml',
-        'proteus_00.log',
-        'runtime_helpfile.csv',
-        'timing.jsonl',
-    ]
+    assert names == ['init_coupler.toml', 'proteus_00.log', 'runtime_helpfile.csv']
     resolved = tomllib.loads((outdir / 'init_coupler.toml').read_text())
     assert resolved['params']['stop']['iters']['maximum'] == 2  # override applied
     assert resolved['params']['out']['logging'] == 'INFO'  # sibling default kept
@@ -43,29 +51,43 @@ def test_outputs_and_resolved_config(run_fake):
     assert len(rows) == 3  # header plus one row per iteration
 
 
-def test_no_timing_file_without_proteus_timing(run_fake):
-    """Like PROTEUS, the stub writes timing.jsonl only when asked to."""
-    code, outdir, events = run_fake(iters=1, timing=False)
+def test_timing_lines_add_up_and_follow_the_scenario(run_fake):
+    """One [INIT_TIMING] line and one [IT_TIMING] line per iteration; steps plus other give total."""
+    code, outdir, out = run_fake(iters=3)
     assert code == 0
-    assert events is None
-    assert (outdir / 'runtime_helpfile.csv').exists()
+    (init,) = timing_lines(out, '[INIT_TIMING]')
+    iters = timing_lines(out, '[IT_TIMING]')
+    assert len(iters) == 3
+    for fields in [init, *iters]:
+        steps = sum(v for k, v in fields.items() if k != 'total')
+        assert steps == pytest.approx(fields['total'], abs=0.01)
+    # init: structure 1138, equilibrate 2 x 1 outgas + 420 + 420/2, star 2
+    assert init['total'] == pytest.approx(1138 + 2 + 420 + 210 + 2, abs=1e-3)
+    assert iters[0]['atmos'] == pytest.approx(780.0, abs=1e-3)  # the long first AGNI solve
+    assert '[IT_TIMING] iter=1 init_stage=1 ' in out
+    assert '[IT_TIMING] iter=2 init_stage=0 ' in out
+    assert '[BACKEND] aragog solver=cvode' in out
+    assert out == (outdir / 'proteus_00.log').read_text()  # the log file has the same lines
 
 
-def test_error_closes_spans_as_failed_and_ends_the_run(run_fake):
-    """An exception in the atmosphere marks every open span failed and exits 1."""
-    code, _, events = run_fake({'fail': 'error', 'fail_at_iter': 2}, iters=4)
+def test_no_timing_lines_without_proteus_timing(run_fake):
+    """Like PROTEUS, the stub logs timings only when asked to; the backend line stays."""
+    code, _, out = run_fake(iters=1, timing=False)
+    assert code == 0
+    assert '_TIMING]' not in out
+    assert '[BACKEND]' in out
+
+
+def test_error_exits_1_before_shutdown(run_fake):
+    """An exception in iteration 2's atmosphere ends the run: one full iteration, no helpfile."""
+    code, outdir, out = run_fake({'fail': 'error', 'fail_at_iter': 2}, iters=4)
     assert code == 1
-    assert check_events(events) == []
-    failed = {e['name'] for e in events if e['ev'] == 'span' and e.get('ok') is False}
-    assert failed == {'atmos', 'iter', 'loop'}
-    assert events[-1]['status'] == 'error'
-    iters = [e['iter'] for e in events if e['ev'] == 'span' and e['name'] == 'iter']
-    assert iters == [1, 2]  # stopped in iteration 2, no shutdown
-    assert not any(e['ev'] == 'span' and e['name'] == 'shutdown' for e in events)
+    assert len(timing_lines(out, '[IT_TIMING]')) == 1
+    assert not (outdir / 'runtime_helpfile.csv').exists()
 
 
-def test_hard_kill_leaves_a_readable_partial_file(tmp_path):
-    """A killed process leaves a torn line and no run_end; the rest still checks out."""
+def test_hard_kill_leaves_a_torn_last_line(tmp_path):
+    """A killed process exits 137 mid-line: the last [IT_TIMING] line has no total."""
     cfg = tmp_path / 'cfg.toml'
     cfg.write_text(
         '[params.out]\npath = "killed"\n[params.stop.iters]\nmaximum = 4\n'
@@ -79,29 +101,13 @@ def test_hard_kill_leaves_a_readable_partial_file(tmp_path):
         text=True,
     )
     assert proc.returncode == 137
-    path = tmp_path / 'out' / 'killed' / 'timing.jsonl'
-    assert path.read_text().endswith('"id": 9')  # torn final line present on disk
-    events = read_events(path)
-    assert events[-1]['ev'] != 'run_end'
-    assert check_events(events) == []
-
-
-def test_it_timing_log_lines_agree_with_spans(run_fake):
-    """The [IT_TIMING] totals printed per iteration equal the iter span durations."""
-    code, outdir, events = run_fake(iters=3)
-    log = (outdir / 'proteus_00.log').read_text()
-    printed = [float(m) for m in re.findall(r'\[IT_TIMING\] iter=\d+ .* total=([0-9.]+)', log)]
-    spans = [e['dur'] for e in events if e['ev'] == 'span' and e['name'] == 'iter']
-    assert code == 0
-    assert printed == pytest.approx(spans, abs=1e-3)  # log rounds to 3 decimals
-    # Iteration 1 carries the 780 s first AGNI solve, so it dwarfs the others.
-    assert printed[0] > 10 * printed[1]
-    loop = attributed_totals(events)['loop']
-    assert loop['other'] == pytest.approx(3 * 0.2, abs=1e-6)  # bookkeeping per iteration
+    last = proc.stdout.splitlines()[-1]
+    assert last.startswith('[ INFO  ] [IT_TIMING] iter=3 init_stage=0 ')
+    assert 'total=' not in last and last.endswith(' atm')
 
 
 def test_scenario_rejects_typos_instead_of_running_the_default():
-    """A misspelt key or fail mode must fail loudly, or a test silently tests the wrong thing."""
+    """A misspelt key or mode must fail loudly, or a test silently tests the wrong thing."""
     assert scenario({}) == FAKE_DEFAULTS
     assert scenario({})['fail'] == 'none'  # a default run must succeed
     assert scenario({'fail': 'kill'})['fail'] == 'kill'

@@ -174,13 +174,13 @@ def test_artifacts_link_to_the_results_branch(site, tmp_path, store):
     """With a repository, present artifacts link to its results branch; missing ones say so."""
     r2 = parsed(site, R2)
     base = 'https://github.com/egpbos/proteus-bench/blob/results/'
-    assert f'{base}spans/2026/20260919T031000Z-habrok-default-r2.timing.jsonl.gz' in r2.links
+    assert f'{base}configs/2026/20260919T031000Z-habrok-default-r2.toml' in r2.links
     assert [link for link in r2.links if link.endswith('.log.gz')] == []
     assert 'missing from the store' in section_text((site / R2).read_text(), 'Artifacts')
     plain = tmp_path / 'plain'
     build_site(load_records(store), UNANALYSED, plain, store, None)
-    spans = 'spans/2026/20260919T031000Z-habrok-default-r2.timing.jsonl.gz'
-    assert f'<code>{spans}</code>' in section_text((plain / R2).read_text(), 'Artifacts')
+    config = 'configs/2026/20260919T031000Z-habrok-default-r2.toml'
+    assert f'<code>{config}</code>' in section_text((plain / R2).read_text(), 'Artifacts')
     assert [link for link in parsed(plain, R2).links if 'blob/results' in link] == []
 
 
@@ -284,7 +284,7 @@ def test_run_page_puts_problems_first(site):
 def test_checks_table_lists_failed_checks_first(site):
     """The fixture lists tree, timing, backends; the failed backends check comes first."""
     checks = section_text((site / R4).read_text(), 'Checks')
-    order = [checks.index(n) for n in ('expected_backends', 'clean_tree', 'timing_contract')]
+    order = [checks.index(n) for n in ('expected_backends', 'clean_tree', 'timing_log')]
     assert order == sorted(order)
 
 

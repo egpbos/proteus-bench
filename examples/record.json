@@ -94,9 +94,9 @@
       "detail": "abd4ca53"
     },
     {
-      "name": "timing_contract",
+      "name": "timing_log",
       "ok": true,
-      "detail": "39 events"
+      "detail": "6 [IT_TIMING] lines"
     },
     {
       "name": "expected_backends",
@@ -106,16 +106,7 @@
   ],
   "backends": {
     "aragog": {
-      "solver": "cvode",
-      "calls": {
-        "cvode": 6
-      }
-    },
-    "zalmoxis": {
-      "calls": {
-        "numpy": 3,
-        "jax": 2
-      }
+      "solver": "cvode"
     }
   },
   "outcome": {
@@ -297,7 +288,6 @@
     "P_surf": 256.0
   },
   "artifacts": {
-    "spans": "spans/2026/20260925T031000Z-habrok-default-a1b2.timing.jsonl.gz",
     "log": "logs/2026/20260925T031000Z-habrok-default-a1b2.log.gz"
   }
 }

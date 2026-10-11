@@ -33,6 +33,7 @@ version = { attr = "proteus_bench.__version__" }
 [tool.setuptools.package-data]
 "proteus_bench" = ["flame_template.html", "suites.toml", "tokens_head.html"]
 "proteus_bench.schemas" = ["*.json"]
+"proteus_bench.proteus_patches" = ["*.patch"]
 "proteus_bench.report.templates" = ["*.css", "*.html", "*.js"]
 
 [tool.pytest.ini_options]

@@ -102,7 +102,7 @@ def fixture_record(run_id: str, started_at: str, sha: str, machine: str, **scena
         scenario.get('jitter', 1.0), scenario.get('atmos', 15.0), interior, jax
     )
     record['artifacts'] = {
-        'spans': f'spans/2026/{run_id}.timing.jsonl.gz',
+        'config': f'configs/2026/{run_id}.toml',
         'log': f'logs/2026/{run_id}.log.gz',
     }
     if scenario.get('radau'):

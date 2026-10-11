@@ -11,15 +11,12 @@ import json
 from functools import cache
 from importlib import resources
 
-SCHEMAS = {
-    'timing': 'timing-v1.schema.json',
-    'record': 'record-v1.schema.json',
-}
+SCHEMAS = {'record': 'record-v1.schema.json'}
 
 
 @cache
 def load(kind: str) -> dict:
-    """Return the parsed JSON Schema for ``kind`` ('timing' or 'record')."""
+    """Return the parsed JSON Schema for ``kind`` ('record')."""
     name = SCHEMAS[kind]
     return json.loads(resources.files('proteus_bench.schemas').joinpath(name).read_text())
 
