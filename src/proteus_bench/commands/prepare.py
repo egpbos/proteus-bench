@@ -21,41 +21,63 @@ MARK = '[INIT_TIMING]'
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('commit', help='PROTEUS commit to benchmark, e.g. a merge commit on main')
-    parser.add_argument('--proteus', type=Path, default=Path(), help='PROTEUS checkout (default .)')
+    parser.add_argument(
+        'commit', help='PROTEUS commit to benchmark, e.g. a merge commit on main'
+    )
+    parser.add_argument(
+        '--proteus', type=Path, default=Path(), help='PROTEUS checkout (default .)'
+    )
+
+
+class Stop(Exception):
+    """Why prepare stopped, with the exit code to leave with."""
+
+    def __init__(self, message: str, code: int):
+        super().__init__(message)
+        self.code = code
 
 
 def git(root: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(['git', '-C', str(root), *args], capture_output=True, text=True)
 
 
+def checked(root: Path, *args: str, code: int = 2) -> str:
+    """Stripped stdout of a git command that must succeed; Stop with its stderr otherwise."""
+    done = git(root, *args)
+    if done.returncode:
+        raise Stop(done.stderr.strip(), code)
+    return done.stdout.strip()
+
+
 def main(args: argparse.Namespace) -> int:
-    root = args.proteus
-    if git(root, 'status', '--porcelain', '--untracked-files=no').stdout.strip():
-        print(f'proteus-bench prepare: {root} has uncommitted changes', file=sys.stderr)
-        return 2
-    found = git(root, 'rev-parse', '--short=8', f'{args.commit}^{{commit}}')
-    if found.returncode:
-        print(f'proteus-bench prepare: {found.stderr.strip()}', file=sys.stderr)
-        return 2
-    sha = found.stdout.strip()
-    if MARK in git(root, 'show', f'{sha}:src/proteus/proteus.py').stdout:
-        git(root, 'switch', '-q', '--detach', sha)
-        print(f'{sha} already logs the timing lines; checked out unchanged')
-        return 0
-    branch = f'bench/{sha}'
-    git(root, 'switch', '-q', '-C', branch, sha)
-    for patch in sorted(p for p in PATCHES.iterdir() if p.name.endswith('.patch')):
-        applied = git(root, 'apply', '-3', str(patch))
-        if applied.returncode:
-            git(root, 'reset', '-q', '--hard')
-            print(f'proteus-bench prepare: {patch.name} does not apply to {sha}:', file=sys.stderr)
-            print(applied.stderr.strip(), file=sys.stderr)
-            return 1
-    committed = git(root, 'commit', '-q', '-am', 'Log the timing lines of FormingWorlds/PROTEUS#983')
-    if committed.returncode:
-        git(root, 'reset', '-q', '--hard')
-        print(f'proteus-bench prepare: {committed.stderr.strip()}', file=sys.stderr)
-        return 1
-    print(f'{branch}: {sha} with the timing lines')
+    try:
+        print(prepare(args.proteus, args.commit))
+    except Stop as err:
+        print(f'proteus-bench prepare: {err}', file=sys.stderr)
+        return err.code
     return 0
+
+
+def prepare(root: Path, commit: str) -> str:
+    """Check ``commit`` out in ``root``, patched where needed; return what was done."""
+    if git(root, 'status', '--porcelain', '--untracked-files=no').stdout.strip():
+        raise Stop(f'{root} has uncommitted changes', 2)
+    sha = checked(root, 'rev-parse', '--short=8', f'{commit}^{{commit}}')
+    if MARK in git(root, 'show', f'{sha}:src/proteus/proteus.py').stdout:
+        checked(root, 'switch', '-q', '--detach', sha)
+        return f'{sha} already logs the timing lines; checked out unchanged'
+    branch = f'bench/{sha}'
+    checked(root, 'switch', '-q', '-C', branch, sha)
+    try:
+        for patch in sorted(p for p in PATCHES.iterdir() if p.name.endswith('.patch')):
+            applied = git(root, 'apply', '-3', str(patch))
+            if applied.returncode:
+                raise Stop(
+                    f'{patch.name} does not apply to {sha}:\n{applied.stderr.strip()}', 1
+                )
+        message = 'Log the timing lines of FormingWorlds/PROTEUS#983'
+        checked(root, 'commit', '-q', '-am', message, code=1)
+    except Stop:
+        git(root, 'reset', '-q', '--hard')
+        raise
+    return f'{branch}: {sha} with the timing lines'

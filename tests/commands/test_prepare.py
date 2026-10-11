@@ -2,7 +2,8 @@
 
 Contract clauses: an older commit gets branch bench/<sha> with the patches
 committed on top, so the tree is clean and the parent is the original commit; a
-commit that already logs [INIT_TIMING] is checked out unchanged; a patch that
+commit that already logs [INIT_TIMING] is checked out unchanged; a failed switch
+stops it before any patch; a patch that
 does not apply leaves a clean tree and exit 1; uncommitted changes or an
 unknown commit stop it with exit 2; the bundled patches add every line
 proteus-bench reads.
@@ -90,6 +91,18 @@ def test_uncommitted_changes_or_an_unknown_commit_stop_it(checkout, capsys):
     assert cli.main(['prepare', sha, '--proteus', str(root)]) == 2
     assert 'uncommitted changes' in capsys.readouterr().err
     assert git(root, 'rev-parse', '--abbrev-ref', 'HEAD') == 'main'
+
+
+def test_a_failed_switch_stops_before_any_patch(checkout, capsys):
+    """bench/<sha> held by another worktree: exit 2, and nothing is committed anywhere."""
+    root, sha = checkout
+    other = root.parent / 'other'
+    git(root, 'worktree', 'add', '-q', '-b', f'bench/{sha[:8]}', str(other), sha)
+    assert cli.main(['prepare', sha, '--proteus', str(root)]) == 2
+    assert 'proteus-bench prepare:' in capsys.readouterr().err
+    assert git(root, 'rev-parse', 'HEAD') == sha
+    assert git(root, 'rev-parse', '--abbrev-ref', 'HEAD') == 'main'
+    assert '[INIT_TIMING]' not in (root / SOURCE).read_text()
 
 
 def test_bundled_patches_add_the_lines_proteus_bench_reads():

@@ -168,7 +168,9 @@ class _Run:
 
     def _fail(self, n: int, times: dict) -> None:
         if self.fake['fail'] == 'kill':
-            self.info(f'[IT_TIMING] iter={n} init_stage=0 {_seconds(times)} atm', end='')  # torn
+            self.info(
+                f'[IT_TIMING] iter={n} init_stage=0 {_seconds(times)} atm', end=''
+            )  # torn
             os._exit(137)
         raise RuntimeError('fake atmosphere solver failure')
 

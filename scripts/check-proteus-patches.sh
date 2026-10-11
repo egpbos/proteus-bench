@@ -6,6 +6,10 @@ set -eu
 clone=$1
 first=${2:-1edab021}
 patches=$(cd "$(dirname "$0")/../src/proteus_bench/proteus_patches" && pwd)
+if [ "$(git -C "$clone" rev-parse --is-shallow-repository)" = true ]; then
+    echo "$clone is a shallow clone; fetch its full history first (git fetch --unshallow)" >&2
+    exit 2
+fi
 index=$(mktemp)
 trap 'rm -f "$index"' EXIT
 bad=0
