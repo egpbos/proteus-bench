@@ -59,7 +59,10 @@ commit the checkout contains, which is how the series pages order runs by
 commit; fetch in the PROTEUS checkout first so that ref is current.
 
 Each run gets `bench-runs/<run_id>/` with `record.json` (the run record),
-`timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. The proteus
+`timing.jsonl`, `init_coupler.toml`, `config.toml` and `log.txt`. A PROTEUS
+without the timing emitter, back to #678, writes no `timing.jsonl` and is timed
+from its `[IT_TIMING]` log lines instead, with less detail (docs/interface.md,
+"PROTEUS without the emitter"). The proteus
 process runs with the BLAS and OpenMP thread counts set to 1, as the proteus CLI
 does itself. The PROTEUS tree must be clean (no changes to tracked files);
 `--allow-failed-checks` runs anyway and marks the record as not comparable.

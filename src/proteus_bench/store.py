@@ -90,8 +90,11 @@ def check_run(run_dir: Path) -> tuple[dict | None, list[str]]:
     if problems:
         return record, [f'{record_file}: {p}' for p in problems]
     problems += [f'{link}: symbolic links are not published' for link in _symlinks(run_dir)]
-    ok = record['outcome']['status'] == 'ok'
-    required = REQUIRED + (REQUIRED_IF_OK if ok else ())
+    required = REQUIRED
+    if record['outcome']['status'] == 'ok':
+        required += REQUIRED_IF_OK
+        if record['timings'].get('source') == 'log':
+            required = tuple(key for key in required if key != 'spans')
     problems += [
         f'{run_dir}: missing {ARTIFACTS[key]}'
         for key in required

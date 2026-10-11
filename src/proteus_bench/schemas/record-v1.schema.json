@@ -116,6 +116,7 @@
       "type": "object",
       "required": ["wall_s", "phases", "components", "per_iter"],
       "properties": {
+        "source": {"enum": ["spans", "log"], "description": "spans: timing.jsonl; log: PROTEUS's [IT_TIMING] lines and their arrival times, for PROTEUS without the emitter. Absent means spans."},
         "wall_s": {"$ref": "#/$defs/seconds", "description": "Process wall time measured by the harness."},
         "startup_s": {"$ref": "#/$defs/seconds", "description": "Process spawn to the timing run_start event (imports, Julia start-up)."},
         "phases": {

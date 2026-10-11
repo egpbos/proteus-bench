@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 
-from proteus_bench import checks, collect, settings
+from proteus_bench import checks, collect, logtiming, settings
 from proteus_bench.runner import ProcessResult, home_pattern
 
 SCHEMA = 'proteus-bench/1'
@@ -51,8 +51,12 @@ class RunContext:
 
     @property
     def output_dir(self) -> Path:
-        """Where proteus writes: $PROTEUS_OUTPUT_PATH/<params.out.path>."""
-        return self.run_dir / 'output' / self.run_id
+        """Where proteus writes: $PROTEUS_OUTPUT_PATH/<params.out.path>.
+
+        PROTEUS before that variable (#777) writes to <checkout>/output/<params.out.path>.
+        """
+        path = self.run_dir / 'output' / self.run_id
+        return path if path.is_dir() else self.proteus_root / 'output' / self.run_id
 
 
 def utc_iso(moment: dt.datetime) -> str:
@@ -120,6 +124,7 @@ def benchmark_section(ctx: RunContext, flat: dict) -> dict:
 
 def timings_section(events: list[dict], result: ProcessResult) -> dict:
     section = {
+        'source': 'spans',
         'wall_s': round(result.wall_s, 3),
         'phases': collect.phase_totals(events),
         'components': collect.component_rows(events),
@@ -132,22 +137,31 @@ def timings_section(events: list[dict], result: ProcessResult) -> dict:
     return section
 
 
+def _timing_sections(ctx: RunContext, result: ProcessResult) -> tuple:
+    """(checks, backends, outcome, timings) from timing.jsonl, else from the log lines."""
+    spans = ctx.run_dir / ARTIFACTS['spans']
+    if spans.is_file():
+        events, timing_check = checks.timing_contract_check(spans)
+        backends = collect.backends(events)
+        expected = checks.expected_backends_check(backends, ctx.suite['expected_backends'])
+        outcome = collect.outcome(events, result.exit_code, result.timed_out, ctx.timeout_s)
+        return [timing_check, expected], backends, outcome, timings_section(events, result)
+    iters, bad = logtiming.iterations(result.timing_lines)
+    outcome = logtiming.outcome(iters, result.exit_code, result.timed_out, ctx.timeout_s)
+    timings = logtiming.timings_section(iters, result.wall_s, result.rusage)
+    return [logtiming.check(iters, bad)], {}, outcome, timings
+
+
 def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, list]) -> dict:
     """The run record, from the context and the files in the run and output directories.
 
     ``profile`` holds the profile artifacts and notes (both empty when not profiled).
     """
     profile_artifacts, profile_notes = profile
-    events, timing_check = checks.timing_contract_check(ctx.run_dir / ARTIFACTS['spans'])
     flat, notes = collect.resolved_settings(ctx.run_dir / ARTIFACTS['settings'], ctx.run_config)
     fingerprint, fp_notes = collect.fingerprint(ctx.output_dir / 'runtime_helpfile.csv')
-    backends = collect.backends(events)
-    all_checks = [
-        *ctx.checks,
-        timing_check,
-        checks.expected_backends_check(backends, ctx.suite['expected_backends']),
-    ]
-    outcome = collect.outcome(events, result.exit_code, result.timed_out, ctx.timeout_s)
+    run_checks, backends, outcome, timings = _timing_sections(ctx, result)
+    all_checks = [*ctx.checks, *run_checks]
     profiler = ctx.env['knobs']['profiler']
     return {
         'schema': SCHEMA,
@@ -164,7 +178,7 @@ def build_record(ctx: RunContext, result: ProcessResult, profile: tuple[dict, li
         'comparability': checks.comparability(
             all_checks, outcome['status'], profiler, notes + fp_notes + profile_notes
         ),
-        'timings': timings_section(events, result),
+        'timings': timings,
         'fingerprint': fingerprint,
         'artifacts': {k: p for k, p in ARTIFACTS.items() if (ctx.run_dir / p).is_file()}
         | profile_artifacts,

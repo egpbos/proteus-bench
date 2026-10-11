@@ -21,7 +21,7 @@ import subprocess
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 MIB = 2**20
@@ -34,6 +34,8 @@ class ProcessResult:
     started_at: dt.datetime  # UTC wall clock just before spawn
     wall_s: float  # monotonic, spawn to reap
     rusage: dict  # max_rss_mb, user_s, sys_s
+    # (seconds since spawn, line) of each [IT_TIMING] line, for runs without timing.jsonl
+    timing_lines: list[tuple[float, str]] = field(default_factory=list)
 
 
 def max_rss_mb(ru_maxrss: int, system: str) -> float:
@@ -77,11 +79,13 @@ def private_names() -> list[tuple[re.Pattern, str]]:
     ]
 
 
-def _tee(stream, log) -> None:
+def _tee(stream, log, t_start: float, timing_lines: list) -> None:
     """Copy the child's combined output to the log file, without private names, and to our stdout."""
     names = private_names()
     for line in iter(stream.readline, b''):
         text = line.decode(errors='replace')
+        if '[IT_TIMING]' in text:
+            timing_lines.append((time.monotonic() - t_start, text))
         public = text
         for pattern, mark in names:
             public = pattern.sub(mark, public)
@@ -108,7 +112,10 @@ def spawn(argv: list[str], cwd: Path, env: dict, log_path: Path, timeout_s: floa
         timer = (
             threading.Timer(timeout_s, _on_timeout, (proc.pid, fired)) if timeout_s else None
         )
-        tee = threading.Thread(target=_tee, args=(proc.stdout, log), daemon=True)
+        timing_lines = []
+        tee = threading.Thread(
+            target=_tee, args=(proc.stdout, log, t_start, timing_lines), daemon=True
+        )
         tee.start()
         if timer:
             timer.start()
@@ -132,4 +139,6 @@ def spawn(argv: list[str], cwd: Path, env: dict, log_path: Path, timeout_s: floa
         'sys_s': round(usage.ru_stime, 3),
     }
     ended_by_timer = timed_out(fired.is_set(), proc.returncode)
-    return ProcessResult(proc.returncode, ended_by_timer, started_at, wall_s, rusage)
+    return ProcessResult(
+        proc.returncode, ended_by_timer, started_at, wall_s, rusage, timing_lines
+    )

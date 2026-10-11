@@ -45,6 +45,7 @@ FAKE_DEFAULTS = {
     'fail': 'none',  # none | error (exception, clean shutdown) | kill (hard exit mid-span)
     'fail_at_iter': 3,
     'sleep_scale': 0.0,  # real seconds slept per synthetic second
+    'legacy': False,  # PROTEUS before #777: no timing.jsonl, output always under ./output
 }
 
 # Defaults the stub "resolves" into init_coupler.toml, like PROTEUS's attrs defaults
@@ -286,8 +287,11 @@ def main(argv: list[str] | None = None) -> int:
         .get('out', {})
         .get('path', RESOLVED_DEFAULTS['params']['out']['path'])
     )
+    legacy = cfg.get('fake', {}).get('legacy', FAKE_DEFAULTS['legacy'])
     root = Path(os.environ.get('PROTEUS_OUTPUT_PATH', '').strip() or 'output').expanduser()
     timing = os.environ.get('PROTEUS_TIMING', '').lower() in ('1', 'true', 'yes', 'on')
+    if legacy:
+        root, timing = Path('output'), False
     return run(cfg, root / name, timing)
 
 
