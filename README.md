@@ -35,8 +35,8 @@ proteus-bench is installed twice, for two kinds of use:
 build; `report` (Jinja2, Plotly and proteus-plotly, the PROTEUS Plotly theme) by
 the dashboard build; `publish` (jsonschema and rfc3339-validator) by `publish` and `lineage-check`,
 which refuse records they cannot check against the schema.
-`validate` uses jsonschema when it is there and checks the timing rules either
-way.
+`validate` checks a record against the schema when jsonschema is there, and
+otherwise only that the file is JSON.
 
 ## Running a benchmark
 
