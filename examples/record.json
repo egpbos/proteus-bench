@@ -94,9 +94,9 @@
       "detail": "abd4ca53"
     },
     {
-      "name": "timing_contract",
+      "name": "timing_log",
       "ok": true,
-      "detail": "39 events"
+      "detail": "6 [IT_TIMING] lines"
     },
     {
       "name": "expected_backends",
@@ -106,16 +106,7 @@
   ],
   "backends": {
     "aragog": {
-      "solver": "cvode",
-      "calls": {
-        "cvode": 6
-      }
-    },
-    "zalmoxis": {
-      "calls": {
-        "numpy": 3,
-        "jax": 2
-      }
+      "solver": "cvode"
     }
   },
   "outcome": {
@@ -224,7 +215,6 @@
       {
         "iter": 1,
         "dur_s": 784.7,
-        "init_stage": true,
         "components": {
           "interior": 3.5,
           "outgas": 1.0,
@@ -234,7 +224,6 @@
       {
         "iter": 2,
         "dur_s": 19.7,
-        "init_stage": false,
         "components": {
           "interior": 3.5,
           "outgas": 1.0,
@@ -244,7 +233,6 @@
       {
         "iter": 3,
         "dur_s": 159.7,
-        "init_stage": false,
         "components": {
           "interior": 3.5,
           "structure": 140.0,
@@ -255,7 +243,6 @@
       {
         "iter": 4,
         "dur_s": 19.7,
-        "init_stage": false,
         "components": {
           "interior": 3.5,
           "outgas": 1.0,
@@ -265,7 +252,6 @@
       {
         "iter": 5,
         "dur_s": 19.7,
-        "init_stage": false,
         "components": {
           "interior": 3.5,
           "outgas": 1.0,
@@ -275,7 +261,6 @@
       {
         "iter": 6,
         "dur_s": 159.7,
-        "init_stage": false,
         "components": {
           "interior": 3.5,
           "structure": 140.0,
@@ -297,7 +282,6 @@
     "P_surf": 256.0
   },
   "artifacts": {
-    "spans": "spans/2026/20260925T031000Z-habrok-default-a1b2.timing.jsonl.gz",
     "log": "logs/2026/20260925T031000Z-habrok-default-a1b2.log.gz"
   }
 }

@@ -17,7 +17,7 @@ from proteus_bench import __version__
 COMMANDS = {
     'flame': ('flame', 'build a flame-graph page from a scalene JSON or folded-stacks file'),
     'run': ('run', 'run a benchmark suite through the proteus CLI and write its run record'),
-    'validate': ('validate', 'check timing.jsonl and run-record files against the schemas'),
+    'validate': ('validate', 'check run-record files against the schema'),
     'analyse': ('analyse', 'build timing series, regression flags and steps from run records'),
     'publish': ('publish', 'add run directories to the results store and push'),
     'lineage-check': ('lineage_check', 'report whether a carry-over run is due (exit 3 if so)'),

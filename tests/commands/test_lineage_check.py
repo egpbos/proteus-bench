@@ -40,7 +40,6 @@ def _failed_run(make_run_dir, run_id):
     """A default run that failed before PROTEUS wrote init_coupler.toml."""
     run_dir = make_run_dir(run_id, status='failed', settings=NEW_SETTINGS)
     (run_dir / 'init_coupler.toml').unlink()
-    (run_dir / 'timing.jsonl').unlink()
     record = json.loads((run_dir / 'record.json').read_text())
     record['artifacts'] = {'config': 'config.toml', 'log': 'log.txt'}
     (run_dir / 'record.json').write_text(json.dumps(record))

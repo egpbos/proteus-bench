@@ -1,9 +1,9 @@
-"""Tests for the bundled JSON Schemas (timing v1, run record v1) and the examples.
+"""Tests for the bundled run record schema (v1) and the example record.
 
-Contract clauses: both schemas are valid Draft 2020-12; the committed examples
-satisfy them and each other (record timings are derived from the timing
-example); typical mistakes (unknown keys, bad names, negative durations, bad
-enums, malformed hashes) are rejected at the field that is wrong.
+Contract clauses: the schema is valid Draft 2020-12; the committed example
+satisfies it and its component rows add up to its phases; typical mistakes
+(unknown keys, bad enums, malformed hashes) are rejected at the field that is
+wrong.
 """
 
 from __future__ import annotations
@@ -18,16 +18,10 @@ jsonschema = pytest.importorskip('jsonschema')
 
 from proteus_bench import schema  # noqa: E402
 from proteus_bench.settings import PER_RUN_KEYS, settings_hash  # noqa: E402
-from proteus_bench.timing import attributed_totals, read_events  # noqa: E402
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 
 EXAMPLES = Path(__file__).parent.parent / 'examples'
-
-
-@pytest.fixture(scope='module')
-def example_events():
-    return read_events(EXAMPLES / 'timing.jsonl')
 
 
 @pytest.fixture(scope='module')
@@ -36,47 +30,12 @@ def example_record():
 
 
 def test_schemas_are_valid_draft_2020_12():
-    """Both bundled schemas are themselves valid, so validation results mean something."""
+    """The bundled schema is itself valid, so validation results mean something."""
     for kind in schema.SCHEMAS:
         jsonschema.Draft202012Validator.check_schema(schema.load(kind))
     broken = {'type': 'object', 'properties': {'x': {'type': 'no-such-type'}}}
     with pytest.raises(jsonschema.SchemaError):
         jsonschema.Draft202012Validator.check_schema(broken)
-
-
-def test_example_timing_events_match_the_schema(example_events):
-    """Every example event passes, and all four event kinds are represented."""
-    assert all(schema.shape_problems('timing', ev) == [] for ev in example_events)
-    assert {ev['ev'] for ev in example_events} == {'run_start', 'backend', 'span', 'run_end'}
-
-
-@pytest.mark.parametrize(
-    ('field', 'value', 'where'),
-    [
-        ('dur', -1.0, 'dur'),
-        ('name', 'Structure', 'name'),
-        ('unexpected', 1, '<root>'),
-        ('id', 0, 'id'),
-    ],
-    ids=['negative_duration', 'capitalised_name', 'unknown_key', 'zero_id'],
-)
-def test_bad_span_fields_are_rejected_at_the_field(example_events, field, value, where):
-    """A wrong span field is reported against that field, not somewhere vague."""
-    span = copy.deepcopy(next(ev for ev in example_events if ev['ev'] == 'span'))
-    assert schema.shape_problems('timing', span) == []
-    span[field] = value
-    problems = schema.shape_problems('timing', span)
-    assert problems
-    assert all(p.startswith(f'{where}:') for p in problems)
-
-
-def test_run_end_status_is_an_enum(example_events):
-    """Only ok, error and interrupted are valid run statuses."""
-    end = copy.deepcopy(example_events[-1])
-    end['status'] = 'finished'
-    assert any(p.startswith('status:') for p in schema.shape_problems('timing', end))
-    end['status'] = 'interrupted'
-    assert schema.shape_problems('timing', end) == []
 
 
 def test_example_record_settings_hash_is_reproducible(example_record):
@@ -89,15 +48,10 @@ def test_example_record_settings_hash_is_reproducible(example_record):
     assert settings_hash(renamed) == bench['settings_hash']
 
 
-def test_example_record_matches_schema_and_timing_example(example_record, example_events):
-    """The record example is valid and its phase totals come from the timing example."""
+def test_example_record_matches_schema_and_its_rows_add_up(example_record):
+    """The record example is valid, and per-phase component rows add up to the phase totals."""
     assert schema.shape_problems('record', example_record) == []
-    totals = attributed_totals(example_events)
     phases = example_record['timings']['phases']
-    assert {p: phases[p] for p in totals} == pytest.approx(
-        {p: t['total'] for p, t in totals.items()}
-    )
-    # Per-phase component rows (including 'other') add back up to the phase totals.
     for phase, expected in phases.items():
         rows = [
             c['total_s'] for c in example_record['timings']['components'] if c['phase'] == phase

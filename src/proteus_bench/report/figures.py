@@ -444,10 +444,7 @@ def iterations(record: dict, theme: str) -> go.Figure:
     rows = iteration_rows(record)
     names = stack_order({n for row in rows for n in row})
     markers = component_markers(names, theme)
-    labels = [
-        f'iteration {it["iter"]}' + (' (init stage)' if it.get('init_stage') else '')
-        for it in iters
-    ]
+    labels = [f'iteration {it["iter"]}' for it in iters]
     x = [html.escape(str(it['iter'])) for it in iters]
     bars = [
         go.Bar(

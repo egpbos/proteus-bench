@@ -20,13 +20,12 @@ from proteus_bench.runner import ProcessResult, home_pattern
 SCHEMA = 'proteus-bench/1'
 # record.artifacts key -> file in the run directory; one key per file
 ARTIFACTS = {
-    'spans': 'timing.jsonl',
     'settings': 'init_coupler.toml',
     'config': 'config.toml',
     'log': 'log.txt',
 }
 # Artifacts proteus writes into its output directory, copied next to the record
-COPIED = ('spans', 'settings')
+COPIED = ('settings',)
 
 
 @dataclass
@@ -91,7 +90,7 @@ def trigger_section(adapter: str, env: dict) -> dict:
 
 
 def copy_outputs(ctx: RunContext) -> None:
-    """Copy the raw timing and resolved config next to the record, where present."""
+    """Copy the resolved config next to the record, where present."""
     for key in COPIED:
         source = ctx.output_dir / ARTIFACTS[key]
         if source.is_file():
@@ -122,30 +121,8 @@ def benchmark_section(ctx: RunContext, flat: dict) -> dict:
     }
 
 
-def timings_section(events: list[dict], result: ProcessResult) -> dict:
-    section = {
-        'source': 'spans',
-        'wall_s': round(result.wall_s, 3),
-        'phases': collect.phase_totals(events),
-        'components': collect.component_rows(events),
-        'per_iter': collect.per_iter_rows(events),
-        'rusage': result.rusage,
-    }
-    startup = collect.startup_s(events, result.started_at)
-    if startup is not None:
-        section['startup_s'] = startup
-    return section
-
-
 def _timing_sections(ctx: RunContext, result: ProcessResult) -> tuple:
-    """(checks, backends, outcome, timings) from timing.jsonl, else from the log lines."""
-    spans = ctx.run_dir / ARTIFACTS['spans']
-    if spans.is_file():
-        events, timing_check = checks.timing_contract_check(spans)
-        backends = collect.backends(events)
-        expected = checks.expected_backends_check(backends, ctx.suite['expected_backends'])
-        outcome = collect.outcome(events, result.exit_code, result.timed_out, ctx.timeout_s)
-        return [timing_check, expected], backends, outcome, timings_section(events, result)
+    """(checks, backends, outcome, timings) from PROTEUS's timing log lines."""
     parsed = logtiming.parse(result.timing_lines)
     run_checks = [logtiming.check(parsed)]
     if parsed['backends']:  # PROTEUS before [BACKEND] lines names no backend to check

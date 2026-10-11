@@ -1,12 +1,12 @@
 """Tests for proteus_bench.store against docs/interface.md, section "Results store".
 
-Contract clauses: required files per the Artifacts table (spans and settings
-only for ok runs); the record's settings hash must match its
+Contract clauses: required files per the Artifacts table (settings only for ok
+runs); the record's settings hash must match its
 init_coupler.toml; run_id and settings_hash must fully match the schema
 patterns, and the fields that become paths are type-checked even without
 jsonschema; artifacts may only name ARTIFACTS entries whose file exists;
 symbolic links are refused; staging writes the documented store paths,
-gzips spans and logs reproducibly, keeps one settings file per hash, copies
+gzips logs reproducibly, keeps one settings file per hash, copies
 all of profile/, and rewrites artifacts to store paths.
 """
 
@@ -42,21 +42,19 @@ def test_good_run_passes_and_missing_files_are_named(make_run_dir):
     record, problems = store.check_run(run_dir)
     assert problems == []
     assert record['run_id'] == RUN_A
-    for name in ('timing.jsonl', 'log.txt', 'config.toml', 'init_coupler.toml'):
+    for name in ('log.txt', 'config.toml', 'init_coupler.toml'):
         (run_dir / name).unlink()
     _, problems = store.check_run(run_dir)
     assert problems == [
-        f'{run_dir}: missing {name}'
-        for name in ('log.txt', 'config.toml', 'timing.jsonl', 'init_coupler.toml')
+        f'{run_dir}: missing {name}' for name in ('log.txt', 'config.toml', 'init_coupler.toml')
     ]
 
 
-def test_failed_run_needs_no_spans_or_settings(make_run_dir):
-    """A run that failed in setup has no timing.jsonl or init_coupler.toml; it still publishes."""
+def test_failed_run_needs_no_settings(make_run_dir):
+    """A run that failed in setup has no init_coupler.toml; it still publishes."""
     run_dir = make_run_dir(
         RUN_A, status='failed', artifacts={'log': 'log.txt', 'config': 'config.toml'}
     )
-    (run_dir / 'timing.jsonl').unlink()
     (run_dir / 'init_coupler.toml').unlink()
     record, problems = store.check_run(run_dir)
     assert problems == []
@@ -148,23 +146,20 @@ def test_trailing_newline_in_run_id_is_refused(make_run_dir):
 
 
 def test_stage_writes_documented_paths(make_run_dir, tmp_path):
-    """Each artifact lands at its documented store path; spans and log are gzipped reproducibly."""
+    """Each artifact lands at its documented store path; the log is gzipped reproducibly."""
     run_dir = make_run_dir(RUN_A)
     record = _record(run_dir)
     tree = tmp_path / 'tree'
     stored = store.stage_run(run_dir, record, tree)
     hex_ = record['benchmark']['settings_hash'].removeprefix('sha256:')
     assert stored['artifacts'] == {
-        'spans': f'spans/2026/{RUN_A}.timing.jsonl.gz',
         'settings': f'settings/{hex_}.toml',
         'config': f'configs/2026/{RUN_A}.toml',
         'log': f'logs/2026/{RUN_A}.log.gz',
     }
-    spans = (tree / stored['artifacts']['spans']).read_bytes()
-    assert gzip.decompress(spans) == (run_dir / 'timing.jsonl').read_bytes()
-    assert spans[4:8] == b'\0\0\0\0'  # gzip header mtime: bytes depend on content only
-    log = gzip.decompress((tree / stored['artifacts']['log']).read_bytes())
-    assert log == (run_dir / 'log.txt').read_bytes()
+    log = (tree / stored['artifacts']['log']).read_bytes()
+    assert gzip.decompress(log) == (run_dir / 'log.txt').read_bytes()
+    assert log[4:8] == b'\0\0\0\0'  # gzip header mtime: bytes depend on content only
     config = (tree / stored['artifacts']['config']).read_text()
     assert config == (run_dir / 'config.toml').read_text()
     on_disk = json.loads((tree / f'records/2026/{RUN_A}.json').read_text())
@@ -212,7 +207,7 @@ def test_profile_artifacts_are_copied_and_raw_output_is_not(make_run_dir, tmp_pa
     ('artifacts', 'expected'),
     [
         ({'resolved_config': 'init_coupler.toml'}, "ARTIFACTS gives 'no such key'"),
-        ({'spans': 'spans.jsonl'}, "ARTIFACTS gives 'timing.jsonl'"),
+        ({'log': 'proteus.log'}, "ARTIFACTS gives 'log.txt'"),
         ({'profile': 'profile/'}, "ARTIFACTS gives 'profile/stacks.folded.gz'"),
         ({'flame': 'profile/flame.html'}, 'names profile/flame.html, which is missing'),
     ],

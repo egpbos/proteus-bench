@@ -1,4 +1,4 @@
-"""Tests for proteus_bench.logtiming: timings of a run without timing.jsonl.
+"""Tests for proteus_bench.logtiming: a run's timings from PROTEUS's timing log lines.
 
 Contract clauses: an iteration starts at its line's arrival minus its total, so
 init, loop and shutdown add up to the wall time; loop components sum over
@@ -44,7 +44,6 @@ def timings(lines=LINES, wall_s=120.0) -> dict:
 def test_phases_split_the_wall_time_at_the_first_and_last_iteration():
     """Loop starts at 100 - 10 = 90 and ends at 115; the three phases add up to the wall time."""
     t = timings()
-    assert t['source'] == 'log'
     phases = t['phases']
     assert phases['setup'] is None
     expected = {'init': 90.0, 'loop': 25.0, 'shutdown': 5.0}

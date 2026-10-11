@@ -1,4 +1,4 @@
-"""Record sections from PROTEUS's timing log lines, for runs without timing.jsonl.
+"""Record sections from PROTEUS's timing log lines.
 
 ``PROTEUS_TIMING`` came to PROTEUS main with #678 (June 2026). With it set,
 every version since then logs ``[IT_TIMING] iter=N <component>=<s> ...
@@ -11,7 +11,7 @@ iteration started at its line's arrival minus its total, so the loop runs from
 the start of the first iteration to the arrival of the last line; init is
 before it and shutdown after it. Init covers start-up and setup as well; with
 an ``[INIT_TIMING]`` line its steps are broken out, and start-up is the time
-before PROTEUS's own init began. There are no submodules or init-stage flags.
+before PROTEUS's own init began. Components carry no submodule.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ def timings_section(parsed: dict, wall_s: float, rusage: dict) -> dict:
     iters = parsed['iters']
     phases = dict.fromkeys(('setup', 'init', 'loop', 'shutdown'))
     components = []
-    section = {'source': 'log', 'wall_s': round(wall_s, 3)}
+    section = {'wall_s': round(wall_s, 3)}
     if iters:
         start = max(0.0, iters[0][0] - iters[0][2]['total'])
         end = max(start, iters[-1][0])
@@ -134,7 +134,7 @@ def check(parsed: dict) -> dict:
     PROTEUS_TIMING had no effect.
     """
     n, bad = len(parsed['iters']), parsed['bad']
-    detail = f'{n} [IT_TIMING] lines, no timing.jsonl'
+    detail = f'{n} [IT_TIMING] lines'
     if bad:
         detail += f'; {bad} unreadable lines left out'
     return {'name': 'timing_log', 'ok': bool(n) and not bad, 'detail': detail}

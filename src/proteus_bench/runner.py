@@ -36,7 +36,7 @@ class ProcessResult:
     started_at: dt.datetime  # UTC wall clock just before spawn
     wall_s: float  # monotonic, spawn to reap
     rusage: dict  # max_rss_mb, user_s, sys_s
-    # (seconds since spawn, line) of each timing log line, for runs without timing.jsonl
+    # (seconds since spawn, line) of each timing log line
     timing_lines: list[tuple[float, str]] = field(default_factory=list)
 
 

@@ -1,18 +1,22 @@
 """End-to-end tests of ``proteus-bench run`` against the fake proteus stub.
 
 Contract clauses: a run writes record.json (valid against the schema),
-timing.jsonl, init_coupler.toml, config.toml and log.txt into
+init_coupler.toml, config.toml and log.txt into
 ``<runs-dir>/<run_id>/`` and prints that directory; the suite's iteration cap
 and output name reach proteus; the PROTEUS checkout is the one proteus is
-imported from, and none or one without git is a setup error; failed, crashed, timed-out and fallback-solver
-runs are recorded as not comparable with the reason; failing checks stop the
+imported from, and none or one without git is a setup error; timings come
+from PROTEUS's timing log lines, with init steps and the backend when PROTEUS
+logs them; failed, torn, timed-out and fallback-solver runs are recorded as not
+comparable with the reason; failing checks stop the
 run before anything is written unless --allow-failed-checks; a missing
 proteus command is a setup error; thread counts are forced to 1 for the child
 and Julia threads are a knob; profiler support is imported only when asked
 for, its absence is a clear error, its environment is recorded and its
 artifacts are merged into the record.
 
-Timings are derived by hand from ``FAKE_DEFAULTS`` for the 16-iteration cap.
+Timings are derived by hand from ``FAKE_DEFAULTS`` for the 16-iteration cap; they
+are the stub's synthetic seconds as logged, so phases (from arrival times) are not
+checked against them.
 """
 
 from __future__ import annotations
@@ -28,7 +32,7 @@ from pathlib import Path
 import pytest
 import tomli_w
 
-from proteus_bench import cli, machine, record, schema, store
+from proteus_bench import cli, machine, schema, store
 from proteus_bench.commands import run as run_command
 from proteus_bench.commands.run import make_run_id
 
@@ -36,12 +40,21 @@ pytestmark = [pytest.mark.smoke, pytest.mark.timeout(60)]
 
 DATA = Path(__file__).parents[1] / 'data'
 FAKE_CMD = f'{shlex.quote(sys.executable)} -m proteus_bench.testing.fake_proteus'
-INIT_S = 1138 + 1 + 420 + 1 + 210 + 2
-# 16 x (interior 3.5 + outgas 1 + 0.2 unattributed) + atmos 780 + 15 x 15 + re-solves at 3..15
-LOOP_S = 16 * 4.7 + 780 + 15 * 15 + 5 * 140
+# structure 1138; equilibrate 2 x outgas 1 + 420 + 420/2; star 2
+INIT_STEPS = {'structure': 1138.0, 'equilibrate': 1 + 420 + 1 + 210.0, 'stellar': 2.0}
+# 16 x (interior 3.5 + outgas 1) + atmos 780 + 15 x 15 + re-solves at 3, 6, ..., 15
+LOOP_STEPS_S = 16 * 4.5 + 780 + 15 * 15 + 5 * 140
 # The stub writes the helpfile at shutdown only, so a run that stops early has none
 NO_HELPFILE = 'runtime_helpfile.csv missing, no physics fingerprint'
-EXPECTED_FILES = {'record.json', 'timing.jsonl', 'init_coupler.toml', 'config.toml', 'log.txt'}
+EXPECTED_FILES = {'record.json', 'init_coupler.toml', 'config.toml', 'log.txt'}
+
+
+def step_totals(rec: dict, phase: str) -> dict[str, float]:
+    return {
+        r['component']: r['total_s']
+        for r in rec['timings']['components']
+        if r['phase'] == phase and r['component'] != 'other'
+    }
 
 
 def make_checkout(root: Path, git_repo=None, fake: dict | None = None) -> str | None:
@@ -101,13 +114,12 @@ def test_local_run_needs_a_machine_label(tmp_path, monkeypatch, capsys):
     assert not (tmp_path / 'runs').exists()
 
 
-def test_proteus_without_the_emitter_is_timed_from_its_log(bench):
-    """No timing.jsonl and output under the checkout, as before #777: timings from [IT_TIMING]."""
+def test_proteus_before_the_timing_pr_is_timed_from_its_iterations(bench):
+    """Only [IT_TIMING] lines and output under the checkout, as before #777."""
     code, rec, out = bench({'timing': 'legacy'})
     run_dir = _run_dir(out)
     assert code == 0
     assert schema.shape_problems('record', rec) == []
-    assert rec['timings']['source'] == 'log'
     assert rec['comparability'] == {'ok': True, 'reasons': []}
     assert [c['name'] for c in rec['checks']] == ['clean_tree', 'timing_log']
     assert rec['backends'] == {}
@@ -116,37 +128,22 @@ def test_proteus_without_the_emitter_is_timed_from_its_log(bench):
     assert rec['timings']['per_iter'][0]['components']['atmos'] == pytest.approx(
         780.0, abs=1e-3
     )
-    assert 'spans' not in rec['artifacts']
+    assert step_totals(rec, 'init') == {}
+    assert 'startup_s' not in rec['timings']
     assert rec['artifacts']['settings'] == 'init_coupler.toml'  # found under the checkout
     assert rec['fingerprint']
     assert store.check_run(run_dir)[1] == []
 
 
-def test_proteus_with_timing_log_lines_gets_init_steps_and_its_backend(bench):
-    """[INIT_TIMING] and [BACKEND] lines instead of timing.jsonl: init steps, start-up and
-    a passing backend check.
-    """
-    code, rec, _ = bench({'timing': 'log'})
-    assert code == 0
-    assert schema.shape_problems('record', rec) == []
-    assert rec['timings']['source'] == 'log'
-    assert rec['comparability'] == {'ok': True, 'reasons': []}
-    assert [c['name'] for c in rec['checks']] == [
-        'clean_tree',
-        'timing_log',
-        'expected_backends',
-    ]
-    assert rec['backends'] == {'aragog': {'solver': 'cvode'}}
-    init = {r['component'] for r in rec['timings']['components'] if r['phase'] == 'init'}
-    assert init == {'structure', 'equilibrate', 'stellar', 'other'}
-    assert rec['timings']['startup_s'] >= 0
-
-
-def test_a_logged_radau_backend_makes_the_run_not_comparable(bench):
-    """[BACKEND] aragog solver=radau fails the suite's cvode expectation."""
-    _, rec, _ = bench({'timing': 'log', 'aragog_solver': 'radau'})
-    assert rec['comparability']['ok'] is False
-    assert 'expected cvode, got radau' in rec['comparability']['reasons'][0]
+def test_radau_backend_is_not_comparable(bench):
+    """[BACKEND] aragog solver=radau while the suite expects CVODE: recorded, but not comparable."""
+    code, rec, _ = bench({'aragog_solver': 'radau'})
+    assert code == 0  # the run itself worked
+    assert rec['backends'] == {'aragog': {'solver': 'radau'}}
+    assert rec['comparability'] == {
+        'ok': False,
+        'reasons': ['check expected_backends failed: aragog.solver: expected cvode, got radau'],
+    }
 
 
 def test_ok_run_writes_a_complete_valid_record(bench):
@@ -158,15 +155,16 @@ def test_ok_run_writes_a_complete_valid_record(bench):
     assert schema.shape_problems('record', rec) == []
     assert rec['comparability'] == {'ok': True, 'reasons': []}
     assert rec['outcome']['n_iters'] == 16  # the suite cap, not the stub's default of 4
-    assert rec['timings']['phases']['init'] == pytest.approx(INIT_S, abs=1e-6)
-    assert rec['timings']['phases']['loop'] == pytest.approx(LOOP_S, abs=1e-6)
+    assert step_totals(rec, 'init') == pytest.approx(INIT_STEPS, abs=1e-3)
+    assert sum(step_totals(rec, 'loop').values()) == pytest.approx(LOOP_STEPS_S, abs=0.05)
+    assert [r['iter'] for r in rec['timings']['per_iter']] == list(range(1, 17))
     assert 0 <= rec['timings']['startup_s'] <= rec['timings']['wall_s']
+    assert rec['backends'] == {'aragog': {'solver': 'cvode'}}
     config = tomllib.loads((run_dir / 'config.toml').read_text())
     assert config['params']['out']['path'] == rec['run_id'] == run_dir.name
     assert re.fullmatch(r'\d{8}T\d{6}Z-test-default-[0-9a-f]{4}', rec['run_id'])
     assert '[IT_TIMING] iter=16' in (run_dir / 'log.txt').read_text()
     assert rec['artifacts'] == {
-        'spans': 'timing.jsonl',
         'settings': 'init_coupler.toml',
         'config': 'config.toml',
         'log': 'log.txt',
@@ -178,66 +176,34 @@ def test_ok_run_writes_a_complete_valid_record(bench):
     assert set(rec['env']['threads'].values()) == {'1'}
     assert [c['name'] for c in rec['checks']] == [
         'clean_tree',
-        'timing_contract',
+        'timing_log',
         'expected_backends',
     ]
-    assert (
-        cli.main(['validate', str(run_dir / 'record.json'), str(run_dir / 'timing.jsonl')]) == 0
-    )
+    assert cli.main(['validate', str(run_dir / 'record.json')]) == 0
 
 
 def test_error_run_is_failed(bench):
-    """An exception inside PROTEUS: exit 1, status failed with its message."""
+    """An exception inside PROTEUS: exit 1, status failed, with the iteration that finished."""
     code, rec, _ = bench({'fail': 'error', 'fail_at_iter': 2})
     assert code == 1
-    assert rec['outcome']['status'] == 'failed'
-    assert rec['outcome']['exit_code'] == 1
-    assert rec['outcome']['error'] == 'fake atmosphere solver failure'
+    assert rec['outcome'] == {'exit_code': 1, 'n_iters': 1, 'status': 'failed'}
     assert rec['comparability']['reasons'] == ['outcome is failed', NO_HELPFILE]
     assert schema.shape_problems('record', rec) == []
 
 
-def test_killed_run_is_crashed_but_still_readable(bench):
-    """A hard kill leaves no run_end: crashed, with the iterations that finished."""
+def test_torn_last_line_fails_the_timing_check(bench):
+    """A process that dies mid-line: the iterations that finished, and a failed timing_log."""
     code, rec, _ = bench({'fail': 'kill', 'fail_at_iter': 3})
     assert code == 1
-    assert rec['outcome']['status'] == 'crashed'
-    assert rec['outcome']['exit_code'] == 137
+    assert rec['outcome'] == {'exit_code': 137, 'n_iters': 2, 'status': 'failed'}
     assert [r['iter'] for r in rec['timings']['per_iter']] == [1, 2]
-    assert rec['timings']['phases']['loop'] is None  # the loop span never closed
-    assert rec['comparability']['reasons'] == ['outcome is crashed', NO_HELPFILE]
+    reasons = rec['comparability']['reasons']
+    assert (
+        reasons[0]
+        == 'check timing_log failed: 2 [IT_TIMING] lines; 1 unreadable lines left out'
+    )
+    assert reasons[1:] == ['outcome is failed', NO_HELPFILE]
     assert schema.shape_problems('record', rec) == []
-
-
-def test_unparsable_timing_file_still_gives_a_record(bench, monkeypatch):
-    """A malformed line inside timing.jsonl fails the timing check instead of losing the record."""
-    copy_outputs = record.copy_outputs
-
-    def corrupt(ctx):
-        copy_outputs(ctx)
-        path = ctx.run_dir / 'timing.jsonl'
-        lines = path.read_text().splitlines()
-        lines[1] = '{not json'
-        path.write_text('\n'.join(lines) + '\n')
-
-    monkeypatch.setattr(record, 'copy_outputs', corrupt)
-    _, rec, _ = bench()
-    (check,) = [c for c in rec['checks'] if c['name'] == 'timing_contract']
-    assert check['ok'] is False
-    assert 'timing.jsonl:2: not valid JSON' in check['detail']
-    assert rec['comparability']['ok'] is False
-    assert schema.shape_problems('record', rec) == []
-
-
-def test_radau_fallback_is_not_comparable(bench):
-    """Aragog reporting Radau while the suite expects CVODE: recorded, but not comparable."""
-    code, rec, _ = bench({'aragog_solver': 'radau'})
-    assert code == 0  # the run itself worked
-    assert rec['backends']['aragog'] == {'solver': 'radau', 'calls': {'radau': 16}}
-    assert rec['comparability'] == {
-        'ok': False,
-        'reasons': ['check expected_backends failed: aragog.solver: expected cvode, got radau'],
-    }
 
 
 def test_failed_check_stops_the_run(bench, tmp_path):
@@ -259,7 +225,7 @@ def test_the_checkout_measured_is_where_proteus_is_imported_from(bench, git_repo
     code, rec, _ = bench()
     assert code == 0
     assert rec['code']['proteus']['sha'] == sha[:8] != first['code']['proteus']['sha']
-    assert rec['timings']['phases']['loop'] == pytest.approx(LOOP_S + 15 * 5.0, abs=1e-6)
+    assert rec['timings']['per_iter'][1]['components']['atmos'] == pytest.approx(20.0, abs=1e-3)
 
 
 def test_the_checkout_measured_belongs_to_the_command_that_runs(bench, git_repo, tmp_path):
@@ -283,7 +249,7 @@ def test_the_checkout_measured_belongs_to_the_command_that_runs(bench, git_repo,
     code, rec, _ = bench(cmd=str(bin_dir / 'proteus'))
     assert code == 0
     assert rec['code']['proteus']['sha'] == sha[:8]
-    assert rec['timings']['phases']['loop'] == pytest.approx(LOOP_S + 15 * 5.0, abs=1e-6)
+    assert rec['timings']['per_iter'][1]['components']['atmos'] == pytest.approx(20.0, abs=1e-3)
 
 
 @pytest.mark.parametrize(

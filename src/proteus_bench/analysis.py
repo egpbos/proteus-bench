@@ -76,8 +76,7 @@ def analyse(records: list[dict]) -> dict:
 def record_metrics(record: dict) -> dict[str, float]:
     """Metric name -> value for one record; seconds, except ``n_iters`` (count).
 
-    Every non-null phase is a metric. Iterations with ``init_stage`` true are
-    left out of the per-iteration medians. ``loop.<component>.per_iter_median``
+    Every non-null phase is a metric. ``loop.<component>.per_iter_median``
     is the median over the iterations in which the component ran, so a
     component that runs every few iterations (structure re-solves) reports its
     cost per call, not zero. Raises ``KeyError`` for a missing field and
@@ -88,7 +87,7 @@ def record_metrics(record: dict) -> dict[str, float]:
     metrics |= {phase: s for phase, s in timings['phases'].items() if s is not None}
     if record['outcome'].get('n_iters') is not None:
         metrics['n_iters'] = record['outcome']['n_iters']
-    metrics |= _steady_iteration_metrics(timings['per_iter'])
+    metrics |= _iteration_metrics(timings['per_iter'])
     for row in timings['components']:
         if row['phase'] == 'init':
             name = f'init.{row["component"]}'
@@ -102,15 +101,14 @@ def record_metrics(record: dict) -> dict[str, float]:
     return metrics
 
 
-def _steady_iteration_metrics(per_iter: list[dict]) -> dict[str, float]:
-    steady = [row for row in per_iter if not row.get('init_stage')]
-    if not steady:
+def _iteration_metrics(per_iter: list[dict]) -> dict[str, float]:
+    if not per_iter:
         return {}
     per_component = defaultdict(list)
-    for row in steady:
+    for row in per_iter:
         for component, dur_s in row['components'].items():
             per_component[component].append(dur_s)
-    return {'loop_per_iter_median': median(row['dur_s'] for row in steady)} | {
+    return {'loop_per_iter_median': median(row['dur_s'] for row in per_iter)} | {
         f'loop.{component}.per_iter_median': median(durs)
         for component, durs in per_component.items()
     }

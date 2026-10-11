@@ -6,26 +6,24 @@ Usage mirrors the real command::
 
 It writes what the harness reads from a real run, into
 ``$PROTEUS_OUTPUT_PATH/<params.out.path>`` (default ``./output``):
-``timing.jsonl`` (only when ``PROTEUS_TIMING=1``, like PROTEUS),
-``init_coupler.toml``, ``runtime_helpfile.csv`` and ``proteus_00.log``. Times
-come from a synthetic clock shaped like the 2026 Hábrók scaling runs (a long
-first structure solve, periodic in-loop re-solves), so a run finishes at once
-unless ``[fake] sleep_scale`` asks for real sleeping.
+``init_coupler.toml``, ``runtime_helpfile.csv`` and ``proteus_00.log``. Like
+PROTEUS, it prints ``[INIT_TIMING]`` and ``[IT_TIMING]`` lines when
+``PROTEUS_TIMING=1`` and a ``[BACKEND]`` line for Aragog. Times come from a
+synthetic clock shaped like the 2026 Hábrók scaling runs (a long first structure
+solve, periodic in-loop re-solves), so a run finishes at once unless
+``[fake] sleep_scale`` asks for real sleeping; the logged seconds are synthetic.
 
 The ``[fake]`` table of the config selects the scenario; see ``FAKE_DEFAULTS``.
-``TimingWriter`` doubles as a reference for the emitter PROTEUS implements.
 """
 
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import json
 import os
 import sys
 import time
 import tomllib
-from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import TextIO
 
@@ -40,15 +38,15 @@ FAKE_DEFAULTS = {
     'restructure_every': 3,  # in-loop structure re-solve cadence [iterations]
     'restructure_s': 140.0,
     'aragog_solver': 'cvode',
-    'zalmoxis_backend_init': 'numpy',
-    'zalmoxis_backend_loop': 'jax',
-    'fail': 'none',  # none | error (exception, clean shutdown) | kill (hard exit mid-span)
+    'fail': 'none',  # none | error (exception, exit 1) | kill (hard exit mid-line)
     'fail_at_iter': 3,
     'sleep_scale': 0.0,  # real seconds slept per synthetic second
-    # jsonl: writes timing.jsonl; log: [INIT_TIMING] and [BACKEND] lines instead;
-    # legacy: PROTEUS before #777, only [IT_TIMING] and output always under ./output
-    'timing': 'jsonl',
+    # log: PROTEUS with [INIT_TIMING] and [BACKEND] lines; legacy: PROTEUS before
+    # #777, with only [IT_TIMING] and its output always under ./output
+    'timing': 'log',
 }
+FAIL_MODES = ('none', 'error', 'kill')
+TIMING_MODES = ('log', 'legacy')
 
 # Defaults the stub "resolves" into init_coupler.toml, like PROTEUS's attrs defaults
 RESOLVED_DEFAULTS = {
@@ -76,41 +74,6 @@ class SyntheticClock:
             time.sleep(seconds * self.sleep_scale)
 
 
-class TimingWriter:
-    """Writes timing.jsonl events; spans nest through a stack and close in order."""
-
-    def __init__(self, fh: TextIO | None, clock: SyntheticClock):
-        self.fh = fh  # None when PROTEUS_TIMING is off: events are dropped
-        self.clock = clock
-        self.stack: list[int] = []
-        self.next_id = 1
-
-    def emit(self, **event) -> None:
-        if self.fh is not None:
-            self.fh.write(json.dumps({'v': 1, **event}) + '\n')
-            self.fh.flush()
-
-    @contextmanager
-    def span(self, name: str, **fields):
-        sid, self.next_id = self.next_id, self.next_id + 1
-        parent = self.stack[-1] if self.stack else None
-        t0 = round(self.clock.now, 6)
-        self.stack.append(sid)
-        ok = True
-        try:
-            yield
-        except BaseException:
-            ok = False
-            raise
-        finally:
-            self.stack.pop()
-            dur = round(self.clock.now - t0, 6)
-            extra = {} if ok else {'ok': False}
-            self.emit(
-                ev='span', id=sid, parent=parent, name=name, t0=t0, dur=dur, **fields, **extra
-            )
-
-
 def _deep_merge(base: dict, over: dict) -> dict:
     out = dict(base)
     for key, val in over.items():
@@ -134,7 +97,8 @@ def _dump_toml(data: dict, prefix: str = '') -> str:
     return text
 
 
-FAIL_MODES = ('none', 'error', 'kill')
+def _seconds(fields: dict[str, float]) -> str:
+    return ' '.join(f'{k}={v:.3f}' for k, v in fields.items())
 
 
 def scenario(overrides: dict) -> dict:
@@ -143,143 +107,105 @@ def scenario(overrides: dict) -> dict:
     if unknown:
         raise ValueError(f'unknown [fake] keys {unknown}; allowed: {sorted(FAKE_DEFAULTS)}')
     merged = {**FAKE_DEFAULTS, **overrides}
-    if merged['fail'] not in FAIL_MODES:
-        raise ValueError(f'[fake] fail = {merged["fail"]!r}; allowed: {FAIL_MODES}')
+    for key, allowed in (('fail', FAIL_MODES), ('timing', TIMING_MODES)):
+        if merged[key] not in allowed:
+            raise ValueError(f'[fake] {key} = {merged[key]!r}; allowed: {allowed}')
     return merged
 
 
 class _Run:
     """One fake simulation: state shared by the stage functions below."""
 
-    def __init__(self, cfg: dict, outdir: Path, timing_fh: TextIO | None, log_fh: TextIO):
+    def __init__(self, cfg: dict, outdir: Path, timing: bool, log_fh: TextIO):
         self.fake = scenario(cfg.get('fake', {}))
         self.cfg = _deep_merge(RESOLVED_DEFAULTS, {k: v for k, v in cfg.items() if k != 'fake'})
         self.outdir = outdir
+        self.timing = timing
         self.clock = SyntheticClock(self.fake['sleep_scale'])
-        self.tw = TimingWriter(timing_fh, self.clock)
         self.log = log_fh
         self.rows: list[tuple[float, ...]] = []
 
-    def info(self, msg: str) -> None:
+    def info(self, msg: str, end: str = '\n') -> None:
         line = f'[ INFO  ] {msg}'
-        print(line, flush=True)
-        self.log.write(line + '\n')
+        print(line, end=end, flush=True)
+        self.log.write(line + end)
+        self.log.flush()
 
     def init_phase(self) -> None:
         f = self.fake
-        steps = {}
-        with self.tw.span('init'):
-            back = f['zalmoxis_backend_init']
-            with self.tw.span(
-                'structure', component='structure', submodule='zalmoxis', backend=back
-            ):
-                self.info('Using Zalmoxis to solve for interior structure')
-                self.clock.advance(f['structure_init_s'])
-            steps['structure'] = self.clock.now
-            with self.tw.span('equilibrate'):
-                for k in range(1, f['equilibrate_iters'] + 1):
-                    with self.tw.span('outgas', component='outgas', submodule='calliope'):
-                        self.clock.advance(f['outgas_s'])
-                    with self.tw.span(
-                        'structure', component='structure', submodule='zalmoxis', backend=back
-                    ):
-                        self.clock.advance(f['equilibrate_structure_s'] / k)
-            steps['equilibrate'] = self.clock.now - steps['structure']
-            with self.tw.span('star', component='stellar', submodule='mors'):
-                self.clock.advance(2.0)
-            steps['stellar'] = 2.0
+        self.info('Using Zalmoxis to solve for interior structure')
+        self.clock.advance(f['structure_init_s'])
+        steps = {'structure': self.clock.now}
+        for k in range(1, f['equilibrate_iters'] + 1):
+            self.clock.advance(f['outgas_s'] + f['equilibrate_structure_s'] / k)
+        steps['equilibrate'] = self.clock.now - steps['structure']
+        self.clock.advance(2.0)
+        steps['stellar'] = 2.0
         self.info('Wrote init_coupler.toml')
-        if f['timing'] == 'log':
+        if self.timing and f['timing'] == 'log':
             steps |= {'other': self.clock.now - sum(steps.values()), 'total': self.clock.now}
-            self.info('[INIT_TIMING] ' + ' '.join(f'{k}={v:.3f}' for k, v in steps.items()))
+            self.info(f'[INIT_TIMING] {_seconds(steps)}')
 
     def iteration(self, n: int) -> None:
         f = self.fake
         self.info('Loop counters')
         t_iter = self.clock.now
         times = {}
-        with self.tw.span('iter', iter=n, extra={'init_stage': n <= 1, 'time_yr': 1e3 * n}):
-            for comp, sub, secs, back in self._stages(n):
-                t0 = self.clock.now
-                fields = {'component': comp, 'submodule': sub} | (
-                    {'backend': back} if back else {}
-                )
-                with self.tw.span(comp, **fields):
-                    if f['fail'] != 'none' and n == f['fail_at_iter'] and comp == 'atmos':
-                        self._fail()
-                    self.clock.advance(secs)
-                times[comp] = self.clock.now - t0
-            self.clock.advance(0.2)  # unattributed bookkeeping
-        times['total'] = self.clock.now - t_iter
-        parts = ' '.join(f'{k}={v:.3f}' for k, v in times.items())
-        self.info(f'[IT_TIMING] iter={n} {parts}')
+        for comp, secs in self._stages(n):
+            if f['fail'] != 'none' and n == f['fail_at_iter'] and comp == 'atmos':
+                self._fail(n, times)
+            times[comp] = secs
+            self.clock.advance(secs)
+        self.clock.advance(0.2)  # unattributed bookkeeping
+        times |= {'other': 0.2, 'total': self.clock.now - t_iter}
+        if self.timing:
+            self.info(f'[IT_TIMING] iter={n} {_seconds(times)}')
         self.rows.append((1e3 * n, 3000.0 - 50 * n, 1.0 - 0.01 * n, 1e5 / n, 250.0 + n))
 
     def _stages(self, n: int):
         f = self.fake
-        yield 'interior', 'aragog', f['interior_s'], f['aragog_solver']
+        yield 'interior', f['interior_s']
         if n % f['restructure_every'] == 0:
-            yield 'structure', 'zalmoxis', f['restructure_s'], f['zalmoxis_backend_loop']
-        yield 'outgas', 'calliope', f['outgas_s'], None
-        yield 'atmos', 'agni', f['atmos_first_s'] if n == 1 else f['atmos_s'], None
+            yield 'structure', f['restructure_s']
+        yield 'outgas', f['outgas_s']
+        yield 'atmos', f['atmos_first_s'] if n == 1 else f['atmos_s']
 
-    def _fail(self) -> None:
+    def _fail(self, n: int, times: dict) -> None:
         if self.fake['fail'] == 'kill':
-            if self.tw.fh is not None:
-                self.tw.fh.write('{"v": 1, "ev": "span", "id": 9')  # torn final line
-                self.tw.fh.flush()
+            self.info(f'[IT_TIMING] iter={n} {_seconds(times)} atm', end='')  # torn line
             os._exit(137)
         raise RuntimeError('fake atmosphere solver failure')
 
     def shutdown_phase(self) -> None:
-        with self.tw.span('shutdown'):
-            self.info('Writing data')
-            header = 'Time\tT_magma\tPhi_global\tF_atm\tP_surf\n'
-            body = ''.join('\t'.join(f'{x:.10e}' for x in row) + '\n' for row in self.rows)
-            (self.outdir / 'runtime_helpfile.csv').write_text(header + body)
-            self.clock.advance(5.0)
+        self.info('Writing data')
+        header = 'Time\tT_magma\tPhi_global\tF_atm\tP_surf\n'
+        body = ''.join('\t'.join(f'{x:.10e}' for x in row) + '\n' for row in self.rows)
+        (self.outdir / 'runtime_helpfile.csv').write_text(header + body)
+        self.clock.advance(5.0)
 
 
 def run(cfg: dict, outdir: Path, timing: bool) -> int:
     """Run the fake simulation; return the process exit code."""
     outdir.mkdir(parents=True, exist_ok=True)
-    with ExitStack() as stack:
-        timing_fh = stack.enter_context(open(outdir / 'timing.jsonl', 'w')) if timing else None
-        log_fh = stack.enter_context(open(outdir / 'proteus_00.log', 'w'))
-        return _simulate(_Run(cfg, outdir, timing_fh, log_fh))
+    with open(outdir / 'proteus_00.log', 'w') as log_fh:
+        return _simulate(_Run(cfg, outdir, timing, log_fh))
 
 
 def _simulate(r: _Run) -> int:
-    """Emit the whole run through ``r``; return the process exit code."""
-    outdir = r.outdir
-    wall = dt.datetime.now(dt.UTC).isoformat(timespec='milliseconds')
-    r.tw.emit(ev='run_start', wall=wall.replace('+00:00', 'Z'), pid=os.getpid())
-    r.tw.emit(
-        ev='backend', t0=0.0, submodule='aragog', key='solver', value=r.fake['aragog_solver']
-    )
+    """Run every stage through ``r``; return the process exit code."""
     if r.fake['timing'] == 'log':
         r.info(f'[BACKEND] aragog solver={r.fake["aragog_solver"]}')
-    (outdir / 'init_coupler.toml').write_text(_dump_toml(r.cfg))
+    (r.outdir / 'init_coupler.toml').write_text(_dump_toml(r.cfg))
     n_max = r.cfg['params']['stop']['iters']['maximum']
     try:
         r.init_phase()
-        with r.tw.span('loop'):
-            for n in range(1, n_max + 1):
-                r.iteration(n)
+        for n in range(1, n_max + 1):
+            r.iteration(n)
         r.shutdown_phase()
     except RuntimeError as err:
-        r.tw.emit(ev='run_end', t0=round(r.clock.now, 6), status='error', error=str(err))
         print(f'[ ERROR ] {err}', file=sys.stderr, flush=True)
         return 1
     r.info('===> Maximum number of iterations reached')
-    r.tw.emit(
-        ev='run_end',
-        t0=round(r.clock.now, 6),
-        status='ok',
-        termination='iters_maximum',
-        n_iters=n_max,
-        time_yr=1e3 * n_max,
-    )
     return 0
 
 
@@ -298,12 +224,10 @@ def main(argv: list[str] | None = None) -> int:
         .get('out', {})
         .get('path', RESOLVED_DEFAULTS['params']['out']['path'])
     )
-    mode = cfg.get('fake', {}).get('timing', FAKE_DEFAULTS['timing'])
     root = Path(os.environ.get('PROTEUS_OUTPUT_PATH', '').strip() or 'output').expanduser()
-    timing = os.environ.get('PROTEUS_TIMING', '').lower() in ('1', 'true', 'yes', 'on')
-    timing = timing and mode == 'jsonl'
-    if mode == 'legacy':
+    if cfg.get('fake', {}).get('timing') == 'legacy':
         root = Path('output')
+    timing = os.environ.get('PROTEUS_TIMING', '').lower() in ('1', 'true', 'yes', 'on')
     return run(cfg, root / name, timing)
 
 

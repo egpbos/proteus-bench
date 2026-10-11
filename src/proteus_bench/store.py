@@ -19,7 +19,6 @@ from proteus_bench.settings import flatten, settings_hash
 
 # Artifact key -> run-directory file; a stored record maps the same keys to store paths
 ARTIFACTS = {
-    'spans': 'timing.jsonl',
     'settings': 'init_coupler.toml',
     'config': 'config.toml',
     'log': 'log.txt',
@@ -27,14 +26,13 @@ ARTIFACTS = {
     'flame': 'profile/flame.html',
 }
 _TOP_LEVEL = {
-    'timing.jsonl': 'spans/{year}/{run_id}.timing.jsonl.gz',
     'init_coupler.toml': 'settings/{hex}.toml',
     'config.toml': 'configs/{year}/{run_id}.toml',
     'log.txt': 'logs/{year}/{run_id}.log.gz',
 }
 PROFILE_DIR = 'profiles/{year}/{run_id}/'
 REQUIRED = ('log', 'config')
-REQUIRED_IF_OK = ('spans', 'settings')  # a run that failed in setup may lack these
+REQUIRED_IF_OK = ('settings',)  # a run that failed in setup may lack it
 
 _RECORD_SCHEMA = schema.load('record')['properties']
 RUN_ID = re.compile(_RECORD_SCHEMA['run_id']['pattern'])
@@ -45,8 +43,8 @@ SETTINGS_HASH = re.compile(
 README = """\
 # proteus-bench results store
 
-Raw results of proteus-bench runs: one record per run plus its spans, log,
-configs and profile. Files are only ever added, never changed. The layout is
+Raw results of proteus-bench runs: one record per run plus its log, configs
+and profile. Files are only ever added, never changed. The layout is
 specified in `docs/interface.md` ("Results store") on the main branch of this
 repository. Add runs with `proteus-bench publish RUN_DIR`.
 """
@@ -90,11 +88,7 @@ def check_run(run_dir: Path) -> tuple[dict | None, list[str]]:
     if problems:
         return record, [f'{record_file}: {p}' for p in problems]
     problems += [f'{link}: symbolic links are not published' for link in _symlinks(run_dir)]
-    required = REQUIRED
-    if record['outcome']['status'] == 'ok':
-        required += REQUIRED_IF_OK
-        if record['timings'].get('source') == 'log':
-            required = tuple(key for key in required if key != 'spans')
+    required = REQUIRED + (REQUIRED_IF_OK if record['outcome']['status'] == 'ok' else ())
     problems += [
         f'{run_dir}: missing {ARTIFACTS[key]}'
         for key in required

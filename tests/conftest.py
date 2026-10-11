@@ -8,7 +8,6 @@ import datetime as dt
 import json
 import os
 import random
-import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
@@ -21,7 +20,6 @@ import tomli_w
 from proteus_bench import store
 from proteus_bench.settings import comparable, flatten, settings_hash
 from proteus_bench.testing import fake_proteus
-from proteus_bench.timing import read_events
 
 EXAMPLE_RECORD = Path(__file__).parents[1] / 'examples' / 'record.json'
 
@@ -99,7 +97,7 @@ DEFAULT_SETTINGS = {
 
 @pytest.fixture
 def run_fake(tmp_path, capsys):
-    """Run the stub in-process; return (exit code, output dir, events or None)."""
+    """Run the stub in-process; return (exit code, output dir, printed stdout)."""
 
     def _run(fake: dict | None = None, iters: int = 4, timing: bool = True):
         cfg = {'params': {'out': {'path': 'run'}, 'stop': {'iters': {'maximum': iters}}}}
@@ -107,19 +105,9 @@ def run_fake(tmp_path, capsys):
             cfg['fake'] = fake
         outdir = tmp_path / 'run'
         code = fake_proteus.run(cfg, outdir, timing=timing)
-        capsys.readouterr()  # keep the stub's log lines out of test output
-        path = outdir / 'timing.jsonl'
-        return code, outdir, read_events(path) if path.exists() else None
+        return code, outdir, capsys.readouterr().out
 
     return _run
-
-
-@pytest.fixture
-def good_events(run_fake):
-    """Events of a default four-iteration fake run that finished normally."""
-    code, _, events = run_fake()
-    assert code == 0
-    return events
 
 
 @pytest.fixture
@@ -192,7 +180,6 @@ def make_run_dir(tmp_path):
         nested = copy.deepcopy(settings or DEFAULT_SETTINGS)
         nested['params']['out']['path'] = run_id  # per-run key: must not change the hash
         (run_dir / 'init_coupler.toml').write_text(tomli_w.dumps(nested))
-        shutil.copyfile(EXAMPLES / 'timing.jsonl', run_dir / 'timing.jsonl')
         (run_dir / 'log.txt').write_text(f'[ INFO ] run {run_id}\n')
         (run_dir / 'config.toml').write_text('[params.stop.iters]\nmaximum = 6\n')
         record = json.loads((EXAMPLES / 'record.json').read_text())
