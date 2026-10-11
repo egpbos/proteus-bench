@@ -1,8 +1,8 @@
 """Record sections from PROTEUS's ``[IT_TIMING]`` log lines, for runs without timing.jsonl.
 
-Under ``PROTEUS_TIMING=1`` every PROTEUS version since #678 (June 2026) logs
-``[IT_TIMING] iter=N <component>=<s> ... other=<s> total=<s>`` after each
-main-loop iteration. The runner notes when each such line arrives, in seconds
+``PROTEUS_TIMING`` came to PROTEUS main with #678 (June 2026). With it set,
+every version since then logs ``[IT_TIMING] iter=N <component>=<s> ...
+other=<s> total=<s>`` after each main-loop iteration. The runner notes when each such line arrives, in seconds
 since spawn. An iteration started at its line's arrival minus its total, so the
 loop runs from the start of the first iteration to the arrival of the last
 line; init (start-up and setup included) is before it and shutdown after it.
