@@ -5,7 +5,8 @@ init, loop and shutdown add up to the wall time; loop components sum over
 iterations and 'other' takes the rest of the loop, gaps between iterations
 included; per-iteration rows hold the components without 'other' and 'total';
 other output lines are ignored, and a line without a total or with a non-numeric
-or non-finite value is left out and fails the check; without iterations there are no phases
+or non-finite value, trailing text, or a marked line not in its form is left out
+and fails the check; without iterations there are no phases
 and the check fails; the status comes from the exit code. An [INIT_TIMING] line
 breaks init into its steps, with start-up as the time before PROTEUS's init and
 'other' the rest of the init phase; [BACKEND] lines give the backends.
@@ -93,6 +94,9 @@ def test_without_iterations_there_are_no_phases_and_the_check_fails():
         '[ INFO  ] [IT_TIMING] iter=3 interior=1.0x0 total=2.000',
         '[ INFO  ] [IT_TIMING] iter=3 interior=nan total=2.000',  # JSON has no NaN
         '[ INFO  ] [INIT_TIMING] structure=1.000 oth',  # an init line counts as well
+        '[ INFO  ] [INIT_TIMING] structure=1.000 other=1.000 total=2.000 oth',  # trailing junk
+        '[ INFO  ] [BACKEND] aragog solver=',  # marked, but not a backend line
+        '[ INFO  ] [IT_TIMING] iter=x total=1.000',
     ],
 )
 def test_unreadable_lines_are_left_out_and_fail_the_check(torn):

@@ -120,7 +120,8 @@ PROTEUS versions without `timing.jsonl` log their timings instead, under
 | `[INIT_TIMING] <step>=<s> ... other=<s> total=<s>` | the PROTEUS timing PR | once, just before the loop: data, structure, equilibrate, stellar, orbit |
 | `[BACKEND] <submodule> <key>=<value>` | the PROTEUS timing PR | a module's choice, e.g. `aragog solver=cvode` |
 
-Seconds have three decimals; a reader skips keys it does not know. For such a
+Seconds have three decimals. A key the reader does not know becomes a component
+of its own, so a new step or module needs no reader change. For such a
 run proteus-bench sets `timings.source` to `log` and builds the record from
 these lines (`proteus_bench.logtiming`). The runner notes when each line
 arrives; an iteration starts at its arrival minus its `total`, the loop runs

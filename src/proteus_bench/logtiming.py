@@ -30,9 +30,14 @@ TOTALS = ('other', 'total')
 
 
 def _seconds(text: str) -> dict[str, float] | None:
-    """``key=seconds`` fields, or None without a total or with a non-finite or non-numeric value."""
+    """``key=seconds`` fields, or None when any word is not such a field, a value is not a
+    finite number, or there is no total.
+    """
+    matches = [FIELD.fullmatch(word) for word in text.split()]
+    if not all(matches):
+        return None
     try:
-        fields = {key: float(value) for key, value in FIELD.findall(text)}
+        fields = {m[1]: float(m[2]) for m in matches}
     except ValueError:
         return None
     if 'total' not in fields or not all(math.isfinite(v) for v in fields.values()):
@@ -57,6 +62,8 @@ def parse(lines: list[tuple[float, str]]) -> dict:
             parsed['bad'] += parsed['init'] is None
         elif match := BACKEND.search(text):
             parsed['backends'].setdefault(match[1], {})[match[2]] = match[3]
+        elif any(mark in text for mark in MARKS):  # marked, but not in its line's form
+            parsed['bad'] += 1
     return parsed
 
 
