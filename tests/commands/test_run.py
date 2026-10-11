@@ -103,7 +103,7 @@ def test_local_run_needs_a_machine_label(tmp_path, monkeypatch, capsys):
 
 def test_proteus_without_the_emitter_is_timed_from_its_log(bench):
     """No timing.jsonl and output under the checkout, as before #777: timings from [IT_TIMING]."""
-    code, rec, out = bench({'legacy': True})
+    code, rec, out = bench({'timing': 'legacy'})
     run_dir = _run_dir(out)
     assert code == 0
     assert schema.shape_problems('record', rec) == []
@@ -120,6 +120,33 @@ def test_proteus_without_the_emitter_is_timed_from_its_log(bench):
     assert rec['artifacts']['settings'] == 'init_coupler.toml'  # found under the checkout
     assert rec['fingerprint']
     assert store.check_run(run_dir)[1] == []
+
+
+def test_proteus_with_timing_log_lines_gets_init_steps_and_its_backend(bench):
+    """[INIT_TIMING] and [BACKEND] lines instead of timing.jsonl: init steps, start-up and
+    a passing backend check.
+    """
+    code, rec, _ = bench({'timing': 'log'})
+    assert code == 0
+    assert schema.shape_problems('record', rec) == []
+    assert rec['timings']['source'] == 'log'
+    assert rec['comparability'] == {'ok': True, 'reasons': []}
+    assert [c['name'] for c in rec['checks']] == [
+        'clean_tree',
+        'timing_log',
+        'expected_backends',
+    ]
+    assert rec['backends'] == {'aragog': {'solver': 'cvode'}}
+    init = {r['component'] for r in rec['timings']['components'] if r['phase'] == 'init'}
+    assert init == {'structure', 'equilibrate', 'stellar', 'other'}
+    assert rec['timings']['startup_s'] >= 0
+
+
+def test_a_logged_radau_backend_makes_the_run_not_comparable(bench):
+    """[BACKEND] aragog solver=radau fails the suite's cvode expectation."""
+    _, rec, _ = bench({'timing': 'log', 'aragog_solver': 'radau'})
+    assert rec['comparability']['ok'] is False
+    assert 'expected cvode, got radau' in rec['comparability']['reasons'][0]
 
 
 def test_ok_run_writes_a_complete_valid_record(bench):

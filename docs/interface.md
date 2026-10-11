@@ -111,18 +111,27 @@ Its `TimingWriter` class is a reference emitter.
 
 ### PROTEUS without the emitter
 
-PROTEUS versions without `timing.jsonl` (everything before the emitter, back to
-#678) still log one `[IT_TIMING] iter=N <component>=<s> ... other=<s> total=<s>`
-line per main-loop iteration under `PROTEUS_TIMING=1`. For such a run
-proteus-bench sets `timings.source` to `log` and builds the timings from those
-lines (`proteus_bench.logtiming`): the runner notes when each line arrives, an
-iteration starts at its arrival minus its `total`, the loop runs from the first
-iteration's start to the last line, init is everything before (start-up
-included) and shutdown everything after. Init has no breakdown, and there are
-no backend events, submodules or init-stage flags, so the `expected_backends`
-check is replaced by `timing_log` (at least one such line). PROTEUS before #777
-ignores `PROTEUS_OUTPUT_PATH`; its outputs are read from
-`<checkout>/output/<run_id>`.
+PROTEUS versions without `timing.jsonl` log their timings instead, under
+`PROTEUS_TIMING=1`:
+
+| Line | Since | Meaning |
+|---|---|---|
+| `[IT_TIMING] iter=N <component>=<s> ... other=<s> total=<s>` | #678 | one per main-loop iteration |
+| `[INIT_TIMING] <step>=<s> ... other=<s> total=<s>` | the PROTEUS timing PR | once, just before the loop: data, structure, equilibrate, stellar, orbit |
+| `[BACKEND] <submodule> <key>=<value>` | the PROTEUS timing PR | a module's choice, e.g. `aragog solver=cvode` |
+
+Seconds have three decimals; a reader skips keys it does not know. For such a
+run proteus-bench sets `timings.source` to `log` and builds the record from
+these lines (`proteus_bench.logtiming`). The runner notes when each line
+arrives; an iteration starts at its arrival minus its `total`, the loop runs
+from the first iteration's start to the last line, init is everything before
+and shutdown everything after. With an `[INIT_TIMING]` line, init is broken
+into its steps, `startup_s` is the time before PROTEUS's init began, and init's
+`other` row holds the rest (start-up included). `[BACKEND]` lines fill
+`backends` and the `expected_backends` check runs; without them it is left out.
+A `timing_log` check needs at least one `[IT_TIMING]` line and no unreadable
+one. There are no submodules or init-stage flags. PROTEUS before #777 ignores
+`PROTEUS_OUTPUT_PATH`; its outputs are read from `<checkout>/output/<run_id>`.
 
 ## Run record
 

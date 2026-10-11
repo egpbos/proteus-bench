@@ -45,7 +45,9 @@ FAKE_DEFAULTS = {
     'fail': 'none',  # none | error (exception, clean shutdown) | kill (hard exit mid-span)
     'fail_at_iter': 3,
     'sleep_scale': 0.0,  # real seconds slept per synthetic second
-    'legacy': False,  # PROTEUS before #777: no timing.jsonl, output always under ./output
+    # jsonl: writes timing.jsonl; log: [INIT_TIMING] and [BACKEND] lines instead;
+    # legacy: PROTEUS before #777, only [IT_TIMING] and output always under ./output
+    'timing': 'jsonl',
 }
 
 # Defaults the stub "resolves" into init_coupler.toml, like PROTEUS's attrs defaults
@@ -165,6 +167,7 @@ class _Run:
 
     def init_phase(self) -> None:
         f = self.fake
+        steps = {}
         with self.tw.span('init'):
             back = f['zalmoxis_backend_init']
             with self.tw.span(
@@ -172,6 +175,7 @@ class _Run:
             ):
                 self.info('Using Zalmoxis to solve for interior structure')
                 self.clock.advance(f['structure_init_s'])
+            steps['structure'] = self.clock.now
             with self.tw.span('equilibrate'):
                 for k in range(1, f['equilibrate_iters'] + 1):
                     with self.tw.span('outgas', component='outgas', submodule='calliope'):
@@ -180,9 +184,14 @@ class _Run:
                         'structure', component='structure', submodule='zalmoxis', backend=back
                     ):
                         self.clock.advance(f['equilibrate_structure_s'] / k)
+            steps['equilibrate'] = self.clock.now - steps['structure']
             with self.tw.span('star', component='stellar', submodule='mors'):
                 self.clock.advance(2.0)
+            steps['stellar'] = 2.0
         self.info('Wrote init_coupler.toml')
+        if f['timing'] == 'log':
+            steps |= {'other': self.clock.now - sum(steps.values()), 'total': self.clock.now}
+            self.info('[INIT_TIMING] ' + ' '.join(f'{k}={v:.3f}' for k, v in steps.items()))
 
     def iteration(self, n: int) -> None:
         f = self.fake
@@ -248,6 +257,8 @@ def _simulate(r: _Run) -> int:
     r.tw.emit(
         ev='backend', t0=0.0, submodule='aragog', key='solver', value=r.fake['aragog_solver']
     )
+    if r.fake['timing'] == 'log':
+        r.info(f'[BACKEND] aragog solver={r.fake["aragog_solver"]}')
     (outdir / 'init_coupler.toml').write_text(_dump_toml(r.cfg))
     n_max = r.cfg['params']['stop']['iters']['maximum']
     try:
@@ -287,11 +298,12 @@ def main(argv: list[str] | None = None) -> int:
         .get('out', {})
         .get('path', RESOLVED_DEFAULTS['params']['out']['path'])
     )
-    legacy = cfg.get('fake', {}).get('legacy', FAKE_DEFAULTS['legacy'])
+    mode = cfg.get('fake', {}).get('timing', FAKE_DEFAULTS['timing'])
     root = Path(os.environ.get('PROTEUS_OUTPUT_PATH', '').strip() or 'output').expanduser()
     timing = os.environ.get('PROTEUS_TIMING', '').lower() in ('1', 'true', 'yes', 'on')
-    if legacy:
-        root, timing = Path('output'), False
+    timing = timing and mode == 'jsonl'
+    if mode == 'legacy':
+        root = Path('output')
     return run(cfg, root / name, timing)
 
 
