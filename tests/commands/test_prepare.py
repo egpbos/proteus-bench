@@ -79,7 +79,9 @@ def test_patch_that_does_not_apply_leaves_a_clean_tree(checkout, capsys):
     (root / SOURCE).write_text("print('other loop')\n")
     git(root, 'commit', '-q', '-am', 'change the loop')
     assert cli.main(['prepare', 'HEAD', '--proteus', str(root)]) == 1
-    assert '01-timing.patch does not apply' in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert '01-timing.patch does not apply' in err
+    assert 'is left checked out' in err and 'unpatched' in err
     assert git(root, 'status', '--porcelain') == ''
 
 

@@ -60,10 +60,10 @@ def main(args: argparse.Namespace) -> int:
 
 def prepare(root: Path, commit: str) -> str:
     """Check ``commit`` out in ``root``, patched where needed; return what was done."""
-    if git(root, 'status', '--porcelain', '--untracked-files=no').stdout.strip():
+    if checked(root, 'status', '--porcelain', '--untracked-files=no'):
         raise Stop(f'{root} has uncommitted changes', 2)
     sha = checked(root, 'rev-parse', '--short=8', f'{commit}^{{commit}}')
-    if MARK in git(root, 'show', f'{sha}:src/proteus/proteus.py').stdout:
+    if MARK in checked(root, 'show', f'{sha}:src/proteus/proteus.py'):
         checked(root, 'switch', '-q', '--detach', sha)
         return f'{sha} already logs the timing lines; checked out unchanged'
     branch = f'bench/{sha}'
@@ -77,7 +77,9 @@ def prepare(root: Path, commit: str) -> str:
                 )
         message = 'Log the timing lines of FormingWorlds/PROTEUS#983'
         checked(root, 'commit', '-q', '-am', message, code=1)
-    except Stop:
+    except Stop as err:
         git(root, 'reset', '-q', '--hard')
-        raise
+        raise Stop(
+            f'{err}\n{branch} is left checked out at {sha}, unpatched', err.code
+        ) from None
     return f'{branch}: {sha} with the timing lines'
