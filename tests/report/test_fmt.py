@@ -3,14 +3,23 @@
 Contract clauses: durations switch format at 100 s and 1 h; missing values
 render as n/a; relative changes carry a sign; slugs are file-name safe and the
 series-page separator cannot come from a slug; a commit URL keeps the sha in its
-last path segment.
+last path segment; a run is shown by its base commit, with ``+`` when it measured
+local commits on top.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from proteus_bench.report.fmt import commit_url, fmt_rel, fmt_s, fmt_value, series_href, slug
+from proteus_bench.report.fmt import (
+    commit_url,
+    fmt_rel,
+    fmt_s,
+    fmt_value,
+    proteus_commit,
+    series_href,
+    slug,
+)
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 
@@ -54,6 +63,16 @@ def test_commit_url_cannot_leave_the_commit_page():
     assert commit_url('../../x?y') == (
         'https://github.com/FormingWorlds/PROTEUS/commit/..%2F..%2Fx%3Fy'
     )
+
+
+def test_proteus_commit_is_the_base_unless_head_is_on_it():
+    """A local commit on its base shows as the base with ``+``; HEAD at the base, a longer
+    short sha of it, or no base (no origin/main) show HEAD as it is."""
+    base = {'sha': 'b2dbb839', 'committed_at': '2026-10-01T00:00:00Z'}
+    assert proteus_commit('37288a7b', base) == ('b2dbb839', 'b2dbb839+')
+    assert proteus_commit('b2dbb839', base) == ('b2dbb839', 'b2dbb839')
+    assert proteus_commit('b2dbb8390', base) == ('b2dbb8390', 'b2dbb839')
+    assert proteus_commit('37288a7b', None) == ('37288a7b', '37288a7b')
 
 
 @pytest.mark.parametrize('seconds', [0.0, 0.04])

@@ -56,9 +56,9 @@ ignores `PROTEUS_OUTPUT_PATH`; its outputs are read from
 ### Component names
 
 PROTEUS's bucket names: `interior`, `structure`, `orbit`, `stellar`, `escape`,
-`outgas`, `atmos`, `chem`, `write`, `plots`, `archive`, and `data` for the data
-check. Consumers must accept names they don't know, since new names are an
-additive change.
+`outgas`, `trapping` (from #928), `atmos`, `chem`, `write`, `plots`, `archive`,
+and `data` for the data check. Consumers must accept names they don't know,
+since new names are an additive change.
 
 ## Run record
 
@@ -79,7 +79,8 @@ One JSON file per run. See `record-v1.schema.json` for every field. Key points:
   `origin/main` commit that the measured HEAD contains, so a run of main plus
   local patches counts as the main commit it builds on. It is absent when the
   checkout has no `origin/main`; fetch before running, or the base is the last
-  fetched main commit.
+  fetched main commit. The dashboard shows and links a run by its base commit,
+  marked `+` when HEAD has local commits on top, since those are not on GitHub.
 - `comparability` says whether the run may enter baselines, and if not, why.
   Examples: uncommitted changes in PROTEUS, an unexpected backend such as the Radau
   fallback, or a physics fingerprint that doesn't match the series.
