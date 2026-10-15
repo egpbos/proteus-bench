@@ -90,3 +90,15 @@ def run_href(run_id: str) -> str:
 
 def commit_url(sha: str) -> str:
     return PROTEUS_COMMIT_URL.format(sha=quote(sha, safe=''))
+
+
+def proteus_commit(sha: str, base: dict | None) -> tuple[str, str]:
+    """(sha, label) to link and show a run's PROTEUS commit by.
+
+    A HEAD with local commits on top of its ``code.proteus.base`` (a patched
+    checkout from ``proteus-bench prepare``) is not on GitHub, so such a run is
+    shown as the base commit with a ``+``.
+    """
+    if base is None or sha.startswith(base['sha']):
+        return sha, sha[:8]
+    return base['sha'], f'{base["sha"][:8]}+'

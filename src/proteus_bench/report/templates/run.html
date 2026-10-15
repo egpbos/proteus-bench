@@ -3,7 +3,7 @@
 {% set title = 'Run ' ~ record['run_id'] %}
 {% set outcome, timings, bench = record['outcome'], record['timings'], record['benchmark'] %}
 {% set rusage = timings.get('rusage', {}) %}
-{% block meta %}<span>{{ record['trigger']['started_at'] | fmt_time }}</span><span>PROTEUS {{ commit_link(record['code']['proteus']['sha']) }}</span><span>{{ record['machine']['label'] }}</span>{% endblock %}
+{% block meta %}<span>{{ record['trigger']['started_at'] | fmt_time }}</span><span>PROTEUS {{ commit_link(record['code']['proteus']['sha'], record['code']['proteus'].get('base')) }}</span><span>{{ record['machine']['label'] }}</span>{% endblock %}
 {% block body %}
 {% if failed or record['comparability']['reasons'] or outcome['status'] != 'ok' %}
 <section class="callout" id="problems"><h2>Problems</h2><ul>
@@ -72,7 +72,7 @@
 <h2>Provenance</h2>
 {% set code, proteus, trigger = record['code'], record['code']['proteus'], record['trigger'] %}
 <div class="panel scroll"><table class="kv"><tbody>
-<tr><th scope="row">PROTEUS</th><td>{{ commit_link(proteus['sha']) }}{% if proteus['dirty'] %} <span class="warn">dirty tree</span>{% endif %}</td></tr>
+<tr><th scope="row">PROTEUS</th><td>{{ commit_link(proteus['sha'], proteus.get('base')) }}{% if proteus['dirty'] %} <span class="warn">dirty tree</span>{% endif %}</td></tr>
 <tr><th scope="row">Branch / describe</th><td>{{ [proteus.get('branch'), proteus.get('describe')] | select | join(' / ') }}</td></tr>
 <tr><th scope="row">Harness</th><td>{{ record['harness']['version'] }} <span class="mono">{{ record['harness'].get('sha', '') }}</span></td></tr>
 <tr><th scope="row">Trigger</th><td>{{ trigger['adapter'] }}</td></tr>

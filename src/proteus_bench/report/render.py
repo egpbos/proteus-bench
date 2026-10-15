@@ -39,6 +39,7 @@ ENV.filters |= {
         'fmt_value',
         'group_label',
         'group_of',
+        'proteus_commit',
         'run_href',
         'series_href',
     )

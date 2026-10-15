@@ -17,7 +17,7 @@
 <details><summary>Table view</summary>
 <div class="scroll"><table><thead><tr><th>Run</th><th>Commit</th><th class="num">Value</th><th>Comparable</th><th>Flag</th></tr></thead><tbody>
 {% for point in s['points'] | reverse %}
-<tr><td><a href="{{ root }}{{ point['run_id'] | run_href }}">{{ point['time'] | fmt_time }}</a></td><td>{{ commit_link(point['commit']) }}</td><td class="num">{{ point['value'] | fmt_value(s['unit']) }}</td><td>{{ comparable_mark(point['comparable']) }}</td><td>{% for flag in s['flags'] if flag['run_id'] == point['run_id'] %}{{ flag_badge(flag) }}{% endfor %}</td></tr>
+<tr><td><a href="{{ root }}{{ point['run_id'] | run_href }}">{{ point['time'] | fmt_time }}</a></td><td>{{ commit_link(point['commit'], point['base']) }}</td><td class="num">{{ point['value'] | fmt_value(s['unit']) }}</td><td>{{ comparable_mark(point['comparable']) }}</td><td>{% for flag in s['flags'] if flag['run_id'] == point['run_id'] %}{{ flag_badge(flag) }}{% endfor %}</td></tr>
 {% endfor %}
 </tbody></table></div>
 {% if s['baseline'] %}<p class="note">Baseline median {{ s['baseline']['median'] | fmt_value(s['unit']) }}, sigma {{ '%.3g' | format(s['baseline']['sigma']) }}, over {{ s['baseline']['n'] }} runs.</p>{% endif %}
@@ -81,7 +81,7 @@
 <thead><tr><th>Run</th><th>Commit</th>{% for metric, unit, values in table_metrics %}<th class="num">{{ metric }}</th>{% endfor %}<th>Status</th><th>Comparable</th></tr></thead>
 <tbody>
 {% for r in records | reverse %}
-<tr data-run="{{ r['run_id'] }}"><td><a href="{{ root }}{{ r['run_id'] | run_href }}">{{ r['trigger']['started_at'] | fmt_time }}</a></td><td>{{ commit_link(r['code']['proteus']['sha']) }}</td>{% for metric, unit, values in table_metrics %}<td class="num">{{ values.get(r['run_id']) | fmt_value(unit) }}</td>{% endfor %}<td>{{ r['outcome']['status'] }}</td><td>{{ comparable_mark(r['comparability']['ok']) }}</td></tr>
+<tr data-run="{{ r['run_id'] }}"><td><a href="{{ root }}{{ r['run_id'] | run_href }}">{{ r['trigger']['started_at'] | fmt_time }}</a></td><td>{{ commit_link(r['code']['proteus']['sha'], r['code']['proteus'].get('base')) }}</td>{% for metric, unit, values in table_metrics %}<td class="num">{{ values.get(r['run_id']) | fmt_value(unit) }}</td>{% endfor %}<td>{{ r['outcome']['status'] }}</td><td>{{ comparable_mark(r['comparability']['ok']) }}</td></tr>
 {% endfor %}
 </tbody></table></div>
 </section>

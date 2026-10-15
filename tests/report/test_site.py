@@ -10,7 +10,8 @@ reasons first and sorts failed checks first; the series filter index holds
 exactly the settings keys that differ, and the run table rows carry run ids;
 record and analysis text never reaches the HTML unescaped, and only https URLs
 become links; runs with a base commit give every series chart a twin in commit
-order and the page an order switch; groups whose names differ only in case get separate pages; a
+order and the page an order switch; a run of local commits on its base commit is
+shown and linked as the base commit with a ``+`` everywhere; groups whose names differ only in case get separate pages; a
 rebuild removes pages of deleted runs; bad input is refused with its source.
 """
 
@@ -488,3 +489,25 @@ def test_history_charts_and_switch_need_a_base_commit(tmp_path, records):
     assert sorted(points_of(history)['ids']) == sorted(
         points_of(page.charts['total']['light'])['ids']
     )
+
+
+def test_runs_of_local_commits_show_their_base_commit(tmp_path, records):
+    """Every page shows and links a patched run by its base commit plus ``+``, never the
+    local commit, which is not on GitHub; runs of the base commit itself get no ``+``."""
+    for record in records:
+        proteus = record['code']['proteus']
+        proteus['base'] = {'sha': proteus['sha'], 'committed_at': '2026-08-01T00:00:00Z'}
+    patched = next(r for r in records if R8.endswith(f'{r["run_id"]}.html'))['code']['proteus']
+    patched['sha'] = '37288a7b'
+    patched['base']['sha'] = 'b2dbb839'
+    site = build(tmp_path, records, analyse(records))
+    pages = {p.relative_to(site).as_posix(): p.read_text() for p in site.rglob('*.html')}
+    assert [name for name, text in pages.items() if '37288a7b' in text] == []
+    link = 'href="https://github.com/FormingWorlds/PROTEUS/commit/b2dbb839">b2dbb839+</a>'
+    assert pages['index.html'].count(link) == 2  # latest run of the card, recent runs row
+    assert pages[R8].count(link) == 2  # page header, provenance
+    assert link in pages[HABROK]
+    hovers = points_of(Page(pages[HABROK]).charts['total']['light'])['hovertext']
+    assert sum('b2dbb839+' in h for h in hovers) == 1
+    assert '"label":"2026-09-25 03:10 UTC b2dbb839+ ' in pages['compare.html']
+    assert 'abd4ca53+' not in ''.join(pages.values())

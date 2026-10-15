@@ -7,7 +7,7 @@ the chosen pair.
 
 from __future__ import annotations
 
-from proteus_bench.report.fmt import fmt_time, group_label, group_of
+from proteus_bench.report.fmt import fmt_time, group_label, group_of, proteus_commit
 from proteus_bench.report.render import render
 
 
@@ -28,7 +28,8 @@ def compare_data(records: list[dict]) -> dict:
         {
             'id': r['run_id'],
             'label': (
-                f'{fmt_time(r["trigger"]["started_at"])} {r["code"]["proteus"]["sha"][:8]} '
+                f'{fmt_time(r["trigger"]["started_at"])} '
+                f'{proteus_commit(r["code"]["proteus"]["sha"], r["code"]["proteus"].get("base"))[1]} '
                 f'{group_label(group_of(r))}'
             ),
             'comparable': r['comparability']['ok'],
