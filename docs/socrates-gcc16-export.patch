@@ -1,0 +1,38 @@
+diff --git a/julia/src/GenFortranWrappers.jl b/julia/src/GenFortranWrappers.jl
+index d8e0601..c00ac3c 100644
+--- a/julia/src/GenFortranWrappers.jl
++++ b/julia/src/GenFortranWrappers.jl
+@@ -578,7 +578,7 @@ function gen_cfortran_wrapper(
+         write(f, "\n")
+         write(f, "implicit none\n")
+         write(f, "\n")
+-        write(f, "private\n")
++        write(f, "public\n")
+         write(f, "\n")
+         write(f, "contains\n")
+         write(f, "\n")
+diff --git a/julia/src/SOCRATES_C.f90 b/julia/src/SOCRATES_C.f90
+index 24f6df9..a3bf6f2 100644
+--- a/julia/src/SOCRATES_C.f90
++++ b/julia/src/SOCRATES_C.f90
+@@ -31,7 +31,7 @@ USE realtype_rd, ONLY: RealK
+ 
+ implicit none
+ 
+-private
++public
+ 
+ 
+ 
+diff --git a/julia/src/Utilities_CF.f90 b/julia/src/Utilities_CF.f90
+index a2c9fcd..fd61b84 100644
+--- a/julia/src/Utilities_CF.f90
++++ b/julia/src/Utilities_CF.f90
+@@ -12,6 +12,7 @@ private
+ 
+ public :: C_strlen, c_to_f_string, copy_f_to_c_string, copy_c_to_f_string
+ public :: test_double_val, test_double_ref
++public :: real_kind_bytes
+ 
+ interface
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
