@@ -93,7 +93,7 @@ To run an old commit as it ran when it was merged, use the modules and data
 of that time:
 
 - Python modules: `pip install --uploaded-prior-to <merge time> -e .` picks
-  the versions that were current at the merge.
+  the versions that were current at the merge (pip 26.0 or newer).
 - AGNI and SOCRATES: check out the refs the commit pins in `pyproject.toml`
   (`python tools/_module_pins.py agni ref`, likewise `socrates`). A pinned
   AGNI may refuse some Julia versions; its `Project.toml` lists the ones it
