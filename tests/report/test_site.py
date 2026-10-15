@@ -500,13 +500,15 @@ def test_runs_of_local_commits_show_their_base_commit(tmp_path, records):
     patched = next(r for r in records if R8.endswith(f'{r["run_id"]}.html'))['code']['proteus']
     patched['sha'] = '37288a7b'
     patched['base']['sha'] = 'b2dbb839'
-    site = build(tmp_path, records, analyse(records))
+    analysis = analyse(records)
+    site = build(tmp_path, records, analysis)
     pages = {p.relative_to(site).as_posix(): p.read_text() for p in site.rglob('*.html')}
     assert [name for name, text in pages.items() if '37288a7b' in text] == []
     link = 'href="https://github.com/FormingWorlds/PROTEUS/commit/b2dbb839">b2dbb839+</a>'
     assert pages['index.html'].count(link) == 2  # latest run of the card, recent runs row
     assert pages[R8].count(link) == 2  # page header, provenance
-    assert link in pages[HABROK]
+    n_series = sum(s['key']['machine_class'] == 'habrok-vink' for s in analysis['series'])
+    assert pages[HABROK].count(link) == n_series + 1  # each series' table, the runs table
     hovers = points_of(Page(pages[HABROK]).charts['total']['light'])['hovertext']
     assert sum('b2dbb839+' in h for h in hovers) == 1
     assert '"label":"2026-09-25 03:10 UTC b2dbb839+ ' in pages['compare.html']
