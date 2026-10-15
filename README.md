@@ -89,6 +89,29 @@ proteus-bench prepare <commit> --proteus path/to/PROTEUS
 This leaves the checkout on branch `bench/<sha>`, one commit with the patches
 on top of `<commit>`. Install that commit as usual (`pip install -e`, with its own module versions), then run.
 
+To run an old commit as it ran when it was merged, use the modules and data
+of that time:
+
+- Python modules: `pip install --uploaded-prior-to <merge time> -e .` picks
+  the versions that were current at the merge.
+- AGNI and SOCRATES: check out the refs the commit pins in `pyproject.toml`
+  (`python tools/_module_pins.py agni ref`, likewise `socrates`). A pinned
+  AGNI may refuse some Julia versions; its `Project.toml` lists the ones it
+  accepts.
+- SOCRATES pins before c3296586 build with GCC 16.2, but GCC 16.2 hides their
+  C-bound symbols from the Julia wrapper. Before `./configure` and
+  `./build_code`, apply the three-line export fix of c3296586 in the SOCRATES
+  checkout:
+  `patch -N -p1 < path/to/proteus-bench/docs/socrates-gcc16-export.patch`. Pins that
+  already hold one of its hunks skip it, and `patch` then exits 1. The record
+  marks the patched SOCRATES as dirty.
+- AGNI stores `RAD_DIR` and `FWL_DATA` in its Julia precompile cache. Give
+  each commit its own `JULIA_DEPOT_PATH`, and use it for the AGNI build, the
+  data download and the runs alike.
+- Data: commits from before fwl-io name their own Zenodo records in
+  `src/proteus/utils/data.py` and read an older directory layout. Give each
+  commit its own `FWL_DATA` and download into it with that commit's code.
+
 ## Publishing
 
 From the separate proteus-bench environment:
