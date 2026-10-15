@@ -128,9 +128,13 @@ def env_manager(env: dict) -> str:
 
 
 def julia_version(env: dict) -> str | None:
-    """Version of the ``julia`` on the child's PATH; None without one, else 'unknown'
-    when it does not answer ``julia version X`` in time."""
-    julia = shutil.which('julia', path=env.get('PATH'))
+    """Version of the Julia that juliacall loads in the child; None without one, else
+    'unknown' when it does not answer ``julia version X`` in time.
+
+    juliapkg takes ``PYTHON_JULIAPKG_EXE`` when it is set, which PROTEUS requires,
+    since juliacall cannot use the juliaup launcher; otherwise the ``julia`` on PATH.
+    """
+    julia = shutil.which(env.get('PYTHON_JULIAPKG_EXE') or 'julia', path=env.get('PATH'))
     if julia is None:
         return None
     try:

@@ -67,7 +67,7 @@
       "properties": {
         "manager": {"enum": ["conda", "pixi", "venv", "unknown"]},
         "python": {"type": "string"},
-        "julia": {"type": "string"},
+        "julia": {"type": "string", "description": "Version of the Julia juliacall loads: PYTHON_JULIAPKG_EXE when set, else the julia on PATH."},
         "threads": {"type": "object", "additionalProperties": {"type": "string"}},
         "knobs": {"type": "object", "description": "Settings that change timing but not physics: caches, JULIA_NUM_THREADS, profiler."},
         "socrates_build": {"enum": ["portable", "native", "unknown"]}
