@@ -16,3 +16,9 @@ expected_backends = { "aragog.solver" = "cvode" }
 config = "input/dummy.toml"
 # The cap must exceed params.stop.iters.minimum, which defaults to 5
 overrides = { "params.stop.iters.maximum" = 6, "params.stop.time.minimum" = 0.0 }
+
+[suite.obliqua]
+# The default suite with Obliqua tides, so the two compare directly
+config = "input/all_options.toml"
+overrides = { "params.stop.iters.maximum" = 16, "params.stop.time.minimum" = 0.0, "orbit.module" = "obliqua" }
+expected_backends = { "aragog.solver" = "cvode" }

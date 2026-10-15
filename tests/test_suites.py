@@ -1,7 +1,8 @@
 """Tests for proteus_bench.suites.
 
 Contract clauses: the packaged suites.toml defines the default suite as
-all_options.toml capped at 16 iterations expecting Aragog CVODE; unknown
+all_options.toml capped at 16 iterations expecting Aragog CVODE, and the
+obliqua suite as the same run with Obliqua tides; unknown
 suites, missing files and malformed suites (unknown keys, no config, bad
 override or backend keys) fail at load time with the reason; overrides replace
 only the named keys, create missing tables and refuse to descend into a value;
@@ -52,9 +53,19 @@ def test_dummy_suite_is_the_cheap_smoke_suite():
     assert suite['expected_backends'] == {}
 
 
+def test_obliqua_suite_is_the_default_run_with_obliqua_tides():
+    """Only the tides module differs from default, so the two runs compare directly."""
+    default, obliqua = load_suite('default'), load_suite('obliqua')
+    assert obliqua['config'] == default['config']
+    assert obliqua['overrides'] == {**default['overrides'], 'orbit.module': 'obliqua'}
+    assert obliqua['expected_backends'] == default['expected_backends']
+
+
 def test_unknown_suite_and_missing_file_are_errors(tmp_path):
     """Asking for a suite that does not exist names the known ones or the missing path."""
-    with pytest.raises(ValueError, match=r"unknown suite 'nope'.*\['default', 'dummy'\]"):
+    with pytest.raises(
+        ValueError, match=r"unknown suite 'nope'.*\['default', 'dummy', 'obliqua'\]"
+    ):
         load_suite('nope')
     missing = tmp_path / 'suites.toml'
     with pytest.raises(FileNotFoundError):
