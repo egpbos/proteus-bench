@@ -28,30 +28,22 @@ You measure what a pull request does to the code it touches and propose fixes th
 ## Step 1: Get both trees
 
 ```bash
-gh pr view N -R OWNER/REPO --json baseRefOid,headRefOid,files,author,body,state,mergeCommit
+gh pr view N -R OWNER/REPO --json baseRefOid,headRefOid,files,author,body
 git -C CLONE cat-file -e HEAD_SHA || git clone --filter=blob:none URL scratch/clone
-BASE=$(git -C CLONE merge-base BASE_SHA HEAD_SHA)   # for a squash-merged PR: the merge commit's parent
+BASE=$(git -C CLONE merge-base BASE_SHA HEAD_SHA)
 git -C CLONE archive "$BASE" | tar -x -C scratch/base
 git -C CLONE archive HEAD_SHA | tar -x -C scratch/head
 git -C CLONE diff --numstat --find-renames "$BASE" HEAD_SHA
 git -C CLONE diff -U0 "$BASE" HEAD_SHA > scratch/u0.diff
 ```
 
-- **Head commit.** If you measure a squash commit instead of the PR head, check that its tree equals the head's tree (`gh api repos/OWNER/REPO/commits/SHA --jq .commit.tree.sha`).
-- **Touched files.** These are the `.py` files the PR adds, modifies or renames, plus `.js` files in proteus-bench. Leave out generated files: lock files, the vendored code and data that `verbosity/build_ledger.py` would exclude, and test fixtures that copy upstream files.
+- **Touched files.** These are the `.py` files the PR adds, modifies or renames.
 - **zsh.** In zsh, keep file lists in arrays (`files=(a.py b.py)`, then `$files`), or pass them through `xargs` from a file. Brace the variable in revision paths (`"${sha}:path"`), because zsh reads `$sha:p` as a modifier.
-- **Limits.** Read the limits and the Python target version from AGENTS.md and `pyproject.toml` at the base; they win over the numbers here. A PR that changes them is measured against the base values, and the change is itself a finding for the maintainer.
-
-| | proteus-bench | PROTEUS |
-|---|---|---|
-| Complexity per function (ruff C901) | at most 10 | the `max-complexity` in `pyproject.toml`, else 10 |
-| Function length | aim under 40 lines | aim under 50, extract past about 80 |
-| File length | aim under 400 lines | aim under 500, split past about 800 |
-| Inline comment block | "quiet code": why only | at most 2 lines, never more than 4 |
+- **Limits.** Read the complexity, function-length and file-length limits and the Python target version from AGENTS.md and `pyproject.toml` at the base (complexity 10 where neither sets one). A PR that changes them is measured against the base values, and the change is itself a finding for the maintainer.
 
 ## Step 2: Measure
 
-Use the quality monitor's pinned versions with explicit settings, so numbers compare between PRs:
+Use these pinned versions with explicit settings, so numbers compare between PRs:
 
 ```bash
 t() { pixi exec -s 'python>=3.12' -s lizard==1.24.1 -s ruff==0.17.0 -s vulture==2.16 -s pylint==4.1.2 -- "$@"; }
@@ -61,7 +53,7 @@ t ruff check --isolated --no-cache --target-version PYVER --output-format json \
 t lizard -L LENGTH_LIMIT -a 5 -w FILES                     # length and parameters
 t vulture --min-confidence 60 PACKAGE_DIR                  # whole package
 t symilar -d 4 -i --ignore-docstrings --ignore-imports --ignore-signatures PACKAGE_FILES
-t python -I SKILL_DIR/scripts/verbosity.py TREE FILES --diff scratch/u0.diff --block-limit 2
+t python -I SKILL_DIR/scripts/verbosity.py TREE FILES --diff scratch/u0.diff
 t python -I SKILL_DIR/scripts/verbosity.py BASE_TREE PACKAGE_FILES   # baseline share
 ```
 
@@ -88,7 +80,7 @@ A regression is something that got worse in the touched files at the head:
 - **Unused code:** a new vulture finding in a touched source file.
 - **Duplication:** a new duplicated block that involves a touched file.
 - **Verbosity:**
-  - a new comment block longer than the repository's limit;
+  - a new comment block longer than 2 lines;
   - a new function whose docstring is longer than its body;
   - in a PR that adds at least 50 non-blank source lines, comment and docstring lines that make up a larger share of the added source lines than of the source package at the base, by more than half. Use `added_comment_or_docstring` over `added_nonblank`, against comment plus docstring lines over non-blank lines in the base package. Quote both numbers; the threshold is a heuristic.
 

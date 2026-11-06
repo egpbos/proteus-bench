@@ -1,9 +1,8 @@
 """Comment and docstring verbosity of Python files, as JSON on stdout.
 
-Usage: python verbosity.py ROOT FILE... [--diff DIFF] [--block-limit N]
-Paths are relative to ROOT; missing and non-Python files are skipped. Per file: line
-counts by kind, comment blocks longer than N lines, functions whose docstring is longer
-than their body. With --diff (output of `git diff -U0 BASE HEAD`, ROOT being the head
+Usage: python verbosity.py ROOT FILE... [--diff DIFF]
+Paths of Python files, relative to ROOT. Per file: line counts by kind, comment blocks
+longer than 2 lines, functions whose docstring is longer than their body. With --diff (output of `git diff -U0 BASE HEAD`, ROOT being the head
 tree), also the added non-blank lines and how many of them are comments or docstrings.
 """
 
@@ -62,7 +61,7 @@ def walk(node, prefix=''):
             yield from walk(child, prefix)
 
 
-def measure(path, block_limit, added):
+def measure(path, added):
     source = path.read_text(encoding='utf-8')
     text = source.splitlines()
     tree = ast.parse(source)
@@ -80,13 +79,12 @@ def measure(path, block_limit, added):
     blank = {i for i, line in enumerate(text, 1) if not line.strip()}
     result = {
         'nonblank_lines': len(text) - len(blank),
-        'code_lines': len(text) - len(blank | comments | docs),
         'comment_lines': len(comments),
         'docstring_lines': len(docs - blank),
         'long_comment_blocks': [
             {'line': s, 'lines': n, 'first': text[s - 1].strip()}
             for s, n in blocks(comments)
-            if n > block_limit
+            if n > 2
         ],
         'docstring_longer_than_body': heavy,
     }
@@ -113,16 +111,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('root', type=Path)
     parser.add_argument('files', nargs='+')
-    parser.add_argument('--block-limit', type=int, default=2)
     parser.add_argument('--diff', type=Path, help='git diff -U0 BASE HEAD, ROOT being HEAD')
     args = parser.parse_args()
     added = added_lines(args.diff.read_text(encoding='utf-8')) if args.diff else None
     out = {
-        f: measure(
-            args.root / f, args.block_limit, None if added is None else added.get(f, set())
-        )
+        f: measure(args.root / f, None if added is None else added.get(f, set()))
         for f in args.files
-        if f.endswith('.py') and (args.root / f).is_file()
     }
     json.dump(out, sys.stdout, indent=1)
 
