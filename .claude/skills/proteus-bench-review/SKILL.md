@@ -1,6 +1,6 @@
 ---
 name: proteus-bench-review
-description: Review an AI-written pull request on egpbos/proteus-bench the way its maintainer does, hunting bloat and maintenance cost. Asks whether each added file, command, option, fixture and code path needs to exist; whether PROTEUS, a FormingWorlds package or a library already does it; and whether the PR is as small as it can be. Posts the findings as a GitHub review prefixed with the police officer emoji. Use when asked to review a proteus-bench PR, or when a PR there has finished its AI-review phase and is about to go to human review. Not for PRs written by people, and not for other repositories.
+description: Review an AI-written pull request on egpbos/proteus-bench the way its maintainer does, hunting bloat and maintenance cost. Asks whether each added file, command, option, fixture and code path needs to exist; whether PROTEUS, its visual-language packages or a library already does it; and whether the PR is as small as it can be. Posts the findings as a GitHub review prefixed with the police officer emoji. Use when asked to review a proteus-bench PR, or when a PR there has finished its AI-review phase and is about to go to human review. Not for PRs written by people, and not for other repositories.
 ---
 
 # proteus-bench review of AI-written code
@@ -53,7 +53,7 @@ The maintainer reviews at file level before line level. Most of their comments s
 2. **Does something already do it?** Check, in this order:
    - this repository: an existing helper or constant is a request, not a question (AGENTS.md "No duplication");
    - PROTEUS: `proteus doctor`, its config, its own setup checks, and its version helpers;
-   - FormingWorlds packages: `proteus-visual-language` and its tokens, `proteus-mpl`, `proteus-plotly`;
+   - the visual-language packages: FormingWorlds `proteus-visual-language` with its tokens and its `proteus-mpl` subpackage, and `proteus-plotly` (the `report` extra, from the `proteus-plotly` branch of egpbos/proteus-visual-language);
    - well-known libraries.
 
    Hand-written generic infrastructure is the strongest signal: escaping, plotting, HTML generation, serialisers, git plumbing, vendored copies of a library. Name the concrete candidate and check that it exists and does the job (read its docs or try it). Estimate the lines it would remove. Do not invent package names or APIs.
@@ -77,16 +77,9 @@ The maintainer reviews at file level before line level. Most of their comments s
   - If it changes how PROTEUS is run and shows no real run, do one yourself where you can: a `dummy`-suite `proteus-bench run` against a PROTEUS checkout with the timing support the PR needs. If you cannot, ask in the review whether a real run was done, and say that you could not do one.
   - A problem the author raised earlier must be solved or listed as open, not dropped.
 - **Dependencies.**
-  - Apply AGENTS.md architecture rule 1 as it stands at the PR base. Code that runs inside the PROTEUS environment stays minimal; everything else may take a dependency through an extra, and should when the dependency removes code or maintenance.
+  - Apply AGENTS.md architecture rule 1 as it stands at the PR base.
   - GitHub Actions are referenced by their latest major or minor tag, not a commit SHA.
-- **Quiet code** in source and config files alike. Flag the following:
-  - comments that restate the code or record history or provenance;
-  - comments that cite internal plans: decision or work-package numbers, "the brief", "as agreed";
-  - comments in `pyproject.toml` or workflows that say nothing a reader needs;
-  - long explanations that belong in the docs;
-  - commented-out code.
-
-  Leave alone what the repository's own config requires, such as the import that ruff's `required-imports` adds.
+- **Quiet code.** Apply AGENTS.md "Code quality" rules 6 and 8 and "Writing style for anything published" to source and config files alike, `pyproject.toml` and workflows included. Also flag long explanations that belong in the docs. Leave alone what the repository's own config requires, such as the import that ruff's `required-imports` adds.
 - **Published data.** Records, logs, dashboard pages, issues and PR text must not carry host names, login names, home directories or tool scratch paths (`/private/tmp/claude-*`). Flag a PR that collects or publishes such data, even when the schema already allowed the field. Removing it from the results history later means rewriting history; corrections there are normal commits.
 - **Checks that stay.** A check that is needed must be complete and fail loudly with what was expected and what was found. Nothing may be dropped silently, for example a timing component lost by a refactor.
 
@@ -103,7 +96,7 @@ The maintainer reviews at file level before line level. Most of their comments s
   - direct consequences ("if checks.py goes, test_checks.py goes too").
 - **Generalise.** Post one comment per pattern, at its clearest code instance, and list the other places, commit messages included ("same in lineage.py line 1, docs/interface.md and the message of 56be3ef").
 - **Keep comments short.** One to three sentences each, up to five when one comment covers several places with different evidence. Use no severity labels and no suggestion blocks; state the concern and the recommended direction.
-- **Follow AGENTS.md "Writing style":** no em or en dashes, no mention of how the change was produced, no internal plan labels.
+- **Follow AGENTS.md "Writing style for anything published".**
 
 ## Step 5: Post one review
 
