@@ -40,7 +40,7 @@ git -C CLONE diff -U0 "$BASE" HEAD_SHA > scratch/u0.diff
 - **Head commit.** If you measure a squash commit instead of the PR head, check that its tree equals the head's tree (`gh api repos/OWNER/REPO/commits/SHA --jq .commit.tree.sha`).
 - **Touched files.** These are the `.py` files the PR adds, modifies or renames, plus `.js` files in proteus-bench. Leave out generated files: lock files, the vendored code and data that `verbosity/build_ledger.py` would exclude, and test fixtures that copy upstream files.
 - **zsh.** In zsh, keep file lists in arrays (`files=(a.py b.py)`, then `$files`), or pass them through `xargs` from a file. Brace the variable in revision paths (`"${sha}:path"`), because zsh reads `$sha:p` as a modifier.
-- **Limits.** Read the limits and the Python target version from AGENTS.md and `pyproject.toml` at the head; they win over the numbers here.
+- **Limits.** Read the limits and the Python target version from AGENTS.md and `pyproject.toml` at the base; they win over the numbers here. A PR that changes them is measured against the base values, and the change is itself a finding for the maintainer.
 
 | | proteus-bench | PROTEUS |
 |---|---|---|
