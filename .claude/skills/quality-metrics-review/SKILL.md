@@ -61,11 +61,11 @@ t ruff check --isolated --no-cache --target-version PYVER --output-format json \
 t lizard -L LENGTH_LIMIT -a 5 -w FILES                     # length and parameters
 t vulture --min-confidence 60 PACKAGE_DIR                  # whole package
 t symilar -d 4 -i --ignore-docstrings --ignore-imports --ignore-signatures PACKAGE_FILES
-python3 -I SKILL_DIR/scripts/verbosity.py TREE FILES --diff scratch/u0.diff --block-limit 2
-python3 -I SKILL_DIR/scripts/verbosity.py BASE_TREE PACKAGE_FILES   # baseline share
+t python -I SKILL_DIR/scripts/verbosity.py TREE FILES --diff scratch/u0.diff --block-limit 2
+t python -I SKILL_DIR/scripts/verbosity.py BASE_TREE PACKAGE_FILES   # baseline share
 ```
 
-Run each tool on both trees, except that `--diff` applies only to the head.
+Run each tool on both trees, except that `--diff` applies only to the head. On the base tree, pass only the files that exist there, with the old path of a renamed file: ruff reports E902 for a missing path, and a new file has no base findings.
 
 - **Which tool decides what.** Complexity is ruff C901 (the measure the repositories enforce): radon counts asserts and lizard counts boolean operators, so all three disagree. Length and parameters come from lizard, not radon.
 - **Package-wide tools.** `vulture` and `symilar` run over the source package (`src/<package>`) only. Tests are left out, because vulture reports pytest fixtures as unused. Keep only findings that involve touched files.
