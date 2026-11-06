@@ -37,7 +37,7 @@ git -C CLONE diff --numstat --find-renames "$BASE" HEAD_SHA
 git -C CLONE diff -U0 "$BASE" HEAD_SHA > scratch/u0.diff
 ```
 
-- **Touched files.** These are the `.py` files the PR adds, modifies or renames.
+- **Touched files.** These are the `.py` files the PR adds, modifies or renames. If there are none, skip to Step 5 and post only the PR's size.
 - **zsh.** In zsh, keep file lists in arrays (`files=(a.py b.py)`, then `$files`), or pass them through `xargs` from a file. Brace the variable in revision paths (`"${sha}:path"`), because zsh reads `$sha:p` as a modifier.
 - **Limits.** Read the complexity, function-length and file-length limits and the Python target version from AGENTS.md and `pyproject.toml` at the base (complexity 10 where neither sets one). A PR that changes them is measured against the base values, and the change is itself a finding for the maintainer.
 
@@ -60,7 +60,7 @@ t python -I SKILL_DIR/scripts/verbosity.py BASE_TREE PACKAGE_FILES   # baseline 
 Run each tool on both trees, except that `--diff` applies only to the head. Per tree, pass only the files that exist in it; on the base, use the old path of a renamed file and add any deleted file whose functions moved into a touched file. Ruff reports E902 for a missing path, and a new file has no base findings. When a tree's list is empty, skip its per-file runs, because ruff and lizard would measure the whole directory and `verbosity.py` needs a file. The package-wide runs still go.
 
 - **Which tool decides what.** Complexity is ruff C901 (the measure the repositories enforce): radon counts asserts and lizard counts boolean operators, so all three disagree. Length and parameters come from lizard, not radon.
-- **Package-wide tools.** `vulture` and `symilar` run over the source package (`src/<package>`) only. Tests are left out, because vulture reports pytest fixtures as unused. Keep only findings that involve touched files.
+- **Package-wide tools.** `vulture` and `symilar` run over the source package (`src/<package>`) plus any touched source file outside it. Tests are left out, because vulture reports pytest fixtures as unused. Keep only findings that involve touched files.
 - **Matching across trees.**
   - Match functions by file and qualified name (closures under their parent).
   - Match lint findings by file, rule code and enclosing function, never by message or line: messages contain counts.
@@ -76,7 +76,7 @@ A regression is something that got worse in the touched files at the head:
   - a function over the length limit that is new, or that grew;
   - a function with more than 5 parameters that is new, or that gained one;
   - a file that crossed its limit or grew while over it.
-- **Lint:** a rule that the file did not break at the base and breaks at the head. Do not count a rule the file already breaks. In test files, leave out PLR2004 (magic values in asserts) and ARG (stub signatures).
+- **Lint:** a rule that the file did not break at the base and breaks at the head. Do not count a rule the file already breaks. Leave out PLR2004 (magic values), and in test files ARG (stub signatures).
 - **Unused code:** a new vulture finding in a touched source file.
 - **Duplication:** a new duplicated block that involves a touched file.
 - **Verbosity:**
