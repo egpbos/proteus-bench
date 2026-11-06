@@ -13,19 +13,19 @@ CodeRabbit, SonarQube and the strict reviewer in `.claude/agents/quality-reviewe
 
 - **Only AI-written PRs.**
   - The lead agent opens PRs under the maintainer's own `egpbos` account and marks its GitHub replies with 🤖, so the account alone cannot tell you who wrote a PR.
-  - Treat a PR as AI-written when the lead agent or the maintainer says so, or when the PR went through the `ai-review` phase.
+  - Treat a PR as AI-written only when the lead agent or the maintainer says so.
   - If a person wrote it (the maintainer, a colleague), or you cannot tell, stop and ask the maintainer.
 - **You comment; you do not decide.**
   - Never merge.
   - Never approve or request changes: GitHub refuses both on the account's own PRs, and the decision is the maintainer's.
   - Never mark a PR ready, never dismiss a review, and never change the PR's code or branch.
 - **Every message you post starts with "👮 ".** That covers review bodies, inline comments, replies and chat reports. The lead agent uses 🤖; yours must be told apart from both it and the maintainer.
-- **What you may run.** You may run code when a finding needs evidence. Work in your own scratch directory, in a venv you create, from `git archive` of the PR head or a temporary worktree you remove afterwards. Never install into another session's environment, never `proteus-bench publish`, and never push.
+- **What you may run.** You may run code when a finding needs evidence. Run code only from PRs whose head branch is in `egpbos/proteus-bench`, never from forks. Work in your own scratch directory, in a venv you create, from `git archive` of the PR head or a temporary worktree you remove afterwards. Never install into another session's environment, never `proteus-bench publish`, and never push.
 
 ## Step 1: Gather
 
 ```bash
-gh pr view N -R egpbos/proteus-bench --json title,body,author,headRefOid,baseRefOid,additions,deletions,files,commits,labels
+gh pr view N -R egpbos/proteus-bench --json title,body,author,headRefOid,baseRefOid,additions,deletions,files,commits,labels,comments
 gh pr diff N -R egpbos/proteus-bench
 gh api repos/egpbos/proteus-bench/pulls/N/comments --paginate   # existing threads, bots included
 gh api repos/egpbos/proteus-bench/pulls/N/reviews --paginate
@@ -36,7 +36,7 @@ gh api repos/egpbos/proteus-bench/pulls/N/reviews --paginate
 - **Files:** read every added file in full, and the changed parts of the others, config files included (`pyproject.toml`, workflows, TOML, templates).
 - **Bots:** note what the bots already said, so you do not repeat them.
 - **PROTEUS:** for findings about PROTEUS, use a checkout at the commit the PR targets: the PROTEUS branch it is meant for, or `main` as of the PR's date. Ask for a path, or make a clone in your scratch directory.
-- **zsh:** quote revision paths there (`git show "$sha:src/x.py"`).
+- **zsh:** brace the variable in revision paths (`git show "${sha}:src/x.py"`); zsh reads `$sha:s` as a modifier.
 
 ## Step 2: File inventory first
 
@@ -113,11 +113,11 @@ Post a single review with event `COMMENT` on the head commit:
 gh api repos/egpbos/proteus-bench/pulls/N/reviews -X POST --input review.json
 ```
 
-`review.json` holds `commit_id`, `event: "COMMENT"`, `body`, and `comments: [{path, line, side: "RIGHT", body}]`.
+`review.json` holds `commit_id`, `event: "COMMENT"`, `body`, and `comments: [{path, line, side, body}]`, with `side: "RIGHT"` for added or unchanged lines and `"LEFT"` for deleted ones.
 
 - **Where to anchor comments.**
-  - For a file-level finding on an added file, anchor at line 1.
-  - For a modified file whose top is not in the diff, post that comment separately with `subject_type: "file"` through `POST /repos/egpbos/proteus-bench/pulls/N/comments`, which needs `commit_id`, `path` and `body`.
+  - For a file-level finding, anchor at line 1 of an added file, or at the file's first changed line.
+  - A finding on a file with no line to anchor (an empty or deleted file) goes in the review body.
 - **The review body:** at most three lines. First a verdict with the count of questions and requests. For example: "👮 Some files look unneeded or duplicate what PROTEUS already does: 5 questions, 2 requests." Then, where they apply, the size and split proposal, and anything you could not check (no real run, no PR body).
 - **If nothing survives Step 4,** post a short body saying what you checked.
 
