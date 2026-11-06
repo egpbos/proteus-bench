@@ -65,7 +65,7 @@ t python -I SKILL_DIR/scripts/verbosity.py TREE FILES --diff scratch/u0.diff --b
 t python -I SKILL_DIR/scripts/verbosity.py BASE_TREE PACKAGE_FILES   # baseline share
 ```
 
-Run each tool on both trees, except that `--diff` applies only to the head. On the base tree, pass only the files that exist there, with the old path of a renamed file: ruff reports E902 for a missing path, and a new file has no base findings.
+Run each tool on both trees, except that `--diff` applies only to the head. On the base tree, pass only the files that exist there, with the old path of a renamed file: ruff reports E902 for a missing path, and a new file has no base findings. When no touched file exists at the base, skip the per-file base runs: ruff and lizard would measure the whole directory instead, and `verbosity.py` needs a file. The package-wide runs still go.
 
 - **Which tool decides what.** Complexity is ruff C901 (the measure the repositories enforce): radon counts asserts and lizard counts boolean operators, so all three disagree. Length and parameters come from lizard, not radon.
 - **Package-wide tools.** `vulture` and `symilar` run over the source package (`src/<package>`) only. Tests are left out, because vulture reports pytest fixtures as unused. Keep only findings that involve touched files.
