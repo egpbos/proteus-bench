@@ -47,6 +47,7 @@ UNIT = 'unit and not skip and not slow and not integration'
 STATUS = {1: 'killed', 3: 'killed', 0: 'survived', 5: 'no tests', 33: 'no tests', 34: 'skipped',
           36: 'timeout', -24: 'timeout', 24: 'timeout', 152: 'timeout', 255: 'timeout',
           -11: 'segfault', -9: 'segfault', None: 'not checked'}
+MAP_FAIL = re.compile(r'^(tests/\S+?::.+?) (?:FAILED|ERROR)', re.M)
 HUNK = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@')
 LOG = re.compile(r'^(log|logger|logging|warnings)\.\w+\(|^print\(')
 TOKEN = re.compile(r"[rbfuRBFU]*'(?:[^'\\]|\\.)*'|[rbfuRBFU]*\"(?:[^\"\\]|\\.)*\"|\w+|==|!=|<=|>=|\*\*|//|\S")
@@ -160,7 +161,7 @@ def silence(path, keep):
 
 def setup_cfg(run, sources):
     copy = sorted(p.name for p in run.tree.iterdir() if p.name not in ('src', 'tests', 'mutants'))
-    return '\n'.join(['[mutmut]', 'source_paths=src', f'process_isolation={run.isolation}',
+    return '\n'.join(['[mutmut]', 'debug=true', 'source_paths=src', f'process_isolation={run.isolation}',
                       'forkserver_warmup=none', 'also_copy=' + '\n    '.join(copy),
                       'only_mutate=' + '\n    '.join(sources),
                       'pytest_add_cli_args_test_selection=' + '\n    '.join(run.tests),
@@ -217,6 +218,25 @@ def mutmut(run, args, phase):
     return code
 
 
+def map_tests(run, sources):
+    """Generate the mutants and map functions to tests. A test that runs the package in a
+    subprocess fails under mutmut's tracing; leave such tests out and try once more."""
+    stats_file = run.tree / 'mutants' / 'mutmut-stats.json'
+    for _ in range(2):
+        mutmut(run, ['run', 'no-such-mutant'], 'mutmut_generate_and_map')
+        if stats_file.exists():
+            break
+        failing = set(MAP_FAIL.findall((run.tree.parent / 'mutmut.log').read_text()))
+        if not failing:
+            raise RuntimeError('mutmut could not map the tests (no failing test named in its log)')
+        run.deselect_in_mutmut += sorted(failing)
+        run.deselect += sorted(failing)
+        (run.tree / 'setup.cfg').write_text(setup_cfg(run, sources))
+    if not stats_file.exists():
+        raise RuntimeError('mutmut could not map the tests after leaving out ' + ', '.join(run.deselect_in_mutmut))
+    return json.loads(stats_file.read_text())['tests_by_mangled_function_name']
+
+
 def run_mutmut(run, funcs, sources):
     """Mutate only the selected lines, map functions to tests, run the mutants."""
     keep = defaultdict(set)
@@ -227,12 +247,7 @@ def run_mutmut(run, funcs, sources):
     (run.tree / 'setup.cfg').write_text(setup_cfg(run, sources))
     for src in sources:
         silence(run.tree / src, keep[src])
-    mutmut(run, ['run', 'no-such-mutant'], 'mutmut_generate_and_map')
-    stats_file = run.tree / 'mutants' / 'mutmut-stats.json'
-    if not stats_file.exists():
-        tail = (run.tree.parent / 'mutmut.log').read_text()[-300:]
-        raise RuntimeError(f'mutmut could not map the tests: {tail}')
-    stats = json.loads(stats_file.read_text())['tests_by_mangled_function_name']
+    stats = map_tests(run, sources)
     selected = []
     for f in funcs:
         f['tests_reaching'] = len(stats.get(f['mangled'], []))
@@ -317,7 +332,7 @@ def parse_args():
     ap.add_argument('--no-stmt', action='store_true')
     ap.add_argument('--keep', action='store_true')
     run = ap.parse_args()
-    run.deselect, run.dropped, run.wall = [], [], {}
+    run.deselect, run.dropped, run.deselect_in_mutmut, run.wall = [], [], [], {}
     return run
 
 
@@ -350,6 +365,7 @@ def main():
             report['mutants'] = run_mutmut(run, funcs, sorted(lines))
         except RuntimeError as err:
             report['note'] = str(err)
+        report['baseline']['deselected_in_mutmut'] = run.deselect_in_mutmut
         if not run.no_stmt and 'note' not in report:
             t_sd = time.time()
             report['mutants'] += stmt_delete(run, lines, report['mutants'], limit=max(60, 10 * run.wall['baseline']))
@@ -381,7 +397,8 @@ def print_summary(report, out):
     n_places = len(places) + len(untested)
     print(f"mutants: {len(caught)} of {len(tested)} killed on changed lines; behaviour {len(beh_caught)} of "
           f"{len(beh)}; {n_places} places to read; {report['wall_s']['total']} s")
-    for key, what in (('dropped_files', 'test files that fail to import'), ('deselected', 'tests that fail without mutation')):
+    for key, what in (('dropped_files', 'test files that fail to import'), ('deselected', 'tests that fail without mutation'),
+                      ('deselected_in_mutmut', 'tests that fail under mutmut (they run the package in a subprocess)')):
         if report['baseline'][key]:
             print(f'{what}:', ', '.join(report['baseline'][key]))
     for (path, line), ms in sorted(places.items()):
