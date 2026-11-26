@@ -173,7 +173,7 @@ def setup_cfg(run, sources):
 def changed_functions(repo, head, lines):
     funcs = []
     for path, hit in sorted(lines.items()):
-        module = path[len('src/'):-len('.py')].replace('/', '.')
+        module = path[len('src/'):-len('.py')].replace('/', '.').removesuffix('.__init__')
         for name, node in units(git(repo, 'show', f'{head}:{path}')):
             first = min([node.lineno] + [d.lineno for d in node.decorator_list])
             touched = sorted(n for n in hit if first <= n <= node.end_lineno)
