@@ -221,7 +221,7 @@ def mutmut(run, args, phase):
 
 def map_tests(run, sources):
     """Generate the mutants and map functions to tests. A test that runs the package in a
-    subprocess fails under mutmut's tracing; leave such tests out and try again."""
+    subprocess fails under mutmut's tracing; leave its test file out and try again."""
     stats_file = run.tree / 'mutants' / 'mutmut-stats.json'
     log = run.tree.parent / 'mutmut.log'
     for _ in range(4):
@@ -232,7 +232,7 @@ def map_tests(run, sources):
         text = log.read_text()[start:]
         if NO_REACH in text:
             return {}
-        failing = set(MAP_FAIL.findall(text)) - set(run.deselect_in_mutmut)
+        failing = {t.split('::')[0] for t in MAP_FAIL.findall(text)} - set(run.deselect_in_mutmut)
         if not failing:
             raise RuntimeError('mutmut could not map the tests (no failing test named in its log)')
         run.deselect_in_mutmut += sorted(failing)
@@ -413,7 +413,7 @@ def print_summary(report, out):
     print(f"mutants: {len(caught)} of {len(tested)} killed on changed lines; behaviour {len(beh_caught)} of "
           f"{len(beh)}; {n_places} places to read; {report['wall_s']['total']} s")
     for key, what in (('dropped_files', 'test files that fail to import'), ('deselected', 'tests that fail without mutation'),
-                      ('deselected_in_mutmut', 'tests that fail under mutmut (they run the package in a subprocess)')):
+                      ('deselected_in_mutmut', 'test files left out because a test fails under mutmut (it runs the package in a subprocess)')):
         if report['baseline'][key]:
             print(f'{what}:', ', '.join(report['baseline'][key]))
     for (path, line), ms in sorted(places.items()):
