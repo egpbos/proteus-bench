@@ -47,6 +47,7 @@ UNIT = 'unit and not skip and not slow and not integration'
 STATUS = {1: 'killed', 3: 'killed', 0: 'survived', 5: 'no tests', 33: 'no tests', 34: 'skipped',
           36: 'timeout', -24: 'timeout', 24: 'timeout', 152: 'timeout', 255: 'timeout',
           -11: 'segfault', -9: 'segfault', None: 'not checked'}
+NO_REACH = 'could not find any test case for any mutant'
 MAP_FAIL = re.compile(r'^(tests/\S+?::.+?) (?:FAILED|ERROR)', re.M)
 HUNK = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@')
 LOG = re.compile(r'^(log|logger|logging|warnings)\.\w+\(|^print\(')
@@ -220,21 +221,24 @@ def mutmut(run, args, phase):
 
 def map_tests(run, sources):
     """Generate the mutants and map functions to tests. A test that runs the package in a
-    subprocess fails under mutmut's tracing; leave such tests out and try once more."""
+    subprocess fails under mutmut's tracing; leave such tests out and try again."""
     stats_file = run.tree / 'mutants' / 'mutmut-stats.json'
-    for _ in range(2):
+    log = run.tree.parent / 'mutmut.log'
+    for _ in range(4):
+        start = log.stat().st_size if log.exists() else 0
         mutmut(run, ['run', 'no-such-mutant'], 'mutmut_generate_and_map')
         if stats_file.exists():
-            break
-        failing = set(MAP_FAIL.findall((run.tree.parent / 'mutmut.log').read_text()))
+            return json.loads(stats_file.read_text())['tests_by_mangled_function_name']
+        text = log.read_text()[start:]
+        if NO_REACH in text:
+            return {}
+        failing = set(MAP_FAIL.findall(text)) - set(run.deselect_in_mutmut)
         if not failing:
             raise RuntimeError('mutmut could not map the tests (no failing test named in its log)')
         run.deselect_in_mutmut += sorted(failing)
         run.deselect += sorted(failing)
         (run.tree / 'setup.cfg').write_text(setup_cfg(run, sources))
-    if not stats_file.exists():
-        raise RuntimeError('mutmut could not map the tests after leaving out ' + ', '.join(run.deselect_in_mutmut))
-    return json.loads(stats_file.read_text())['tests_by_mangled_function_name']
+    raise RuntimeError('mutmut could not map the tests after leaving out ' + ', '.join(run.deselect_in_mutmut))
 
 
 def run_mutmut(run, funcs, sources):
@@ -259,14 +263,14 @@ def run_mutmut(run, funcs, sources):
                       'changed_line': f['def_line'] + offset in f['changed_lines'], 'kind': kind(old, new),
                       'old': old.replace(leaf, real), 'new': new.replace(leaf, real), 'tool': 'mutmut'}
                      for name, (offset, old, new) in muts.items()]
-    if selected:
+    if selected and stats:
         mutmut(run, ['run', *[s['mutant'] for s in selected]], 'mutmut_run')
     codes = {}
     for meta in (run.tree / 'mutants').glob('**/*.py.meta'):
         codes.update(json.loads(meta.read_text())['exit_code_by_key'])
     logs = {src: log_lines(text) for src, text in original.items()}
     for s in selected:
-        s['status'] = STATUS.get(codes.get(s['mutant']), 'suspicious')
+        s['status'] = STATUS.get(codes.get(s['mutant']), 'suspicious') if stats else 'no tests'
         if s['line'] in logs[s['file']]:
             s['kind'] = 'log'
     for src, text in original.items():
