@@ -54,7 +54,7 @@ The first place is a real gap: no test checks that unsafe archive members are re
   - the mutant changes only log text or a flag that only switches a log message;
   - the mutant is equivalent: a default argument equal to the value passed (`tarfile.open(path, 'r')`), or a value that cannot occur in practice;
   - the only test that could catch it is in a slower tier (say which test).
-- `deselected` lists tests that already fail without any mutant. Fix or report those first; their mutants were not tested.
+- Test files that fail to import, and tests that already fail without any mutant, are listed and left out. Fix or report those first; the code they test was not checked.
 - A timeout counts as killed. Many timeouts mean the run is too slow, not that the tests are good.
 
 ## The survivor rule

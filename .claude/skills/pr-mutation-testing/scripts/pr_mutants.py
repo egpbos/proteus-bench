@@ -122,13 +122,18 @@ def pytest_args(run):
 
 
 def baseline(run):
-    """Run the candidate tests unmutated and deselect the ones that already fail."""
+    """Run the candidate tests unmutated; drop the test files that fail to import and
+    deselect the tests that already fail."""
     t0 = time.time()
-    r = subprocess.run([str(BIN / 'python'), '-m', 'pytest', '-q', '-rfE', *pytest_args(run), *run.tests],
-                       cwd=run.tree, env=env(run.tree), capture_output=True, text=True)
-    run.deselect = sorted({row.split()[1] for row in r.stdout.splitlines()
-                           if row.startswith(('FAILED ', 'ERROR ')) and '::' in row})
+    r = subprocess.run([str(BIN / 'python'), '-m', 'pytest', '-q', '-rfE', '--continue-on-collection-errors',
+                        *pytest_args(run), *run.tests], cwd=run.tree, env=env(run.tree), capture_output=True, text=True)
+    failing = {row.split(' ', 1)[1].split(' - ')[0] for row in r.stdout.splitlines()
+               if row.startswith(('FAILED ', 'ERROR '))}
+    run.dropped = sorted(f for f in failing if '::' not in f)
+    run.deselect = sorted(f for f in failing if '::' in f)
+    run.tests = [t for t in run.tests if t not in run.dropped]
     return r.returncode, time.time() - t0, r.stdout[-3000:]
+
 
 def silence(path, keep):
     """Append `# pragma: no mutate` to every line outside `keep`, so that mutmut mutates only
@@ -296,7 +301,7 @@ def parse_args():
     ap.add_argument('--no-stmt', action='store_true')
     ap.add_argument('--keep', action='store_true')
     run = ap.parse_args()
-    run.deselect, run.wall = [], {}
+    run.deselect, run.dropped, run.wall = [], [], {}
     return run
 
 
@@ -321,8 +326,8 @@ def main():
     else:
         code, t_base, tail = baseline(run)
         run.wall['baseline'] = round(t_base)
-        report['baseline'] = {'exit': code, 'deselected': run.deselect}
-        if code not in (0, 1) or (code == 1 and not run.deselect):
+        report['baseline'] = {'exit': code, 'deselected': run.deselect, 'dropped_files': run.dropped}
+        if not run.tests or code not in (0, 1) or (code == 1 and not run.deselect and not run.dropped):
             report['note'] = f'the unmutated tests do not run (pytest exit {code})\n{tail}'
     if 'note' not in report:
         report['mutants'] = run_mutmut(run, funcs, sorted(lines))
@@ -357,8 +362,9 @@ def print_summary(report, out):
     n_places = len(places) + len(untested)
     print(f"mutants: {len(caught)} of {len(tested)} killed on changed lines; behaviour {len(beh_caught)} of "
           f"{len(beh)}; {n_places} places to read; {report['wall_s']['total']} s")
-    if report['baseline']['deselected']:
-        print('deselected (fail without mutation):', ', '.join(report['baseline']['deselected']))
+    for key, what in (('dropped_files', 'test files that fail to import'), ('deselected', 'tests that fail without mutation')):
+        if report['baseline'][key]:
+            print(f'{what}:', ', '.join(report['baseline'][key]))
     for (path, line), ms in sorted(places.items()):
         print(f'\n{path}:{line}')
         for m in ms[:4]:
