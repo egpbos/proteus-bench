@@ -1,6 +1,6 @@
 ---
 name: proteus-bench-review
-description: Review an AI-written pull request on egpbos/proteus-bench the way its maintainer does, hunting bloat and maintenance cost. Asks whether each added file, command, option, fixture and code path needs to exist; whether PROTEUS, its visual-language packages or a library already does it; and whether the PR is as small as it can be. Posts the findings as a GitHub review prefixed with the police officer emoji. Use when asked to review a proteus-bench PR, or when a PR there has finished its AI-review phase and is about to go to human review. Not for PRs written by people, and not for other repositories.
+description: Review an AI-written pull request on egpbos/proteus-bench the way its maintainer does, hunting bloat and maintenance cost. Asks whether each added file, command, option, fixture and code path needs to exist; whether PROTEUS, its visual-language packages or a library already does it; and whether the PR is as small as it can be. Posts the findings as a GitHub review prefixed with the face-with-monocle emoji. Use when asked to review a proteus-bench PR, or when a PR there has finished its AI-review phase and is about to go to human review. Not for PRs written by people, and not for other repositories.
 ---
 
 # proteus-bench review of AI-written code
@@ -123,7 +123,7 @@ Then report in chat:
 
 ## On later commits
 
-When the author has answered or pushed fixes, re-read your own threads: those that start with 🧐, or with 👮 from before 2026-11-19.
+When the author has answered or pushed fixes, re-read your own threads: those that start with 🧐, or with 👮, its emoji before 🧐.
 
 - Reply ("🧐 ...") with whether the answer or the commit resolves the point; check the commit, not the claim.
 - Resolve only your own threads whose fix you verified.
