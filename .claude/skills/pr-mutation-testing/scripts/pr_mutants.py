@@ -251,6 +251,7 @@ def run_mutmut(run, funcs, sources):
     selected = []
     for f in funcs:
         f['tests_reaching'] = len(stats.get(f['mangled'], []))
+        run.reach[f['file'], f['def_line'], f['def_line'] + f['length']] = sorted(stats.get(f['mangled'], []))
         muts = mutants_of(run.tree, f['file'], f['mangled'])
         f['mutants'] = len(muts)
         leaf, real = f['mangled'].rsplit('.', 1)[1], f['name'].rsplit('.', 1)[-1]
@@ -289,6 +290,15 @@ def stmt_targets(source, lines, mutated_lines):
 
 
 
+def tests_for(run, path, line):
+    """The tests mutmut saw reach the function around `line`, else all candidate tests
+    (decorated functions and module-level code are not traced)."""
+    for (file, start, end), ids in run.reach.items():
+        if file == path and start <= line < end and ids:
+            return ids if len(ids) <= 300 else sorted({i.split('::')[0] for i in ids})
+    return run.tests
+
+
 def stmt_delete(run, lines, selected, limit):
     mutated = defaultdict(set)
     for s in selected:
@@ -305,7 +315,8 @@ def stmt_delete(run, lines, selected, limit):
             target.write_text(''.join(src[:node.lineno - 1] + [f'{indent}{repl}\n'] + ['\n'] * (n - 1)
                                       + src[node.end_lineno:]))
             try:
-                r = subprocess.run([str(BIN / 'python'), '-m', 'pytest', '-q', '-x', *pytest_args(run), *run.tests],
+                tests = tests_for(run, path, node.lineno)
+                r = subprocess.run([str(BIN / 'python'), '-m', 'pytest', '-q', '-x', *pytest_args(run), *tests],
                                    cwd=run.tree, env=env(run.tree), capture_output=True, timeout=limit)
                 status = 'killed' if r.returncode else 'survived'
             except subprocess.TimeoutExpired:
@@ -332,7 +343,7 @@ def parse_args():
     ap.add_argument('--no-stmt', action='store_true')
     ap.add_argument('--keep', action='store_true')
     run = ap.parse_args()
-    run.deselect, run.dropped, run.deselect_in_mutmut, run.wall = [], [], [], {}
+    run.deselect, run.dropped, run.deselect_in_mutmut, run.wall, run.reach = [], [], [], {}, {}
     return run
 
 
