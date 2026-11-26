@@ -48,6 +48,7 @@ STATUS = {1: 'killed', 3: 'killed', 0: 'survived', 5: 'no tests', 33: 'no tests'
           36: 'timeout', -24: 'timeout', 24: 'timeout', 152: 'timeout', 255: 'timeout',
           -11: 'segfault', -9: 'segfault', None: 'not checked'}
 NO_REACH = 'could not find any test case for any mutant'
+CLEAN_FAIL = 'Failed to run clean test'
 MAP_FAIL = re.compile(r'^(tests/\S+?::.+?) (?:FAILED|ERROR)', re.M)
 HUNK = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@')
 LOG = re.compile(r'^(log|logger|logging|warnings)\.\w+\(|^print\(')
@@ -215,7 +216,7 @@ def mutmut(run, args, phase):
     with open(run.tree.parent / 'mutmut.log', 'a') as fh:
         code = subprocess.run([str(BIN / 'mutmut'), *args], cwd=run.tree, env=env(), stdout=fh,
                               stderr=subprocess.STDOUT).returncode
-    run.wall[phase] = round(time.time() - t0)
+    run.wall[phase] = run.wall.get(phase, 0) + round(time.time() - t0)
     return code
 
 
@@ -241,6 +242,22 @@ def map_tests(run, sources):
     raise RuntimeError('mutmut could not map the tests after leaving out ' + ', '.join(run.deselect_in_mutmut))
 
 
+def run_mutants(run, sources, names):
+    """mutmut first runs the mapped tests once without a mutant and stops if one fails, which
+    happens for a test that depends on the order of the tests; leave such tests out and retry."""
+    log = run.tree.parent / 'mutmut.log'
+    for _ in range(6):
+        start = log.stat().st_size
+        mutmut(run, ['run', *names], 'mutmut_run')
+        text = log.read_text()[start:]
+        failing = set(MAP_FAIL.findall(text)) - set(run.deselect_in_mutmut)
+        if CLEAN_FAIL not in text or not failing:
+            return
+        run.deselect_in_mutmut += sorted(failing)
+        run.deselect += sorted(failing)
+        (run.tree / 'setup.cfg').write_text(setup_cfg(run, sources))
+
+
 def run_mutmut(run, funcs, sources):
     """Mutate only the selected lines, map functions to tests, run the mutants."""
     keep = defaultdict(set)
@@ -264,7 +281,7 @@ def run_mutmut(run, funcs, sources):
                       'old': old.replace(leaf, real), 'new': new.replace(leaf, real), 'tool': 'mutmut'}
                      for name, (offset, old, new) in muts.items()]
     if selected and stats:
-        mutmut(run, ['run', *[s['mutant'] for s in selected]], 'mutmut_run')
+        run_mutants(run, sources, [s['mutant'] for s in selected])
     codes = {}
     for meta in (run.tree / 'mutants').glob('**/*.py.meta'):
         codes.update(json.loads(meta.read_text())['exit_code_by_key'])
@@ -410,10 +427,13 @@ def print_summary(report, out):
             places[(m['file'], m['line'])].append(m)
     untested = [f for f in report['functions'] if f.get('tests_reaching') == 0 and f.get('mutants')]
     n_places = len(places) + len(untested)
+    unrun = sum(m['status'] in ('not checked', 'suspicious') for m in report['mutants'])
+    if unrun:
+        print(f'warning: mutmut did not run {unrun} mutants; see the end of mutmut.log (--keep)')
     print(f"mutants: {len(caught)} of {len(tested)} killed on changed lines; behaviour {len(beh_caught)} of "
           f"{len(beh)}; {n_places} places to read; {report['wall_s']['total']} s")
     for key, what in (('dropped_files', 'test files that fail to import'), ('deselected', 'tests that fail without mutation'),
-                      ('deselected_in_mutmut', 'test files left out because a test fails under mutmut (it runs the package in a subprocess)')):
+                      ('deselected_in_mutmut', 'tests left out because they fail only under mutmut (a subprocess, or the order of the tests)')):
         if report['baseline'][key]:
             print(f'{what}:', ', '.join(report['baseline'][key]))
     for (path, line), ms in sorted(places.items()):
