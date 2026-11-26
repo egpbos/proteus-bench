@@ -119,8 +119,8 @@ def candidate_tests(repo, base, head, sources):
 def env(tree=None):
     paths = [str(tree / 'src')] if tree else []
     paths += [str(HERE), os.environ.get('PYTHONPATH')]
-    return dict(os.environ, OBJC_DISABLE_INITIALIZE_FORK_SAFETY='YES',
-                PYTHONPATH=os.pathsep.join(filter(None, paths)))
+    return dict(os.environ, OBJC_DISABLE_INITIALIZE_FORK_SAFETY='YES', GIT_CONFIG_GLOBAL=os.devnull,
+                GIT_CONFIG_NOSYSTEM='1', PYTHONPATH=os.pathsep.join(filter(None, paths)))
 
 
 def pytest_args(run):
@@ -228,7 +228,11 @@ def run_mutmut(run, funcs, sources):
     for src in sources:
         silence(run.tree / src, keep[src])
     mutmut(run, ['run', 'no-such-mutant'], 'mutmut_generate_and_map')
-    stats = json.loads((run.tree / 'mutants' / 'mutmut-stats.json').read_text())['tests_by_mangled_function_name']
+    stats_file = run.tree / 'mutants' / 'mutmut-stats.json'
+    if not stats_file.exists():
+        tail = (run.tree.parent / 'mutmut.log').read_text()[-300:]
+        raise RuntimeError(f'mutmut could not map the tests: {tail}')
+    stats = json.loads(stats_file.read_text())['tests_by_mangled_function_name']
     selected = []
     for f in funcs:
         f['tests_reaching'] = len(stats.get(f['mangled'], []))
@@ -342,8 +346,11 @@ def main():
         if not run.tests or code not in (0, 1) or (code == 1 and not run.deselect and not run.dropped):
             report['note'] = f'the unmutated tests do not run (pytest exit {code})\n{tail}'
     if 'note' not in report:
-        report['mutants'] = run_mutmut(run, funcs, sorted(lines))
-        if not run.no_stmt:
+        try:
+            report['mutants'] = run_mutmut(run, funcs, sorted(lines))
+        except RuntimeError as err:
+            report['note'] = str(err)
+        if not run.no_stmt and 'note' not in report:
             t_sd = time.time()
             report['mutants'] += stmt_delete(run, lines, report['mutants'], limit=max(60, 10 * run.wall['baseline']))
             run.wall['statement_deletion'] = round(time.time() - t_sd)
