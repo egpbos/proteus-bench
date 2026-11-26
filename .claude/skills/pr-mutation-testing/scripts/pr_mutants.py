@@ -81,6 +81,13 @@ def units(source):
                     yield f'{node.name}.{sub.name}', sub
 
 
+def log_lines(source):
+    """The lines of every logging, warning or print call, continuation lines included."""
+    return {n for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Call) and LOG.match(ast.unparse(node.func) + '(')
+            for n in range(node.lineno, node.end_lineno + 1)}
+
+
 def kind(old, new):
     if LOG.match(old.strip()):
         return 'log'
@@ -227,16 +234,21 @@ def run_mutmut(run, funcs, sources):
         f['tests_reaching'] = len(stats.get(f['mangled'], []))
         muts = mutants_of(run.tree, f['file'], f['mangled'])
         f['mutants'] = len(muts)
+        leaf, real = f['mangled'].rsplit('.', 1)[1], f['name'].rsplit('.', 1)[-1]
         selected += [{'mutant': name, 'function': f['name'], 'file': f['file'], 'line': f['def_line'] + offset,
                       'changed_line': f['def_line'] + offset in f['changed_lines'], 'kind': kind(old, new),
-                      'old': old, 'new': new, 'tool': 'mutmut'} for name, (offset, old, new) in muts.items()]
+                      'old': old.replace(leaf, real), 'new': new.replace(leaf, real), 'tool': 'mutmut'}
+                     for name, (offset, old, new) in muts.items()]
     if selected:
         mutmut(run, ['run', *[s['mutant'] for s in selected]], 'mutmut_run')
     codes = {}
     for meta in (run.tree / 'mutants').glob('**/*.py.meta'):
         codes.update(json.loads(meta.read_text())['exit_code_by_key'])
+    logs = {src: log_lines(text) for src, text in original.items()}
     for s in selected:
         s['status'] = STATUS.get(codes.get(s['mutant']), 'suspicious')
+        if s['line'] in logs[s['file']]:
+            s['kind'] = 'log'
     for src, text in original.items():
         (run.tree / src).write_text(text)
     return selected
