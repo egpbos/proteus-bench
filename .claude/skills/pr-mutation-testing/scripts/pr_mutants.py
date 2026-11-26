@@ -244,13 +244,14 @@ def map_tests(run, sources):
 
 def run_mutants(run, sources, names):
     """mutmut first runs the mapped tests once without a mutant and stops if one fails, which
-    happens for a test that depends on the order of the tests; leave such tests out and retry."""
+    happens for a test that depends on the order of the tests; leave such tests out and retry,
+    after two tries their whole test files."""
     log = run.tree.parent / 'mutmut.log'
-    for _ in range(6):
+    for attempt in range(6):
         start = log.stat().st_size
         mutmut(run, ['run', *names], 'mutmut_run')
         text = log.read_text()[start:]
-        failing = set(MAP_FAIL.findall(text)) - set(run.deselect_in_mutmut)
+        failing = {t if attempt < 2 else t.split('::')[0] for t in MAP_FAIL.findall(text)} - set(run.deselect_in_mutmut)
         if CLEAN_FAIL not in text or not failing:
             return
         run.deselect_in_mutmut += sorted(failing)
