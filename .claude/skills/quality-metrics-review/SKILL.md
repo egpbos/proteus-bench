@@ -11,7 +11,7 @@ You measure what a pull request does to the code it touches and propose fixes th
 
 - **This skill measures; it does not judge.** Whether a file, command or feature should exist, whether something else already does it, and what a comment says belong to the `proteus-bench-review` style review. Do not repeat those questions.
 - **When both run, the style review goes first.** Skip any file the style review proposes to delete or replace.
-- **What the other tools cover.** CI enforces the repository's own lint rules. CodeRabbit, SonarQube and the repositories' test-quality checks cover edge cases and test assertions (`.claude/agents/quality-reviewer.md` in proteus-bench, `tools/check_test_quality.py` in PROTEUS).
+- **What the other tools cover.** CI enforces the repository's own lint rules. CodeRabbit, SonarQube and the repositories' test-quality checks cover edge cases and the form of test assertions (`.claude/agents/quality-reviewer.md` in proteus-bench, `tools/check_test_quality.py` in PROTEUS). Whether the tests catch a wrong changed line is the mutants line (Step 5).
 
 ## Scope and authority
 
@@ -128,7 +128,9 @@ gh api repos/OWNER/REPO/pulls/N/reviews -X POST --input review.json
 - **Body.**
   - First a one-line verdict: "💂 3 regressions in 2 files, each with a measured fix; +173/-23 lines (net +150), 73 % of the added lines in tests."
   - Then a small table with only the regressed metrics: metric, base, head, head with the fixes.
+  - Then the mutants line (below).
   - Then one line naming what you could not run.
+- **The mutants line.** Run the `pr-mutation-testing` skill on the head (`python SKILL_DIR/../pr-mutation-testing/scripts/pr_mutants.py --repo CLONE --base BASE --head HEAD_SHA`, in your own environment) and quote its first line: "mutants: 68 of 72 killed on changed lines; behaviour 29 of 29; 2 places to read". List each place that the PR text does not already explain, as `file:line` and the mutant, in a collapsed block. Do not judge whether a place matters; that is for the PR author. If the tool cannot run (no environment, the unmutated tests fail), say so in the line instead.
 - **Inline comments,** one per regression, at the function or block concerned. Give the metric before and after, the fix, and its measured effect ("complexity 14 to 8, 12 fewer lines, tests pass"), in at most three sentences. A GitHub suggestion block is fine for a fix of up to about 10 lines that you measured and checked.
 - **Nothing regressed.** If nothing regressed, post only the body with the PR's size and two or three headline numbers.
 
@@ -136,6 +138,7 @@ Then report in chat:
 
 - the review link;
 - each regression and fix as one line;
+- the mutants line;
 - the commands you ran;
 - what you could not run.
 
