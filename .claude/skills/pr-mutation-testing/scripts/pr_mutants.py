@@ -231,7 +231,7 @@ def map_tests(run, sources):
         if stats_file.exists():
             return json.loads(stats_file.read_text())['tests_by_mangled_function_name']
         text = log.read_text()[start:]
-        if NO_REACH in text:
+        if NO_REACH in text or 'runner returned 5' in text:
             return {}
         failing = {t.split('::')[0] for t in MAP_FAIL.findall(text)} - set(run.deselect_in_mutmut)
         if not failing:
