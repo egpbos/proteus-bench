@@ -94,7 +94,7 @@ def test_find_cases_refuses_two_folders_of_one_name(tmp_path):
     """Two grids with a case of the same name cannot both be read in one call."""
     write(tmp_path / 'a' / 'case_000001' / 'proteus_00.log', RUN)
     write(tmp_path / 'b' / 'case_000001' / 'proteus_00.log', RUN)
-    with pytest.raises(ValueError, match="case 'case_000001' found twice"):
+    with pytest.raises(ValueError, match="case 'case_000001' found twice.*one at a time"):
         logsplit.find_cases([tmp_path / 'a', tmp_path / 'b'])
 
 
@@ -121,6 +121,23 @@ def test_split_of_a_stopped_run(tmp_path):
     # 180 s clock minus 166 s of spans; counting the totals as spans would leave none
     assert counts == {'segments': 1, 'iters': 3, 'unlogged_s': pytest.approx(14.0, abs=TOL)}
     assert notes == []
+
+
+def test_resumed_folder_sums_the_unlogged_time_of_its_segments(tmp_path):
+    """Two stopped starts of one run each add their own unlogged time, 14 s and 3 s."""
+    later = [header('2026-11-23 12:00:00'), init(structure=10.0), iteration(4, interior=5.0)]
+    later.append(stop('2026-11-23 12:00:18'))
+    logs = [write(tmp_path / 'proteus_00.log', RUN), write(tmp_path / 'proteus_01.log', later)]
+    _, counts, _ = logsplit.split(logsplit.read_segments(logs))
+    assert counts == {'segments': 2, 'iters': 4, 'unlogged_s': pytest.approx(17.0, abs=TOL)}
+
+
+def test_undecodable_bytes_do_not_stop_the_read(tmp_path):
+    """A stray non-UTF-8 byte in solver output is replaced, and the timing lines still count."""
+    log = tmp_path / 'proteus_00.log'
+    log.write_bytes(''.join(RUN[:2]).encode() + b'\xff\xfe\n' + ''.join(RUN[2:]).encode())
+    _, counts, _ = logsplit.split(logsplit.read_segments([log]))
+    assert counts['iters'] == 3
 
 
 def test_a_killed_run_ends_its_clock_at_the_file_time(tmp_path):
@@ -172,6 +189,7 @@ def test_notes_on_incomplete_logs(tmp_path):
         'segment 1: no [INIT_TIMING] line, so init is unlogged',
         'segment 1: 1 unreadable timing lines left out',
     ]
+    assert logsplit.case_row('run', [log])[0]['notes'] == '; '.join(notes)
 
 
 def test_a_log_without_timing_lines(tmp_path):
@@ -226,6 +244,18 @@ def test_case_row_columns_add_up_to_the_clock(tmp_path):
     } in span_rows
 
 
+def test_case_row_keeps_fractions_of_a_second(tmp_path):
+    """Sub-second spans and maxima stay as logged: 0.125 s is not rounded away or up to 1 s."""
+    lines = [header('2026-11-23 10:00:00'), init(other=0.25), iteration(1, atmos=0.5)]
+    lines += [iteration(2, atmos=0.25, interior=0.125), stop('2026-11-23 10:00:03')]
+    row, span_rows = logsplit.case_row('run', [write(tmp_path / 'proteus_00.log', lines)])
+    assert row['loop.interior'] == pytest.approx(0.125, abs=TOL)
+    assert row['unlogged'] == pytest.approx(3.0 - 1.125, abs=TOL)
+    assert row['total_s'] == pytest.approx(3.0, abs=TOL)
+    atmos = next(r for r in span_rows if (r['phase'], r['module']) == ('loop', 'atmos'))
+    assert (atmos['total_s'], atmos['max_s']) == (pytest.approx(0.25), pytest.approx(0.25))
+
+
 def case(total: float, **columns) -> dict:
     return {'case': f'c{total}', 'iters': 1, 'total_s': total} | columns
 
@@ -244,12 +274,44 @@ def test_summary_of_three_cases():
     assert by_column['a']['median_s'] == pytest.approx(8.0, abs=TOL)
 
 
+def test_summary_thirds_of_six_cases_and_a_missing_column():
+    """Six cases give thirds of two; a column a case lacks counts 0 s there."""
+    rows = [case(10.0, a=1.0), case(10.0), case(20.0, a=3.0), case(20.0, a=0.0)]
+    rows += [case(30.0, a=15.0), case(30.0, a=3.0)]
+    (a,) = logsplit.summary(rows, ['a'])
+    # Thirds of one case would give 0.1 and 0.1; counting the missing value as 1 s, 0.1
+    assert a['fast_share'] == pytest.approx(1 / 20, abs=1e-4)
+    assert a['slow_share'] == pytest.approx(18 / 60, abs=1e-4)
+    assert a['median_s'] == pytest.approx(2.0, abs=TOL)
+
+
 def test_summary_without_spread():
     """Equal totals give no correlation and no spread share; a constant column no correlation."""
-    rows = [case(10.0, a=2.0, b=8.0), case(10.0, a=2.0, b=8.0)]
+    rows = [case(10.0, a=2.0, b=8.0), case(10.0, a=4.0, b=6.0)]
     (a,) = logsplit.summary(rows, ['a'])
     assert (a['corr'], a['spread_share']) == (None, None)
     rows = [case(10.0, a=2.0), case(20.0, a=2.0)]
     (a,) = logsplit.summary(rows, ['a'])
     assert a['corr'] is None
     assert a['spread_share'] == pytest.approx(0.0, abs=TOL)
+
+
+def test_summary_of_two_cases_correlates():
+    """Two cases with two distinct values of a column correlate fully."""
+    (a,) = logsplit.summary([case(10.0, a=1.0), case(20.0, a=5.0)], ['a'])
+    assert a['corr'] == pytest.approx(1.0, abs=1e-4)
+
+
+def test_summary_without_timed_cases():
+    """Cases without iterations (timing off) give a row per column with no statistics."""
+    rows = [{'case': 'x', 'iters': 0, 'total_s': 30.0, 'unlogged': 30.0}]
+    assert logsplit.summary(rows, ['unlogged']) == [
+        {
+            'column': 'unlogged',
+            'median_s': None,
+            'fast_share': None,
+            'slow_share': None,
+            'corr': None,
+            'spread_share': None,
+        }
+    ]

@@ -45,30 +45,29 @@ def figure(rows: list[dict], columns: list[str], theme: str) -> go.Figure:
     c = proteus_plotly.colors(theme)
     cases = sorted((r for r in rows if r['iters']), key=lambda r: r['total_s'])
     per_case = [stacks(r, columns) for r in cases]
-    loop = stack_order({n for s in per_case for n in s} - {*BLOCKS.values(), UNLOGGED})
+    present = {n for s in per_case for n in s}
+    loop = stack_order(present - {*BLOCKS.values(), UNLOGGED})
     markers = component_markers(loop, theme) | {
         'init': {'color': c[PHASE_FILLS['init'][0]]},
         'first iteration': {'color': c['text-d3'], 'pattern': {'shape': '/'}},
         UNLOGGED: {'color': c[PHASE_FILLS['shutdown'][0]]},
     }
-    names = ['init', 'first iteration', *loop, UNLOGGED]
+    names = [n for n in ('init', 'first iteration', *loop, UNLOGGED) if n in present]
     x = [html.escape(r['case']) for r in cases]
     bars = [
         go.Bar(
             x=x,
-            y=[s.get(name, 0.0) for s in per_case],
+            y=[s[name] for s in per_case],
             name=html.escape(name),
             marker=markers[name],
             hoverinfo='text',
             hovertext=[
-                hover(
-                    f'{r["case"]}, {name}: {fmt_s(s.get(name, 0.0))} of {fmt_s(r["total_s"])}'
-                )
+                hover(f'{r["case"]}, {name}: {fmt_s(s[name])} of {fmt_s(r["total_s"])}')
                 for r, s in zip(cases, per_case, strict=True)
             ],
         )
         for name in names
-        if any(s.get(name) for s in per_case)
+        if any(s[name] for s in per_case)
     ]
     return go.Figure(
         bars,

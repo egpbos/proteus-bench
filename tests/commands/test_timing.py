@@ -1,17 +1,23 @@
 """Tests for ``proteus-bench timing`` (proteus_bench.commands.timing) and its page.
 
 Contract clauses: the command reads a grid folder's cases and writes cases.csv,
-spans.csv, summary.csv and timing.html with its assets; log files without a
-PROTEUS header or timing line are no case; columns are ordered by phase, then by
-summed time, unlogged last; no case at all exits 1 with a message; a non-empty
-output folder is refused. The page stacks init and first-iteration spans as one
-block each and draws one bar per case with iterations, by total time.
+spans.csv, summary.csv and timing.html with its assets, an empty cell where a case
+lacks a span, and one line naming the cases, the noted ones and the three largest
+spread shares; log files without a PROTEUS header or timing line are no case;
+columns are ordered by phase, then by summed time, unlogged last and only when a
+case has it; no case at all exits 1 with a message; a non-empty output folder is
+refused. The page stacks init and first-iteration spans as one block each, draws
+one bar per case with iterations by total time, colours init and unlogged with the
+phase fills, hatches first iterations and gives components their module colours.
 """
 
 from __future__ import annotations
 
 import csv
+import os
+from datetime import datetime
 
+import proteus_plotly
 import pytest
 
 from proteus_bench import cli
@@ -23,29 +29,32 @@ pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 TOL = 1e-9
 
 
-def log(start: str, end: str, interior: float, atmos: float) -> str:
+def log(interior: float, atmos: float, extra: str = '') -> str:
     return (
-        f'[ INFO  ] Current time      2026-11-23 {start} \n'
+        '[ INFO  ] Current time      2026-11-23 10:00:00 \n'
         '[ INFO  ] [INIT_TIMING] structure=10.000 total=10.000\n'
         '[ INFO  ] [IT_TIMING] iter=1 init_stage=1 atmos=20.000 total=20.000\n'
         f'[ INFO  ] [IT_TIMING] iter=2 init_stage=0 interior={interior:.3f} '
-        f'atmos={atmos:.3f} total={interior + atmos:.3f}\n'
-        f'[ INFO  ] Simulation stopped at: 2026-11-23 {end} \n'
+        f'atmos={atmos:.3f}{extra} total={interior + atmos:.3f}\n'
     )
 
 
 @pytest.fixture
 def grid(tmp_path):
-    """A slow case in its own folder, a fast one as a log copy, and a manager log."""
+    """A slow stopped case in its own folder, a fast killed one as a log copy, a manager log."""
     root = tmp_path / 'grid'
     (root / 'case_000001').mkdir(parents=True)
     (root / 'logs').mkdir()
     # 30 s logged before the second iteration and 2 s unlogged in each case
-    (root / 'case_000001' / 'proteus_00.log').write_text(
-        log('10:00:00', '10:10:02', 500.0, 70.0)
+    stopped = log(500.0, 70.0, ' escape=0.000') + (
+        '[ INFO  ] Simulation stopped at: 2026-11-23 10:10:02 \n'
     )
+    (root / 'case_000001' / 'proteus_00.log').write_text(stopped)
     (root / 'case_000001' / 'status').write_text('10\nCompleted (solidified)\n')
-    (root / 'logs' / 'case_000002.log').write_text(log('10:00:00', '10:01:42', 40.0, 30.0))
+    killed = root / 'logs' / 'case_000002.log'
+    killed.write_text(log(40.0, 30.0))
+    end = datetime(2026, 11, 23, 10, 1, 42).timestamp()
+    os.utime(killed, (end, end))
     (root / 'manager.log').write_text('[ INFO  ] grid started\n')
     return root
 
@@ -70,27 +79,36 @@ def test_writes_the_tables_and_page(grid, tmp_path, capsys):
     cases = {r['case']: r for r in read(out / 'cases.csv')}
     assert list(cases) == ['case_000001', 'case_000002']
     assert cases['case_000001']['status'] == '10'
+    assert (cases['case_000001']['loop.escape'], cases['case_000002']['loop.escape']) == (
+        '0.0',
+        '',
+    )
     assert float(cases['case_000001']['total_s']) == pytest.approx(602.0, abs=TOL)
     assert float(cases['case_000002']['unlogged']) == pytest.approx(2.0, abs=TOL)
     # Totals 602 and 102 s: interior differs by 460 s and atmos by 40 s, so 0.92 and 0.08
     summary = {r['column']: r for r in read(out / 'summary.csv')}
     assert float(summary['loop.interior']['spread_share']) == pytest.approx(0.92, abs=1e-4)
+    assert float(summary['loop.interior']['corr']) == pytest.approx(1.0, abs=1e-4)
     assert float(summary['init.structure']['spread_share']) == pytest.approx(0.0, abs=TOL)
-    assert len(read(out / 'spans.csv')) == 2 * 4
+    assert len(read(out / 'spans.csv')) == 4 + 1 + 4
     assert 'case_000002' in (out / 'timing.html').read_text()
-    assert 'loop.interior 0.92, loop.atmos 0.08' in capsys.readouterr().out
+    assert capsys.readouterr().out == (
+        f'{out}: 2 cases, 1 with notes; largest spread shares: '
+        'loop.interior 0.92, loop.atmos 0.08, init.structure 0.00\n'
+    )
 
 
 def test_column_order():
     """Phases in run order; within one, the largest summed time first; unlogged last."""
     rows = [
         {'case': 'a', 'total_s': 9.0, 'unlogged': 1.0, 'loop.atmos': 1.0, 'loop.interior': 3.0},
+        # summed, atmos has 3.5 s against the 3 s of interior; its last value alone is less
         {
             'case': 'b',
             'total_s': 9.0,
             'first.atmos': 2.0,
             'init.structure': 1.0,
-            'loop.atmos': 3.0,
+            'loop.atmos': 2.5,
         },
     ]
     assert ordered_columns(rows) == [
@@ -100,6 +118,7 @@ def test_column_order():
         'loop.interior',
         'unlogged',
     ]
+    assert ordered_columns([{'case': 'a', 'loop.atmos': 1.0}]) == ['loop.atmos']
 
 
 def test_no_case_exits_1(tmp_path, capsys):
@@ -131,11 +150,32 @@ def test_stacks_merge_init_and_first_iteration():
 def test_figure_has_one_bar_per_timed_case_by_total():
     """Cases without iterations are left out; bars run from the fastest case to the slowest."""
     rows = [
-        {'case': 'slow', 'iters': 2, 'total_s': 9.0, 'loop.interior': 9.0},
+        {
+            'case': 'slow',
+            'iters': 2,
+            'total_s': 12.0,
+            'init.structure': 3.0,
+            'loop.interior': 9.0,
+        },
         {'case': 'none', 'iters': 0, 'total_s': 5.0, 'unlogged': 5.0},
-        {'case': 'fast', 'iters': 2, 'total_s': 3.0, 'loop.interior': 2.0, 'unlogged': 1.0},
+        {'case': 'fast', 'iters': 2, 'total_s': 3.0, 'first.atmos': 2.0, 'unlogged': 1.0},
     ]
-    fig = timingpage.figure(rows, ['loop.interior', 'unlogged'], 'light')
-    assert [bar.name for bar in fig.data] == ['interior', 'unlogged']
+    columns = ['init.structure', 'first.atmos', 'loop.interior', 'unlogged']
+    fig = timingpage.figure(rows, columns, 'light')
+    assert [bar.name for bar in fig.data] == ['init', 'first iteration', 'interior', 'unlogged']
     assert list(fig.data[0].x) == ['fast', 'slow']
-    assert list(fig.data[1].y) == [1.0, 0.0]
+    assert list(fig.data[3].y) == [1.0, 0.0]
+    assert fig.data[3].hovertext[0] == 'fast, unlogged: 1.0 s of 3.0 s'
+
+
+def test_figure_colours():
+    """Init and unlogged take the phase fills, first iterations are hatched, interior is Aragog's."""
+    colors = proteus_plotly.colors('light')
+    aragog = proteus_plotly.module_markers(['aragog'], 'light')['aragog']['color']
+    spans = {'init.data': 1.0, 'first.atmos': 1.0, 'loop.interior': 1.0, 'unlogged': 1.0}
+    row = {'case': 'a', 'iters': 2, 'total_s': 4.0} | spans
+    init, first, interior, unlogged = timingpage.figure([row], [*spans], 'light').data
+    assert init.marker.color == colors['text-d2']
+    assert first.marker.pattern.shape == '/'
+    assert interior.marker.color == aragog
+    assert unlogged.marker.color == colors['text-d']
