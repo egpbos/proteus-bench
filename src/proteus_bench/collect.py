@@ -24,18 +24,25 @@ def component_row(phase: str, key: tuple, total_s: float, n_calls: int) -> dict:
     }
 
 
-def fingerprint(helpfile: Path) -> tuple[dict, list[str]]:
-    """Final-row physics values from runtime_helpfile.csv, and notes on unusable ones.
+def last_complete_row(helpfile: Path) -> dict[str, str] | None:
+    """Column -> value of the last row of runtime_helpfile.csv that has every column.
 
-    Non-finite values are left out, since JSON has no NaN.
+    None without such a row. A shorter row, as a run killed while writing leaves, is skipped.
+    """
+    rows = [line.split() for line in helpfile.read_text(errors='replace').splitlines()]
+    complete = [row for row in rows[1:] if len(row) == len(rows[0])]
+    return dict(zip(rows[0], complete[-1], strict=True)) if complete else None
+
+
+def fingerprint(helpfile: Path) -> tuple[dict, list[str]]:
+    """Physics values of the last complete row of runtime_helpfile.csv, and notes on
+    unusable ones. Non-finite values are left out, since JSON has no NaN.
     """
     if not helpfile.is_file():
         return {}, ['runtime_helpfile.csv missing, no physics fingerprint']
-    lines = helpfile.read_text().split('\n')
-    rows = [line.split() for line in lines if line.strip()]
-    if len(rows) < 2:
+    last = last_complete_row(helpfile)
+    if last is None:
         return {}, ['runtime_helpfile.csv has no data rows, no physics fingerprint']
-    last = dict(zip(rows[0], rows[-1], strict=False))
     values, notes = {}, []
     for key in FINGERPRINT_KEYS:
         if key in last:
