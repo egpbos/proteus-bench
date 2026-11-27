@@ -136,7 +136,10 @@ modification times when you copy them (`rsync -a`, `tar`): a killed run's clock
 ends at its log's modification time. `--out` must be new or empty and gets:
 
 - `cases.csv`: per case the status code, segments (process starts), iterations,
-  total seconds, notes, and seconds per span. Spans are `init.<step>` from
+  total seconds, the simulated time reached (`sim_time_yr`, the last complete row of
+  `runtime_helpfile.csv`) and per wall-clock hour (`sim_yr_per_hour`), notes, and
+  seconds per span. For runs stopped by a clock cap, compare `sim_yr_per_hour`
+  rather than the total time. Spans are `init.<step>` from
   `[INIT_TIMING]`, `first.<component>` from the first `[IT_TIMING]` line of each
   start, where the compilation of a module's first call lands, `loop.<component>`
   from the later lines, and `unlogged`: the clock minus the spans, which is the
