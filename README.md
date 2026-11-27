@@ -119,8 +119,7 @@ of that time:
 ## Time split from logs
 
 `proteus-bench timing` splits the time of finished PROTEUS runs by module from their
-log files alone, so a run needs no proteus-bench at run time. PROTEUS logs the timing
-lines in every run since FormingWorlds/PROTEUS#1151, and before that with
+log files alone, so a run needs no proteus-bench at run time. Run PROTEUS with
 `PROTEUS_TIMING=1` in its environment. After the runs, from the proteus-bench
 environment with the `report` extra:
 
