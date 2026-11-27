@@ -26,7 +26,7 @@
 <div class="badges">
 {% for metric, flag in card.flags %}{{ flag_badge(flag, metric) }}{% else %}<span class="note">No flags on the latest run.</span>{% endfor %}
 </div>
-<p class="note">Latest run <a href="{{ card.latest['run_id'] | run_href }}">{{ card.latest['time'] | fmt_time }}</a>, PROTEUS {{ commit_link(card.latest['commit']) }}{% if not card.latest['comparable'] %} {{ comparable_mark(false) }}{% endif %}</p>
+<p class="note">Latest run <a href="{{ card.latest['run_id'] | run_href }}">{{ card.latest['time'] | fmt_time }}</a>, PROTEUS {{ commit_link(card.latest['commit'], card.latest['base']) }}{% if not card.latest['comparable'] %} {{ comparable_mark(false) }}{% endif %}</p>
 {% else %}
 <p class="note">Not analysed yet.</p>
 {% endif %}
@@ -47,7 +47,7 @@
 <tbody>
 {% for r in recent %}
 {% set group = r | group_of %}
-<tr><td><a href="{{ r['run_id'] | run_href }}">{{ r['trigger']['started_at'] | fmt_time }}</a></td><td><a href="{{ group | series_href }}">{{ group | group_label }}</a></td><td>{{ commit_link(r['code']['proteus']['sha']) }}</td><td>{{ r['outcome']['status'] }}</td><td>{{ comparable_mark(r['comparability']['ok']) }}</td><td class="num">{{ r['timings']['wall_s'] | fmt_s }}</td></tr>
+<tr><td><a href="{{ r['run_id'] | run_href }}">{{ r['trigger']['started_at'] | fmt_time }}</a></td><td><a href="{{ group | series_href }}">{{ group | group_label }}</a></td><td>{{ commit_link(r['code']['proteus']['sha'], r['code']['proteus'].get('base')) }}</td><td>{{ r['outcome']['status'] }}</td><td>{{ comparable_mark(r['comparability']['ok']) }}</td><td class="num">{{ r['timings']['wall_s'] | fmt_s }}</td></tr>
 {% endfor %}
 </tbody></table></div>
 {% else %}

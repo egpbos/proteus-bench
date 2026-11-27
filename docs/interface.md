@@ -56,9 +56,9 @@ ignores `PROTEUS_OUTPUT_PATH`; its outputs are read from
 ### Component names
 
 PROTEUS's bucket names: `interior`, `structure`, `orbit`, `stellar`, `escape`,
-`outgas`, `atmos`, `chem`, `write`, `plots`, `archive`, and `data` for the data
-check. Consumers must accept names they don't know, since new names are an
-additive change.
+`outgas`, `trapping` (from #928), `atmos`, `chem`, `write`, `plots`, `archive`,
+and `data` for the data check. Consumers must accept names they don't know,
+since new names are an additive change.
 
 ## Run record
 

@@ -40,6 +40,7 @@ def make_series(values, comparable=None, **fields) -> dict:
         {
             'run_id': f'r{i}',
             'commit': f'abc{i:05d}',
+            'base': None,
             'time': f'2026-09-{10 + i}T00:00:00Z',
             'value': v,
             'comparable': c,

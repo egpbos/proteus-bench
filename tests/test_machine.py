@@ -6,7 +6,8 @@ os-arch-cpu; the SOCRATES build mode follows the flag strings of PROTEUS's
 get_socrates.sh, preferring bin/Mk_cmd over make/Mk_cmd; the env manager is
 detected with pixi before conda; env records threads as strings and knobs
 (Julia threads, profiler variables); an unknown CPU needs --machine-class;
-the Julia version is read with a timeout and is 'unknown' when unreadable.
+the Julia version is read with a timeout and is 'unknown' when unreadable; it is
+the Julia in PYTHON_JULIAPKG_EXE when that is set, else the julia on PATH.
 """
 
 from __future__ import annotations
@@ -197,3 +198,24 @@ def test_julia_version_reads_or_says_unknown(monkeypatch):
     assert machine.julia_version({}) == 'unknown'
     monkeypatch.setattr(shutil, 'which', lambda name, path=None: None)
     assert machine.julia_version({'PATH': '/nowhere'}) is None
+
+
+def test_julia_version_is_the_one_juliacall_loads(tmp_path, monkeypatch):
+    """PYTHON_JULIAPKG_EXE wins over the julia on PATH (#23); unset or empty, PATH decides."""
+    for name in ('launcher', 'pinned'):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / 'julia').touch(mode=0o755)
+    versions = {
+        str(tmp_path / 'launcher/julia'): '1.12.7',
+        str(tmp_path / 'pinned/julia'): '1.13.0',
+    }
+
+    def fake_run(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 0, f'julia version {versions[argv[0]]}\n', '')
+
+    monkeypatch.setattr(subprocess, 'run', fake_run)
+    path = str(tmp_path / 'launcher')
+    pinned = str(tmp_path / 'pinned/julia')
+    assert machine.julia_version({'PATH': path, 'PYTHON_JULIAPKG_EXE': pinned}) == '1.13.0'
+    assert machine.julia_version({'PATH': path}) == '1.12.7'
+    assert machine.julia_version({'PATH': path, 'PYTHON_JULIAPKG_EXE': ''}) == '1.12.7'

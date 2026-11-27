@@ -1,4 +1,4 @@
-{% macro commit_link(sha) %}<a class="mono" href="{{ sha | commit_url }}">{{ sha[:8] }}</a>{% endmacro %}
+{% macro commit_link(sha, base) %}{% set linked, label = sha | proteus_commit(base) %}<a class="mono" href="{{ linked | commit_url }}">{{ label }}</a>{% endmacro %}
 
 {% macro https_link(url, text=none) %}
 {%- if url.startswith('https://') %}<a href="{{ url }}">{{ text or url }}</a>{% else %}{{ text or url }}{% endif -%}

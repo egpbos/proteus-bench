@@ -31,7 +31,15 @@ from statistics import median
 import plotly.graph_objects as go
 import proteus_plotly
 
-from proteus_bench.report.fmt import confirmation, fmt_rel, fmt_s, fmt_time, fmt_value, run_href
+from proteus_bench.report.fmt import (
+    confirmation,
+    fmt_rel,
+    fmt_s,
+    fmt_time,
+    fmt_value,
+    proteus_commit,
+    run_href,
+)
 
 THEMES = ('light', 'dark')
 SIGMAS = 3.0
@@ -236,7 +244,7 @@ def _points(
     texts = []
     for i, p in enumerate(points):
         lines = [
-            f'{fmt_time(p["time"])}, {p["commit"][:8]}',
+            f'{fmt_time(p["time"])}, {proteus_commit(p["commit"], p["base"])[1]}',
             fmt_value(p['value'], unit),
             'comparable' if p['comparable'] else 'not comparable',
         ]
