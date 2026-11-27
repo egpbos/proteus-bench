@@ -67,7 +67,9 @@ does itself. The PROTEUS tree must be clean (no changes to tracked files);
 `--allow-failed-checks` runs anyway and marks the record as not comparable.
 PROTEUS stops a run itself when CVODE or an environment variable it needs is
 missing; `proteus doctor` checks them beforehand.
-Suites live in `src/proteus_bench/suites.toml`.
+Suites live in `src/proteus_bench/suites.toml`: `default` (`input/all_options.toml`
+capped at 16 iterations), `dummy` (all dummy modules, a quick check) and `obliqua`
+(`default` with Obliqua tides; select it with `--suite obliqua`).
 `proteus-bench run --help` lists the other options.
 
 proteus runs with `--offline`, so no download is ever timed and missing data
@@ -75,6 +77,8 @@ fails the run. Fetch the data once beforehand: `proteus get reference` covers
 the `dummy` suite; the `default` suite also needs the data `proteus get` fetches
 for its modules (`stellar`, `spectral`, `surfaces`, and
 `interiordata --config-path input/all_options.toml`).
+The `obliqua` suite needs the same data plus Obliqua itself
+(`bash tools/get_obliqua.sh` in the PROTEUS checkout).
 
 ### Older PROTEUS commits
 
