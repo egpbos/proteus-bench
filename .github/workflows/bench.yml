@@ -34,15 +34,22 @@ jobs:
         shell: bash -el {0}
     env:
       SUITE: ${{ inputs.suite || 'default' }}
+      REF: ${{ inputs.ref || 'main' }}
       PROFILER: ${{ inputs.profiler || 'none' }}
     steps:
       # PROTEUS at the workspace root, where its setup action expects the checkout
       - uses: actions/checkout@v7
         with:
           repository: FormingWorlds/PROTEUS
-          ref: ${{ inputs.ref || 'main' }}
+          ref: ${{ env.REF }}
           fetch-depth: 0 # the record places the run on the history of origin/main
           persist-credentials: false
+      - name: Check that the ref has the setup action
+        run: |
+          [ -f .github/actions/setup-proteus/action.yml ] || {
+            echo "::error::PROTEUS $REF has no .github/actions/setup-proteus; refs from #678 (2026-06-09) on have it"
+            exit 1
+          }
       - uses: ./.github/actions/setup-proteus
         with:
           full-data: "true"
@@ -55,6 +62,13 @@ jobs:
             scalene) pip install scalene==2.3.0 ;; # the version the recipe is written for
             py-spy) pip install py-spy ;;
           esac
+      - name: "Patch a ref from before #983 to log the timing lines"
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: proteus-bench prepare HEAD
       - name: Run the suite
         run: >-
           proteus-bench run --suite "$SUITE" --profiler "$PROFILER"
