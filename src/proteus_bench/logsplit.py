@@ -147,14 +147,16 @@ def _notes(i: int, segment: dict) -> list[str]:
     return found
 
 
-def status_code(logs: list[Path]) -> int | None:
-    """The code on the first line of the case folder's ``status`` file, if there is one.
-
-    The folder holds ``proteus_NN.log``; a grid's ``logs/<case>.log`` copy has it at
-    ``<grid>/<case>``.
+def case_folder(logs: list[Path]) -> Path:
+    """The case's output folder: the one holding ``proteus_NN.log``, or ``<grid>/<case>``
+    for a grid's ``logs/<case>.log`` copy.
     """
     log = logs[0]
-    folder = log.parent if OWN_LOG.fullmatch(log.name) else log.parent.parent / log.stem
+    return log.parent if OWN_LOG.fullmatch(log.name) else log.parent.parent / log.stem
+
+
+def status_code(folder: Path) -> int | None:
+    """The code on the first line of the folder's ``status`` file, if there is one."""
     path = folder / 'status'
     if not path.is_file():
         return None
@@ -167,23 +169,53 @@ def status_code(logs: list[Path]) -> int | None:
         ) from None
 
 
+def simulated_time_yr(folder: Path) -> float | None:
+    """``Time`` [yr] in the last complete row of the folder's ``runtime_helpfile.csv``.
+
+    None without the file or a complete data row. A row with fewer fields than the
+    header, as a run killed while writing leaves, is not complete.
+    """
+    path = folder / 'runtime_helpfile.csv'
+    if not path.is_file():
+        return None
+    lines = path.read_text(errors='replace').splitlines()
+    header = lines[0].split('\t') if lines else []
+    if lines and 'Time' not in header:
+        raise ValueError(f'{path}: expected a Time column, found {header[:3]}...')
+    rows = [fields for line in lines[1:] if len(fields := line.split('\t')) == len(header)]
+    return float(rows[-1][header.index('Time')]) if rows else None
+
+
 def column(phase: str, module: str) -> str:
     return f'{phase}.{module}'
 
 
 def case_row(name: str, logs: list[Path]) -> tuple[dict, list[dict]]:
-    """The case's row of seconds per ``phase.module`` and ``unlogged``, and its span rows."""
+    """The case's row and its span rows.
+
+    The row has the status code, the simulated time reached [yr] and per wall-clock hour,
+    and seconds per ``phase.module`` and ``unlogged``.
+    """
     spans, counts, notes = split(read_segments(logs))
     seconds = {column(*key): round(span[0], 3) for key, span in spans.items()}
     unlogged = counts['unlogged_s']
     if unlogged is not None:
         seconds[UNLOGGED] = round(unlogged, 3)
+    total_s = round(sum(seconds.values()), 3)
+    folder = case_folder(logs)
+    sim_yr = simulated_time_yr(folder)
+    if sim_yr is None:
+        notes.append('no complete row in runtime_helpfile.csv, so no simulated time')
     row = {
         'case': name,
-        'status': status_code(logs),
+        'status': status_code(folder),
         'segments': counts['segments'],
         'iters': counts['iters'],
-        'total_s': round(sum(seconds.values()), 3),
+        'total_s': total_s,
+        'sim_time_yr': sim_yr,
+        'sim_yr_per_hour': round(sim_yr / total_s * 3600, 3)
+        if sim_yr is not None and total_s
+        else None,
         'notes': '; '.join(notes),
     } | seconds
     span_rows = [

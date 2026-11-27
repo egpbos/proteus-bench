@@ -51,6 +51,7 @@ def grid(tmp_path):
     )
     (root / 'case_000001' / 'proteus_00.log').write_text(stopped)
     (root / 'case_000001' / 'status').write_text('10\nCompleted (solidified)\n')
+    (root / 'case_000001' / 'runtime_helpfile.csv').write_text('Time\n0.0\n1.2e5\n')
     killed = root / 'logs' / 'case_000002.log'
     killed.write_text(log(40.0, 30.0))
     end = datetime(2026, 11, 23, 10, 1, 42).timestamp()
@@ -85,6 +86,14 @@ def test_writes_the_tables_and_page(grid, tmp_path, capsys):
     )
     assert float(cases['case_000001']['total_s']) == pytest.approx(602.0, abs=TOL)
     assert float(cases['case_000002']['unlogged']) == pytest.approx(2.0, abs=TOL)
+    # 1.2e5 yr in 602 s of clock
+    assert float(cases['case_000001']['sim_yr_per_hour']) == pytest.approx(
+        1.2e5 * 3600 / 602, abs=1e-3
+    )
+    assert (cases['case_000002']['sim_time_yr'], cases['case_000002']['sim_yr_per_hour']) == (
+        '',
+        '',
+    )
     # Totals 602 and 102 s: interior differs by 460 s and atmos by 40 s, so 0.92 and 0.08
     summary = {r['column']: r for r in read(out / 'summary.csv')}
     assert float(summary['loop.interior']['spread_share']) == pytest.approx(0.92, abs=1e-4)

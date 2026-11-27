@@ -4,8 +4,9 @@ Reads the log files given, or every ``*.log`` under the folders given (one run's
 output folder, or a grid folder with many cases); see ``proteus_bench.logsplit``.
 Writes to ``--out``, which must be new or empty:
 
-- ``cases.csv``: per case its status code, segments, iterations, total seconds,
-  notes, and seconds per ``phase.module`` span and ``unlogged``;
+- ``cases.csv``: per case its status code, segments, iterations, total seconds, the
+  simulated time reached [yr] and per wall-clock hour, notes, and seconds per
+  ``phase.module`` span and ``unlogged``;
 - ``spans.csv``: per case and span the seconds, the calls and the longest call;
 - ``summary.csv``: per span how it follows the spread in total time;
 - ``timing.html``: the cases as stacked bars, and the summary table.
@@ -22,7 +23,16 @@ from pathlib import Path
 from proteus_bench.logsplit import UNLOGGED, case_row, find_cases, summary
 
 PHASES = ('init', 'first', 'loop')
-FIELDS = ('case', 'status', 'segments', 'iters', 'total_s', 'notes')
+FIELDS = (
+    'case',
+    'status',
+    'segments',
+    'iters',
+    'total_s',
+    'sim_time_yr',
+    'sim_yr_per_hour',
+    'notes',
+)
 SUMMARY_FIELDS = ['column', 'spread_share', 'corr', 'fast_share', 'slow_share', 'median_s']
 
 

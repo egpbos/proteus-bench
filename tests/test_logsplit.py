@@ -190,8 +190,10 @@ def test_notes_on_incomplete_logs(tmp_path):
         'segment 1: 1 unreadable timing lines left out',
     ]
     row, _ = logsplit.case_row('run', [log])
-    assert row['notes'] == '; '.join(notes)
+    helpfile_note = 'no complete row in runtime_helpfile.csv, so no simulated time'
+    assert row['notes'] == '; '.join([*notes, helpfile_note])
     assert row['total_s'] == pytest.approx(1.5, abs=TOL)
+    assert (row['sim_time_yr'], row['sim_yr_per_hour']) == (None, None)
 
 
 def test_a_log_without_timing_lines(tmp_path):
@@ -218,15 +220,56 @@ def test_status_code_of_a_folder_and_of_a_grid_copy(tmp_path):
     copy = write(tmp_path / 'logs' / 'case_2.log', RUN)
     write(tmp_path / 'case_2' / 'status', ['25\n'])
     lone = write(tmp_path / 'logs' / 'case_3.log', RUN)
-    assert [logsplit.status_code([p]) for p in (own, copy, lone)] == [11, 25, None]
+    folders = [logsplit.case_folder([p]) for p in (own, copy, lone)]
+    assert folders == [tmp_path / 'case_1', tmp_path / 'case_2', tmp_path / 'case_3']
+    assert [logsplit.status_code(f) for f in folders] == [11, 25, None]
 
 
 def test_malformed_status_file_is_an_error(tmp_path):
     """A status file without a code on its first line stops the command and names the file."""
-    log = write(tmp_path / 'case_1' / 'proteus_00.log', RUN)
     write(tmp_path / 'case_1' / 'status', ['Running\n'])
     with pytest.raises(ValueError, match=r"case_1/status: expected a status code.*'Running'"):
-        logsplit.status_code([log])
+        logsplit.status_code(tmp_path / 'case_1')
+
+
+def helpfile(folder, *rows: str):
+    return write(folder / 'runtime_helpfile.csv', ['Time\tR_int\n', *(f'{r}\n' for r in rows)])
+
+
+def test_simulated_time_is_the_last_complete_helpfile_row(tmp_path):
+    """The last row's Time counts; a torn last row, as a killed write leaves, does not."""
+    helpfile(tmp_path, '0.0\t6.4e6', '1.5e4\t6.3e6', '3.2e4')
+    assert logsplit.simulated_time_yr(tmp_path) == pytest.approx(1.5e4, rel=1e-12)
+    helpfile(tmp_path, '0.0\t6.4e6', '1.5e4\t6.3e6', '3.2e4\t6.2e6')
+    assert logsplit.simulated_time_yr(tmp_path) == pytest.approx(3.2e4, rel=1e-12)
+
+
+def test_simulated_time_without_a_data_row(tmp_path):
+    """No helpfile, an empty one, or a header alone give no simulated time."""
+    assert logsplit.simulated_time_yr(tmp_path) is None
+    write(tmp_path / 'runtime_helpfile.csv', [])
+    assert logsplit.simulated_time_yr(tmp_path) is None
+    helpfile(tmp_path)
+    assert logsplit.simulated_time_yr(tmp_path) is None
+
+
+def test_helpfile_without_time_column_is_an_error(tmp_path):
+    """A helpfile without its Time column is not PROTEUS's: the command stops and names it."""
+    write(tmp_path / 'runtime_helpfile.csv', ['R_int\tT_magma\n', '6.4e6\t3000\n'])
+    with pytest.raises(ValueError, match=r'runtime_helpfile.csv: expected a Time column'):
+        logsplit.simulated_time_yr(tmp_path)
+
+
+def test_case_row_simulated_time_per_hour(tmp_path):
+    """9e4 yr in a 180 s clock is 1.8e6 yr per wall-clock hour; 0 yr gives 0, not none."""
+    log = write(tmp_path / 'proteus_00.log', RUN)
+    helpfile(tmp_path, '0.0\t6.4e6', '9e4\t6.3e6')
+    row, _ = logsplit.case_row('run', [log])
+    assert row['sim_time_yr'] == pytest.approx(9e4, rel=1e-12)
+    assert row['sim_yr_per_hour'] == pytest.approx(1.8e6, rel=1e-9)
+    assert row['notes'] == ''
+    helpfile(tmp_path, '0.0\t6.4e6')
+    assert logsplit.case_row('run', [log])[0]['sim_yr_per_hour'] == 0.0
 
 
 def test_case_row_columns_add_up_to_the_clock(tmp_path):
