@@ -93,12 +93,8 @@ def commit_url(sha: str) -> str:
 
 
 def proteus_commit(sha: str, base: dict | None) -> tuple[str, str]:
-    """(sha, label) to link and show a run's PROTEUS commit by.
-
-    A HEAD with local commits on top of its ``code.proteus.base`` (a patched
-    checkout from ``proteus-bench prepare``) is not on GitHub, so such a run is
-    shown as the base commit with a ``+``.
-    """
+    """(sha, label) to link and show a run's PROTEUS commit by: its base commit with ``+``
+    when HEAD has local commits on top, since GitHub does not have those."""
     if base is None or sha.startswith(base['sha']):
         return sha, sha[:8]
     return base['sha'], f'{base["sha"][:8]}+'

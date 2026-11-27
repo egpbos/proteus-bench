@@ -132,7 +132,9 @@ def julia_version(env: dict) -> str | None:
     'unknown' when it does not answer ``julia version X`` in time.
 
     juliapkg takes ``PYTHON_JULIAPKG_EXE`` when it is set, which PROTEUS requires,
-    since juliacall cannot use the juliaup launcher; otherwise the ``julia`` on PATH.
+    since juliacall cannot use the juliaup launcher. Without it, juliapkg may reuse a
+    cached executable or find another Julia first, so the ``julia`` on PATH that this
+    reports then only approximates the one juliacall loads.
     """
     julia = shutil.which(env.get('PYTHON_JULIAPKG_EXE') or 'julia', path=env.get('PATH'))
     if julia is None:

@@ -73,6 +73,9 @@ def test_proteus_commit_is_the_base_unless_head_is_on_it():
     assert proteus_commit('b2dbb839', base) == ('b2dbb839', 'b2dbb839')
     assert proteus_commit('b2dbb8390', base) == ('b2dbb8390', 'b2dbb839')
     assert proteus_commit('37288a7b', None) == ('37288a7b', '37288a7b')
+    # a full base sha is linked whole and labelled by its first 8 characters
+    full = 'b2dbb8390c1e5f7a9d2b4c6e8f0a1b3c5d7e9f1a'
+    assert proteus_commit('37288a7b', {'sha': full}) == (full, 'b2dbb839+')
 
 
 @pytest.mark.parametrize('seconds', [0.0, 0.04])
