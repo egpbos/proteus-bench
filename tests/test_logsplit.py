@@ -1,14 +1,16 @@
 """Tests for proteus_bench.logsplit: the time split of finished runs from their logs alone.
 
 Contract clauses: a case is a folder's proteus_NN.log files in order, or another log
-file by its stem, and the folder's logs win over a copy of the same name; two
-folders or copies of one name are an error. Each PROTEUS header starts a segment;
+file with PROTEUS lines by its stem (other logs are left out), and the folder's logs
+win over a copy of the same name; a log reached twice is read once; two folders or
+copies of one case without folder logs are an error. Each PROTEUS header starts a segment;
 its clock runs to the stop line, or to the file time for the file's last segment,
 and a segment ended by the next header has no clock. Spans are the [INIT_TIMING]
 steps (init), the first [IT_TIMING] line of a segment (first) and the later lines
 (loop), never the total; unlogged is the clock minus the spans, floored at 0, and
 None when a segment has no clock. Notes name a missing header, stop line or
 [INIT_TIMING] line, unreadable lines, and a log without [IT_TIMING] lines. The
+rate per wall-clock hour needs a clock for every segment. The
 status code comes from the case folder's status file, also for a grid's log copy;
 a malformed one is an error. The summary takes cases with iterations, their
 fastest and slowest third, the correlation and the spread share
@@ -82,6 +84,33 @@ def test_find_cases_groups_folder_logs_and_prefers_them_over_copies(tmp_path):
         'case_000001': [first, second],
         'case_000002': [copy],
     }
+
+
+def test_find_cases_reads_a_log_reached_twice_once(tmp_path):
+    """A folder and one of its logs given together list that log once, resumes kept in order."""
+    first = write(tmp_path / 'run' / 'proteus_00.log', RUN)
+    second = write(tmp_path / 'run' / 'proteus_01.log', RUN)
+    assert logsplit.find_cases([tmp_path / 'run', first]) == {'run': [first, second]}
+
+
+def test_find_cases_leaves_other_modules_logs_out(tmp_path):
+    """aragog.log in case folders and a grid log without PROTEUS lines are no cases."""
+    logs = {}
+    for name in ('case_1', 'case_2'):
+        logs[name] = [write(tmp_path / name / 'proteus_00.log', RUN)]
+        write(tmp_path / name / 'aragog.log', ['solver step 1\n'])
+    copy = write(tmp_path / 'logs' / 'case_3.log', [iteration(1, atmos=1.0)])
+    # A grid's own log, with a stray non-UTF-8 byte, has no PROTEUS lines: no case
+    (tmp_path / 'manager.log').write_bytes(b'grid started\n\xff\n')
+    assert logsplit.find_cases([tmp_path]) == logs | {'case_3': [copy]}
+
+
+def test_copies_of_a_case_with_folder_logs_do_not_clash(tmp_path):
+    """Two copies (first and resumed slice) of a case that has folder logs are ignored."""
+    own = write(tmp_path / 'case_1' / 'proteus_00.log', RUN)
+    write(tmp_path / 'logs' / 'case_1.log', RUN)
+    write(tmp_path / 'logs_r' / 'case_1.log', RUN)
+    assert logsplit.find_cases([tmp_path]) == {'case_1': [own]}
 
 
 def test_find_cases_takes_a_file_argument_as_one_case(tmp_path):
@@ -172,7 +201,7 @@ def test_short_segment_floors_unlogged_at_zero(tmp_path):
     lines.append(stop('2026-11-23 10:00:01'))
     log = write(tmp_path / 'proteus_00.log', lines)
     _, counts, _ = logsplit.split(logsplit.read_segments([log]))
-    assert counts['unlogged_s'] == 0.0
+    assert counts['unlogged_s'] == pytest.approx(0.0, abs=TOL)
 
 
 def test_notes_on_incomplete_logs(tmp_path):
@@ -194,6 +223,11 @@ def test_notes_on_incomplete_logs(tmp_path):
     assert row['notes'] == '; '.join([*notes, helpfile_note])
     assert row['total_s'] == pytest.approx(1.5, abs=TOL)
     assert (row['sim_time_yr'], row['sim_yr_per_hour']) == (None, None)
+    # Without a clock the logged 1.5 s is not the wall time, so there is no rate
+    helpfile(tmp_path, '0.0\t6.4e6', '100.0\t6.3e6')
+    row, _ = logsplit.case_row('run', [log])
+    assert row['sim_time_yr'] == pytest.approx(100.0, abs=TOL)
+    assert row['sim_yr_per_hour'] is None
 
 
 def test_a_log_without_timing_lines(tmp_path):
@@ -269,7 +303,7 @@ def test_case_row_simulated_time_per_hour(tmp_path):
     assert row['sim_yr_per_hour'] == pytest.approx(1.8e6, rel=1e-9)
     assert row['notes'] == ''
     helpfile(tmp_path, '0.0\t6.4e6')
-    assert logsplit.case_row('run', [log])[0]['sim_yr_per_hour'] == 0.0
+    assert logsplit.case_row('run', [log])[0]['sim_yr_per_hour'] == pytest.approx(0.0, abs=TOL)
 
 
 def test_case_row_columns_add_up_to_the_clock(tmp_path):
@@ -279,14 +313,15 @@ def test_case_row_columns_add_up_to_the_clock(tmp_path):
     assert row['total_s'] == pytest.approx(180.0, abs=TOL)
     assert row['unlogged'] == pytest.approx(14.0, abs=TOL)
     assert row['loop.interior'] == pytest.approx(50.0, abs=TOL)
-    assert {
+    interior = next(r for r in span_rows if (r['phase'], r['module']) == ('loop', 'interior'))
+    assert interior == {
         'case': 'run',
         'phase': 'loop',
         'module': 'interior',
-        'total_s': 50.0,
+        'total_s': pytest.approx(50.0, abs=TOL),
         'calls': 2,
-        'max_s': 30.0,
-    } in span_rows
+        'max_s': pytest.approx(30.0, abs=TOL),
+    }
 
 
 def test_case_row_keeps_fractions_of_a_second(tmp_path):
@@ -298,7 +333,10 @@ def test_case_row_keeps_fractions_of_a_second(tmp_path):
     assert row['unlogged'] == pytest.approx(3.0 - 1.125, abs=TOL)
     assert row['total_s'] == pytest.approx(3.0, abs=TOL)
     atmos = next(r for r in span_rows if (r['phase'], r['module']) == ('loop', 'atmos'))
-    assert (atmos['total_s'], atmos['max_s']) == (pytest.approx(0.25), pytest.approx(0.25))
+    assert (atmos['total_s'], atmos['max_s']) == (
+        pytest.approx(0.25, abs=TOL),
+        pytest.approx(0.25, abs=TOL),
+    )
 
 
 def case(total: float, **columns) -> dict:

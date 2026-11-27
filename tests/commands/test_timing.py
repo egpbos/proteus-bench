@@ -153,6 +153,7 @@ def test_refuses_a_non_empty_output(grid, tmp_path):
     (out / 'cases.csv').write_text('old\n')
     with pytest.raises(ValueError, match='is not empty'):
         cli.main(['timing', str(grid), '--out', str(out)])
+    assert (out / 'cases.csv').read_text() == 'old\n'
 
 
 def test_stacks_merge_init_and_first_iteration():
@@ -182,7 +183,8 @@ def test_figure_has_one_bar_per_timed_case_by_total():
     assert [bar.name for bar in fig.data] == ['init', 'first iteration', 'interior', 'unlogged']
     assert fig.layout.barmode == 'stack'
     assert list(fig.data[0].x) == ['fast', 'slow']
-    assert list(fig.data[3].y) == [1.0, 0.0]
+    values = [list(bar.y) for bar in fig.data]
+    assert values == [pytest.approx(v, abs=TOL) for v in ([0, 3], [2, 0], [0, 9], [1, 0])]
     assert fig.data[3].hovertext[0] == 'fast, unlogged: 1.0 s of 3.0 s'
 
 

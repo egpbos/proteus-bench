@@ -19,6 +19,7 @@ run host's local time; the modification time is read in this machine's local tim
 
 from __future__ import annotations
 
+import os
 import re
 import statistics
 from datetime import datetime
@@ -35,20 +36,30 @@ UNLOGGED = 'unlogged'
 def find_cases(paths: list[Path]) -> dict[str, list[Path]]:
     """Case name -> its log files in order, from log files and folders searched for ``*.log``.
 
-    Raises ValueError when two folders or two log copies give one case name.
+    A log reached twice is read once. Another log than ``proteus_NN.log`` is a copy, used
+    only when no folder of that case name holds its own logs and only when it holds a
+    PROTEUS header or timing line, so other modules' logs are left out. Raises ValueError
+    when two folders, or two copies of a case without folder logs, give one case name.
     """
-    files = [f for p in paths for f in (sorted(p.rglob('*.log')) if p.is_dir() else [p])]
+    found = (f for p in paths for f in (p.rglob('*.log') if p.is_dir() else [p]))
+    files = sorted({Path(os.path.abspath(f)) for f in found})
     own: dict[Path, list[Path]] = {}
-    copies: dict[str, list[Path]] = {}
     for file in files:
         if OWN_LOG.fullmatch(file.name):
             own.setdefault(file.parent, []).append(file)
-        else:
-            _add(copies, file.stem, [file])
     cases: dict[str, list[Path]] = {}
     for folder, logs in own.items():
         _add(cases, folder.name, logs)
+    copies: dict[str, list[Path]] = {}
+    for file in files:
+        if file.parent not in own and file.stem not in cases and _holds_proteus_lines(file):
+            _add(copies, file.stem, [file])
     return dict(sorted((copies | cases).items()))
+
+
+def _holds_proteus_lines(log: Path) -> bool:
+    with log.open(errors='replace') as lines:
+        return any(HEADER.search(line) or any(m in line for m in MARKS) for line in lines)
 
 
 def _add(cases: dict[str, list[Path]], name: str, logs: list[Path]) -> None:
@@ -193,8 +204,8 @@ def column(phase: str, module: str) -> str:
 def case_row(name: str, logs: list[Path]) -> tuple[dict, list[dict]]:
     """The case's row and its span rows.
 
-    The row has the status code, the simulated time reached [yr] and per wall-clock hour,
-    and seconds per ``phase.module`` and ``unlogged``.
+    The row has the status code, the simulated time reached [yr] and per wall-clock hour
+    (only when every segment has a clock), and seconds per ``phase.module`` and ``unlogged``.
     """
     spans, counts, notes = split(read_segments(logs))
     seconds = {column(*key): round(span[0], 3) for key, span in spans.items()}
@@ -214,7 +225,7 @@ def case_row(name: str, logs: list[Path]) -> tuple[dict, list[dict]]:
         'total_s': total_s,
         'sim_time_yr': sim_yr,
         'sim_yr_per_hour': round(sim_yr / total_s * 3600, 3)
-        if sim_yr is not None and total_s
+        if sim_yr is not None and unlogged is not None and total_s
         else None,
         'notes': '; '.join(notes),
     } | seconds
