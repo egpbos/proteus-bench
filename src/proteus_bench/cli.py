@@ -23,6 +23,10 @@ COMMANDS = {
     'publish': ('publish', 'add run directories to the results store and push'),
     'lineage-check': ('lineage_check', 'report whether a carry-over run is due (exit 3 if so)'),
     'report': ('report', 'build the static HTML dashboard from a results store'),
+    'timing': (
+        'timing',
+        'split the run time of finished PROTEUS runs by module, from their logs',
+    ),
 }
 
 

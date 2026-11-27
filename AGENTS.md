@@ -21,7 +21,8 @@ src/proteus_bench/
   schema.py         loading the schemas; optional shape validation
   settings.py       flattening, hashing and comparing resolved PROTEUS settings
   tokens_head.html  head tags loading the PROTEUS design tokens, for the flame page and dashboard
-  timing.py         reading and checking timing.jsonl
+  logtiming.py      record sections from the timing log lines of a run under the runner
+  logsplit.py       time split of finished runs from their log files alone
   suites.toml       benchmark suites; suites.py loads and validates them
   checks.py         run checks and the comparability rule
   provenance.py     git state and module versions; introspect.py runs in the PROTEUS env

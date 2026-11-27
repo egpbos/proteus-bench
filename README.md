@@ -116,6 +116,40 @@ of that time:
   `src/proteus/utils/data.py` and read an older directory layout. Give each
   commit its own `FWL_DATA` and download into it with that commit's code.
 
+## Time split from logs
+
+`proteus-bench timing` splits the time of finished PROTEUS runs by module from their
+log files alone, so a run needs no proteus-bench at run time. Run PROTEUS with
+`PROTEUS_TIMING=1` in its environment; afterwards, from the proteus-bench environment
+with the `report` extra:
+
+```bash
+proteus-bench timing output/my_run --out timing-my_run
+proteus-bench timing output/my_grid --out timing-my_grid
+```
+
+A path is a log file, a run's output folder (its `proteus_NN.log` files, one per
+start, so a resumed run counts once) or a grid folder (every case folder, or the
+`logs/<case>.log` copies when the case folders hold no log). Keep the files'
+modification times when you copy them (`rsync -a`, `tar`): a killed run's clock
+ends at its log's modification time. `--out` must be new or empty and gets:
+
+- `cases.csv`: per case the status code, segments (process starts), iterations,
+  total seconds, notes, and seconds per span. Spans are `init.<step>` from
+  `[INIT_TIMING]`, `first.<component>` from the first `[IT_TIMING]` line of each
+  start, where the compilation of a module's first call lands, `loop.<component>`
+  from the later lines, and `unlogged`: the clock minus the spans, which is the
+  shutdown and, for a killed run, the iteration it was in. A note says when a
+  number is incomplete.
+- `spans.csv`: per case and span the seconds, the number of calls and the longest call.
+- `summary.csv`: per span its spread share, cov(span, total) / var(total), which adds
+  up to 1 over the spans; its correlation with the total; its share of the total in
+  the fastest and the slowest third of the cases; and its median.
+- `timing.html`: the cases as stacked bars ordered by total time, and the summary.
+
+The log cannot separate compilation from solving within one call: a recompilation
+after a structure update counts in that iteration's `loop.interior`.
+
 ## Publishing
 
 From the separate proteus-bench environment:

@@ -58,7 +58,7 @@ def build_site(
             f'expected analysis schema {ANALYSIS_SCHEMA!r}, found {analysis.get("schema")!r}'
         )
     pages = render_pages(records, analysis, store, repo)
-    _prepare(out_dir)
+    prepare_dir(out_dir)
     for name in ASSETS:
         shutil.copyfile(TEMPLATES / name, out_dir / name)
     written = []
@@ -109,7 +109,7 @@ def _run_page(
         ) from err
 
 
-def _prepare(out_dir: Path) -> None:
+def prepare_dir(out_dir: Path) -> None:
     """An empty output directory, so no page of a deleted run survives; nothing is deleted."""
     out_dir.mkdir(parents=True, exist_ok=True)
     if any(out_dir.iterdir()):

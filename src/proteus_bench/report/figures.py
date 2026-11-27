@@ -78,7 +78,7 @@ def hover(*lines) -> str:
     return '<br>'.join(html.escape(str(line)) for line in lines)
 
 
-def _layout(height: int, **extra) -> dict:
+def layout(height: int, **extra) -> dict:
     return {
         'template': {},
         'height': height,
@@ -134,7 +134,7 @@ def _trend_layout(labels: list[str], unit: str, size: str) -> dict:
     """Layout for evenly spaced x positions, at most ``MAX_X_LABELS`` of them labelled."""
     every = -(-len(labels) // MAX_X_LABELS)
     ticks = list(range(0, len(labels), every))
-    return _layout(
+    return layout(
         HEIGHTS[size],
         showlegend=False,
         xaxis={
@@ -398,7 +398,7 @@ def phases(record: dict, theme: str) -> go.Figure:
         )
     return go.Figure(
         bars,
-        _layout(
+        layout(
             150,
             barmode='stack',
             uniformtext={'minsize': 10, 'mode': 'hide'},
@@ -465,7 +465,7 @@ def iterations(record: dict, theme: str) -> go.Figure:
     ]
     return go.Figure(
         bars,
-        _layout(
+        layout(
             320,
             barmode='stack',
             legend=LEGEND,
