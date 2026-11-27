@@ -178,7 +178,7 @@ def test_short_segment_floors_unlogged_at_zero(tmp_path):
 def test_notes_on_incomplete_logs(tmp_path):
     """Timing lines before any header, no [INIT_TIMING] line and a torn line are noted."""
     lines = [
-        iteration(1, interior=1.0),
+        iteration(1, interior=1.5),
         '[ INFO  ] [IT_TIMING] iter=2 init_stage=0 interior=1.0\n',
     ]
     log = write(tmp_path / 'proteus_00.log', lines)
@@ -189,7 +189,9 @@ def test_notes_on_incomplete_logs(tmp_path):
         'segment 1: no [INIT_TIMING] line, so init is unlogged',
         'segment 1: 1 unreadable timing lines left out',
     ]
-    assert logsplit.case_row('run', [log])[0]['notes'] == '; '.join(notes)
+    row, _ = logsplit.case_row('run', [log])
+    assert row['notes'] == '; '.join(notes)
+    assert row['total_s'] == pytest.approx(1.5, abs=TOL)
 
 
 def test_a_log_without_timing_lines(tmp_path):
@@ -283,6 +285,8 @@ def test_summary_thirds_of_six_cases_and_a_missing_column():
     assert a['fast_share'] == pytest.approx(1 / 20, abs=1e-4)
     assert a['slow_share'] == pytest.approx(18 / 60, abs=1e-4)
     assert a['median_s'] == pytest.approx(2.0, abs=TOL)
+    # cov 34 / var 80 by hand; counting the missing value as 1 s would give 0.4
+    assert a['spread_share'] == pytest.approx(0.425, abs=1e-4)
 
 
 def test_summary_without_spread():
@@ -297,9 +301,10 @@ def test_summary_without_spread():
 
 
 def test_summary_of_two_cases_correlates():
-    """Two cases with two distinct values of a column correlate fully."""
-    (a,) = logsplit.summary([case(10.0, a=1.0), case(20.0, a=5.0)], ['a'])
+    """Two cases with two distinct values of a column correlate fully; the median keeps fractions."""
+    (a,) = logsplit.summary([case(10.0, a=0.5), case(20.0, a=1.0)], ['a'])
     assert a['corr'] == pytest.approx(1.0, abs=1e-4)
+    assert a['median_s'] == pytest.approx(0.75, abs=TOL)
 
 
 def test_summary_without_timed_cases():

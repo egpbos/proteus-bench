@@ -91,7 +91,9 @@ def test_writes_the_tables_and_page(grid, tmp_path, capsys):
     assert float(summary['loop.interior']['corr']) == pytest.approx(1.0, abs=1e-4)
     assert float(summary['init.structure']['spread_share']) == pytest.approx(0.0, abs=TOL)
     assert len(read(out / 'spans.csv')) == 4 + 1 + 4
-    assert 'case_000002' in (out / 'timing.html').read_text()
+    page = (out / 'timing.html').read_text()
+    assert '<span>2 cases</span><span>2 with timing lines</span><span>1 with notes' in page
+    assert 'href="style.css"' in page
     assert capsys.readouterr().out == (
         f'{out}: 2 cases, 1 with notes; largest spread shares: '
         'loop.interior 0.92, loop.atmos 0.08, init.structure 0.00\n'
@@ -119,6 +121,12 @@ def test_column_order():
         'unlogged',
     ]
     assert ordered_columns([{'case': 'a', 'loop.atmos': 1.0}]) == ['loop.atmos']
+
+
+def test_out_is_required(grid):
+    """Without --out the command stops before reading anything."""
+    with pytest.raises(SystemExit):
+        cli.main(['timing', str(grid)])
 
 
 def test_no_case_exits_1(tmp_path, capsys):
@@ -163,6 +171,7 @@ def test_figure_has_one_bar_per_timed_case_by_total():
     columns = ['init.structure', 'first.atmos', 'loop.interior', 'unlogged']
     fig = timingpage.figure(rows, columns, 'light')
     assert [bar.name for bar in fig.data] == ['init', 'first iteration', 'interior', 'unlogged']
+    assert fig.layout.barmode == 'stack'
     assert list(fig.data[0].x) == ['fast', 'slow']
     assert list(fig.data[3].y) == [1.0, 0.0]
     assert fig.data[3].hovertext[0] == 'fast, unlogged: 1.0 s of 3.0 s'
