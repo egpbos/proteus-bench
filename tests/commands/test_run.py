@@ -11,7 +11,8 @@ run before anything is written unless --allow-failed-checks; a missing
 proteus command is a setup error; thread counts are forced to 1 for the child
 and Julia threads are a knob; profiler support is imported only when asked
 for, its absence is a clear error, its environment is recorded and its
-artifacts are merged into the record.
+artifacts are merged into the record; the real scalene and py-spy profile a busy
+run, whose stacks reach the record's profile and flame page.
 
 Timings are derived by hand from ``FAKE_DEFAULTS`` for the 16-iteration cap; they
 are the stub's synthetic seconds as logged, so phases (from arrival times) are not
@@ -21,9 +22,13 @@ checked against them.
 from __future__ import annotations
 
 import datetime as dt
+import gzip
+import importlib.util
 import json
+import os
 import re
 import shlex
+import shutil
 import sys
 import tomllib
 from pathlib import Path
@@ -420,3 +425,50 @@ def test_run_ids_are_sortable_and_distinct():
     assert re.fullmatch(
         r'20260925T031000Z-default-[0-9a-f]{4}', make_run_id(now, '!!', 'default')
     )
+
+
+# CPU time in the checkout's proteus package, the only code scalene's --profile-only keeps
+BURN = """
+import time
+
+
+def burn(seconds):
+    end = time.process_time() + seconds
+    total = 0
+    while time.process_time() < end:
+        total += sum(i * i for i in range(1000))
+    return total
+"""
+
+
+@pytest.mark.parametrize('profiler', ['scalene', 'py-spy'])
+def test_real_profiler_profiles_a_busy_run(bench, tmp_path, git_repo, profiler):
+    """The profiler wraps the proteus console script; the busy function reaches the stacks."""
+    if profiler == 'scalene' and importlib.util.find_spec('scalene') is None:
+        pytest.skip('scalene not installed')
+    if profiler == 'py-spy' and not (
+        shutil.which('py-spy') and (sys.platform != 'darwin' or os.geteuid() == 0)
+    ):
+        pytest.skip('py-spy not usable here')
+    root = tmp_path / 'PROTEUS'
+    make_checkout(root)
+    (root / 'src' / 'proteus' / 'burn.py').write_text(BURN)
+    git_repo(root)
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    # scalene runs the Python next to the script; a wrapper keeps this environment's packages
+    (bin_dir / 'python').write_text(f'#!/bin/sh\nexec {sys.executable} "$@"\n')
+    script = bin_dir / 'proteus'
+    script.write_text(
+        f'#!{sys.executable}\nimport sys\nfrom proteus.burn import burn\nburn(2.0)\n'
+        'from proteus_bench.testing.fake_proteus import main\nsys.exit(main())\n'
+    )
+    for path in (bin_dir / 'python', script):
+        path.chmod(0o755)
+    code, rec, out = bench(None, '--profiler', profiler, cmd=str(script))
+    assert code == 0, out
+    assert rec['comparability']['reasons'] == [f'profiled with {profiler}, which slows the run']
+    run_dir = _run_dir(out)
+    stacks = gzip.decompress((run_dir / rec['artifacts']['profile']).read_bytes()).decode()
+    assert 'burn' in stacks
+    assert (run_dir / rec['artifacts']['flame']).stat().st_size > 0

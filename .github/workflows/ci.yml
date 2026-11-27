@@ -49,6 +49,21 @@ jobs:
           name: coverage
           path: coverage.xml
 
+  profilers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false # installing the package runs PR code
+      - uses: prefix-dev/setup-pixi@v0
+        with:
+          pixi-version: v0.79.0
+          manifest-path: pyproject.toml
+          environments: profilers
+      # The smoke test skips a profiler it cannot find; here both must be found
+      - run: pixi run -e profilers sh -c 'python -c "import scalene" && py-spy --version'
+      - run: pixi run -e profilers pytest tests/commands/test_run.py -k real_profiler -rs
+
   sonarqube:
     name: SonarQube
     needs: test
