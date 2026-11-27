@@ -98,7 +98,13 @@ python = "3.12.*"
 [tool.pixi.feature.py313.dependencies]
 python = "3.13.*"
 
+# The real profilers, for the smoke test that runs them (CI job `profilers`)
+[tool.pixi.feature.profilers.pypi-dependencies]
+scalene = "==2.3.0"
+py-spy = "*"
+
 [tool.pixi.environments]
 default = ["py312"]
 py311 = ["py311"]
 py313 = ["py313"]
+profilers = ["py312", "profilers"]

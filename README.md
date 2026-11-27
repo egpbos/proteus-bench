@@ -129,13 +129,16 @@ public. A record holds no host or user name, and the run replaces the home
 directory, host name and user name in `log.txt` with `~`, `<host>` and `<user>`.
 The machine label is published as given, so choose one that does not identify you. For a
 store on GitHub it also starts the dashboard build with `gh`, or prints the
-command when `gh` is missing. Runs made in GitHub Actions are uploaded there as one
-artifact per run directory; download them first:
+command when `gh` is missing.
 
-```bash
-gh run download <gha-run-id> -R FormingWorlds/PROTEUS -D bench-runs/gha-<gha-run-id>
-proteus-bench publish bench-runs/gha-<gha-run-id>/*
-```
+## Scheduled runs
+
+The Benchmark workflow (`.github/workflows/bench.yml`) runs the default suite on
+PROTEUS main every Saturday at 22:37 UTC, and on demand from the Actions tab with
+a suite, a PROTEUS ref and a profiler. It checks PROTEUS out, sets it up with
+PROTEUS's own `setup-proteus` action, runs the suite and publishes the run, a
+failed one too, with the workflow's own token; no secret is needed. The run
+directory without the PROTEUS output stays available as an artifact for 14 days.
 
 ## Development
 
