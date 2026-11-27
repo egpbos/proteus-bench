@@ -3,7 +3,7 @@ name: Benchmark
 # publishes the run to the results branch, a failed run too (its record says so).
 on:
   schedule:
-    - cron: "37 22 * * 6" # Saturday 22:37 UTC, outside the PROTEUS nightly (03:00 to 04:00)
+    - cron: "37 22 * * 6" # Saturday 22:37 UTC
   workflow_dispatch:
     inputs:
       suite:
@@ -17,10 +17,6 @@ on:
         type: choice
         options: [none, scalene, py-spy]
         default: none
-# Runs publish to one store branch: one at a time, none cancelled
-concurrency:
-  group: bench
-  cancel-in-progress: false
 permissions: {}
 jobs:
   run:
@@ -44,10 +40,11 @@ jobs:
           ref: ${{ env.REF }}
           fetch-depth: 0 # the record places the run on the history of origin/main
           persist-credentials: false
-      - name: Check that the ref has the setup action
+      # GitHub's own error for a missing setup action asks whether the checkout ran
+      - name: Check that the ref logs the timing lines
         run: |
-          [ -f .github/actions/setup-proteus/action.yml ] || {
-            echo "::error::PROTEUS $REF has no .github/actions/setup-proteus; refs from #678 (2026-06-09) on have it"
+          grep -q '\[INIT_TIMING\]' src/proteus/proteus.py || {
+            echo "::error::PROTEUS $REF is older than #983 and logs no timing lines; benchmark it with proteus-bench prepare (README, Older PROTEUS commits)"
             exit 1
           }
       - uses: ./.github/actions/setup-proteus
@@ -62,13 +59,6 @@ jobs:
             scalene) pip install scalene==2.3.0 ;; # the version the recipe is written for
             py-spy) pip install py-spy ;;
           esac
-      - name: "Patch a ref from before #983 to log the timing lines"
-        env:
-          GIT_AUTHOR_NAME: github-actions[bot]
-          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
-          GIT_COMMITTER_NAME: github-actions[bot]
-          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
-        run: proteus-bench prepare HEAD
       - name: Run the suite
         run: >-
           proteus-bench run --suite "$SUITE" --profiler "$PROFILER"
@@ -98,7 +88,7 @@ jobs:
         with:
           name: bench-run
           path: bench-runs
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install proteus-bench

@@ -441,29 +441,15 @@ def burn(seconds):
 """
 
 
-def py_spy_usable() -> bool:
-    return shutil.which('py-spy') is not None and (
-        sys.platform != 'darwin' or os.geteuid() == 0
-    )
-
-
-@pytest.mark.parametrize(
-    'profiler',
-    [
-        pytest.param(
-            'scalene',
-            marks=pytest.mark.skipif(
-                importlib.util.find_spec('scalene') is None, reason='scalene not installed'
-            ),
-        ),
-        pytest.param(
-            'py-spy',
-            marks=pytest.mark.skipif(not py_spy_usable(), reason='py-spy not usable here'),
-        ),
-    ],
-)
+@pytest.mark.parametrize('profiler', ['scalene', 'py-spy'])
 def test_real_profiler_profiles_a_busy_run(bench, tmp_path, git_repo, profiler):
     """The profiler wraps the proteus console script; the busy function reaches the stacks."""
+    if profiler == 'scalene' and importlib.util.find_spec('scalene') is None:
+        pytest.skip('scalene not installed')
+    if profiler == 'py-spy' and not (
+        shutil.which('py-spy') and (sys.platform != 'darwin' or os.geteuid() == 0)
+    ):
+        pytest.skip('py-spy not usable here')
     root = tmp_path / 'PROTEUS'
     make_checkout(root)
     (root / 'src' / 'proteus' / 'burn.py').write_text(BURN)

@@ -140,11 +140,10 @@ PROTEUS's own `setup-proteus` action, runs the suite and publishes the run, a
 failed one too, with the workflow's own token; no secret is needed. The run
 directory without the PROTEUS output stays available as an artifact for 14 days.
 
-A dispatched run takes any PROTEUS ref from #678 (2026-06-09) on: older refs have
-no `setup-proteus` action, and the workflow stops with that message. A ref from
-before #983 is patched by `proteus-bench prepare` first. The action of the ref
-installs the modules it names, so an old ref may run with newer module versions
-than it had when it was merged; for runs as merged, see "Older PROTEUS commits".
+A dispatched run takes a PROTEUS ref from #983 (2026-10-14) on, which logs the
+timing lines; for an older ref the workflow stops at once and points to "Older
+PROTEUS commits". The action of the ref installs the modules it names, so an old
+ref may run with newer module versions than it had when it was merged.
 
 ## Development
 
