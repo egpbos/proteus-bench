@@ -24,7 +24,7 @@ from datetime import datetime
 
 import pytest
 
-from proteus_bench import logsplit
+from proteus_bench import collect, logsplit
 
 pytestmark = [pytest.mark.unit, pytest.mark.timeout(30)]
 
@@ -74,11 +74,13 @@ def write(path, lines, mtime: str | None = None):
 
 
 def test_find_cases_groups_folder_logs_and_prefers_them_over_copies(tmp_path):
-    """A folder's proteus_NN.log files form one case in order; a copy by that name is dropped."""
+    """A folder's proteus_NN.log files form one case in order; its copies (one per slice of a
+    resumed grid) are dropped without clashing."""
     grid = tmp_path / 'grid'
     first = write(grid / 'case_000001' / 'proteus_00.log', RUN)
     second = write(grid / 'case_000001' / 'proteus_01.log', RUN)
     write(grid / 'logs' / 'case_000001.log', RUN)
+    write(grid / 'logs_r' / 'case_000001.log', RUN)
     copy = write(grid / 'logs' / 'case_000002.log', RUN)
     assert logsplit.find_cases([grid]) == {
         'case_000001': [first, second],
@@ -87,10 +89,14 @@ def test_find_cases_groups_folder_logs_and_prefers_them_over_copies(tmp_path):
 
 
 def test_find_cases_reads_a_log_reached_twice_once(tmp_path):
-    """A folder and one of its logs given together list that log once, resumes kept in order."""
+    """A folder with one of its logs or a symlink to it lists each log once, resumes in order."""
     first = write(tmp_path / 'run' / 'proteus_00.log', RUN)
     second = write(tmp_path / 'run' / 'proteus_01.log', RUN)
     assert logsplit.find_cases([tmp_path / 'run', first]) == {'run': [first, second]}
+    (tmp_path / 'link').symlink_to(tmp_path / 'run')
+    assert logsplit.find_cases([tmp_path / 'run', tmp_path / 'link']) == {
+        'run': [first, second]
+    }
 
 
 def test_find_cases_leaves_other_modules_logs_out(tmp_path):
@@ -103,14 +109,6 @@ def test_find_cases_leaves_other_modules_logs_out(tmp_path):
     # A grid's own log, with a stray non-UTF-8 byte, has no PROTEUS lines: no case
     (tmp_path / 'manager.log').write_bytes(b'grid started\n\xff\n')
     assert logsplit.find_cases([tmp_path]) == logs | {'case_3': [copy]}
-
-
-def test_copies_of_a_case_with_folder_logs_do_not_clash(tmp_path):
-    """Two copies (first and resumed slice) of a case that has folder logs are ignored."""
-    own = write(tmp_path / 'case_1' / 'proteus_00.log', RUN)
-    write(tmp_path / 'logs' / 'case_1.log', RUN)
-    write(tmp_path / 'logs_r' / 'case_1.log', RUN)
-    assert logsplit.find_cases([tmp_path]) == {'case_1': [own]}
 
 
 def test_find_cases_takes_a_file_argument_as_one_case(tmp_path):
@@ -241,9 +239,7 @@ def test_a_log_without_timing_lines(tmp_path):
 
 def test_a_file_without_header_or_timing_lines_has_no_segment(tmp_path):
     """Other log files (a grid's manager.log) give no segment, so they are no case."""
-    log = write(
-        tmp_path / 'manager.log', ['[ INFO  ] Simulation stopped at: 2026-11-23 10:00:00\n']
-    )
+    log = write(tmp_path / 'manager.log', [stop('2026-11-23 10:00:00')])
     assert logsplit.read_segments([log]) == []
 
 
@@ -267,13 +263,18 @@ def test_malformed_status_file_is_an_error(tmp_path):
 
 
 def helpfile(folder, *rows: str):
-    return write(folder / 'runtime_helpfile.csv', ['Time\tR_int\n', *(f'{r}\n' for r in rows)])
+    return write(
+        folder / 'runtime_helpfile.csv', ['Time\tT_magma\n', *(f'{r}\n' for r in rows)]
+    )
 
 
 def test_simulated_time_is_the_last_complete_helpfile_row(tmp_path):
     """The last row's Time counts; a torn last row, as a killed write leaves, does not."""
     helpfile(tmp_path, '0.0\t6.4e6', '1.5e4\t6.3e6', '3.2e4')
     assert logsplit.simulated_time_yr(tmp_path) == pytest.approx(1.5e4, rel=1e-12)
+    # the run record's fingerprint reads the same row
+    values, _ = collect.fingerprint(tmp_path / 'runtime_helpfile.csv')
+    assert values == {'T_magma': pytest.approx(6.3e6, rel=1e-12)}
     helpfile(tmp_path, '0.0\t6.4e6', '1.5e4\t6.3e6', '3.2e4\t6.2e6')
     assert logsplit.simulated_time_yr(tmp_path) == pytest.approx(3.2e4, rel=1e-12)
 
@@ -333,10 +334,7 @@ def test_case_row_keeps_fractions_of_a_second(tmp_path):
     assert row['unlogged'] == pytest.approx(3.0 - 1.125, abs=TOL)
     assert row['total_s'] == pytest.approx(3.0, abs=TOL)
     atmos = next(r for r in span_rows if (r['phase'], r['module']) == ('loop', 'atmos'))
-    assert (atmos['total_s'], atmos['max_s']) == (
-        pytest.approx(0.25, abs=TOL),
-        pytest.approx(0.25, abs=TOL),
-    )
+    assert [atmos['total_s'], atmos['max_s']] == pytest.approx([0.25, 0.25], abs=TOL)
 
 
 def case(total: float, **columns) -> dict:
@@ -391,13 +389,8 @@ def test_summary_of_two_cases_correlates():
 def test_summary_without_timed_cases():
     """Cases without iterations (timing off) give a row per column with no statistics."""
     rows = [{'case': 'x', 'iters': 0, 'total_s': 30.0, 'unlogged': 30.0}]
-    assert logsplit.summary(rows, ['unlogged']) == [
-        {
-            'column': 'unlogged',
-            'median_s': None,
-            'fast_share': None,
-            'slow_share': None,
-            'corr': None,
-            'spread_share': None,
-        }
-    ]
+    (row,) = logsplit.summary(rows, ['unlogged'])
+    assert row.pop('column') == 'unlogged'
+    assert row == dict.fromkeys(
+        ('median_s', 'fast_share', 'slow_share', 'corr', 'spread_share')
+    )

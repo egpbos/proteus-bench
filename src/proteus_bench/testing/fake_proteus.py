@@ -25,6 +25,7 @@ import os
 import sys
 import time
 import tomllib
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TextIO
 
@@ -44,6 +45,7 @@ FAKE_DEFAULTS = {
     'sleep_scale': 0.0,  # real seconds slept per synthetic second
 }
 FAIL_MODES = ('none', 'error', 'kill')
+START = datetime(2026, 1, 1)
 
 # Defaults the stub "resolves" into init_coupler.toml, like PROTEUS's attrs defaults
 RESOLVED_DEFAULTS = {
@@ -191,6 +193,8 @@ def run(cfg: dict, outdir: Path, timing: bool) -> int:
 
 def _simulate(r: _Run) -> int:
     """Run every stage through ``r``; return the process exit code."""
+    # PROTEUS's start and stop lines, on the synthetic clock from a fixed start
+    r.info(f'Current time      {START:%Y-%m-%d %H:%M:%S} ')
     r.info(f'[BACKEND] aragog solver={r.fake["aragog_solver"]}')
     (r.outdir / 'init_coupler.toml').write_text(_dump_toml(r.cfg))
     n_max = r.cfg['params']['stop']['iters']['maximum']
@@ -203,6 +207,9 @@ def _simulate(r: _Run) -> int:
         print(f'[ ERROR ] {err}', file=sys.stderr, flush=True)
         return 1
     r.info('===> Maximum number of iterations reached')
+    r.info(
+        f'Simulation stopped at: {START + timedelta(seconds=r.clock.now):%Y-%m-%d %H:%M:%S} '
+    )
     return 0
 
 

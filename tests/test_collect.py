@@ -1,7 +1,8 @@
 """Tests for proteus_bench.collect: run-record sections from a run's output files.
 
-Contract clauses: the fingerprint is the last helpfile row with non-finite
-values reported; settings fall back to the input config with a note.
+Contract clauses: the fingerprint is the last complete helpfile row, a cut-off
+last row skipped, with non-finite values reported; settings fall back to the input
+config with a note.
 """
 
 from __future__ import annotations
@@ -32,6 +33,21 @@ def test_fingerprint_from_the_last_helpfile_row(run_fake, tmp_path):
     odd.write_text('Time\tT_magma\n')
     assert collect.fingerprint(odd)[0] == {}
     assert 'missing' in collect.fingerprint(tmp_path / 'absent.csv')[1][0]
+
+
+def test_cut_last_helpfile_row_is_skipped(tmp_path):
+    """A last row cut off by a killed write is skipped: values come from the row before it."""
+    helpfile = tmp_path / 'runtime_helpfile.csv'
+    helpfile.write_text('Time\tT_magma\tPhi_global\n1000.0\t2500.0\t0.9\n2000.0\t28\n')
+    assert collect.last_complete_row(helpfile) == {
+        'Time': '1000.0',
+        'T_magma': '2500.0',
+        'Phi_global': '0.9',
+    }
+    # zipping the cut row would give T_magma 28 and no Phi_global
+    values, notes = collect.fingerprint(helpfile)
+    assert values == {'T_magma': pytest.approx(2500.0), 'Phi_global': pytest.approx(0.9)}
+    assert notes == []
 
 
 def test_resolved_settings_prefer_init_coupler(run_fake, tmp_path):

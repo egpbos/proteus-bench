@@ -25,6 +25,7 @@ import statistics
 from datetime import datetime
 from pathlib import Path
 
+from proteus_bench.collect import last_complete_row
 from proteus_bench.logtiming import MARKS, parse
 
 HEADER = re.compile(r'Current time\s+(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)')
@@ -41,8 +42,16 @@ def find_cases(paths: list[Path]) -> dict[str, list[Path]]:
     PROTEUS header or timing line, so other modules' logs are left out. Raises ValueError
     when two folders, or two copies of a case without folder logs, give one case name.
     """
-    found = (f for p in paths for f in (p.rglob('*.log') if p.is_dir() else [p]))
-    files = sorted({Path(os.path.abspath(f)) for f in found})
+    found = [
+        Path(os.path.abspath(f))
+        for p in paths
+        for f in (p.rglob('*.log') if p.is_dir() else [p])
+    ]
+    # one entry per file, under its real path when it was also reached through a symlink
+    unique = {}
+    for file in sorted(found, key=lambda f: (f != f.resolve(), f)):
+        unique.setdefault(file.resolve(), file)
+    files = sorted(unique.values())
     own: dict[Path, list[Path]] = {}
     for file in files:
         if OWN_LOG.fullmatch(file.name):
@@ -75,24 +84,25 @@ def read_segments(logs: list[Path]) -> list[dict]:
     """Segments in log order: ``start`` and ``end`` (datetime or None), whether a stop line
     gave the end (``stopped``), and the ``parsed`` timing lines.
     """
-    segments = []
-    for log in logs:
-        current = None
-        with log.open(errors='replace') as lines:
-            for line in lines:
-                if match := HEADER.search(line):
-                    current = _segment(_time(match[1]))
-                    segments.append(current)
-                elif any(mark in line for mark in MARKS):
-                    if current is None:
-                        current = _segment(None)
-                        segments.append(current)
-                    current['lines'].append((0.0, line))  # a log file has no arrival times
-                elif current is not None and (match := STOP.search(line)):
-                    current['end'], current['stopped'] = _time(match[1]), True
-        if current is not None and current['end'] is None:
-            current['end'] = datetime.fromtimestamp(log.stat().st_mtime).replace(microsecond=0)
+    segments = [segment for log in logs for segment in _file_segments(log)]
     return [s | {'parsed': parse(s.pop('lines'))} for s in segments]
+
+
+def _file_segments(log: Path) -> list[dict]:
+    segments = []
+    with log.open(errors='replace') as lines:
+        for line in lines:
+            if match := HEADER.search(line):
+                segments.append(_segment(_time(match[1])))
+            elif any(mark in line for mark in MARKS):
+                if not segments:
+                    segments.append(_segment(None))
+                segments[-1]['lines'].append((0.0, line))  # a log file has no arrival times
+            elif segments and (match := STOP.search(line)):
+                segments[-1]['end'], segments[-1]['stopped'] = _time(match[1]), True
+    if segments and segments[-1]['end'] is None:
+        segments[-1]['end'] = datetime.fromtimestamp(log.stat().st_mtime).replace(microsecond=0)
+    return segments
 
 
 def _segment(start: datetime | None) -> dict:
@@ -112,28 +122,35 @@ def split(segments: list[dict]) -> tuple[dict, dict, list[str]]:
     spans: dict[tuple[str, str], list] = {}
     notes, unlogged, iters = [], 0.0, 0
     for i, segment in enumerate(segments, 1):
-        parsed = segment['parsed']
-        steps = [('init', parsed['init'])] if parsed['init'] else []
-        steps += [
-            ('first' if n == 0 else 'loop', fields)
-            for n, (*_, fields) in enumerate(parsed['iters'])
-        ]
-        logged = 0.0
-        for phase, fields in steps:
-            for module, seconds in fields.items():
-                if module != 'total':
-                    _count(spans, (phase, module), seconds)
-                    logged += seconds
-        iters += len(parsed['iters'])
+        logged = _add_spans(spans, segment['parsed'])
+        iters += len(segment['parsed']['iters'])
         notes += _notes(i, segment)
-        if unlogged is not None and segment['start'] and segment['end']:
-            unlogged += max(0.0, (segment['end'] - segment['start']).total_seconds() - logged)
-        else:
-            unlogged = None
+        rest = _clock_rest(segment, logged)
+        unlogged = None if unlogged is None or rest is None else unlogged + rest
     if not iters:
         notes.append('no [IT_TIMING] line; was PROTEUS_TIMING=1 set?')
     counts = {'segments': len(segments), 'iters': iters, 'unlogged_s': unlogged}
     return spans, counts, notes
+
+
+def _add_spans(spans: dict, parsed: dict) -> float:
+    """Add a segment's init, first and loop spans to ``spans``; return their seconds."""
+    steps = [('init', parsed['init'])] if parsed['init'] else []
+    steps += [('first' if n == 0 else 'loop', f) for n, (*_, f) in enumerate(parsed['iters'])]
+    logged = 0.0
+    for phase, fields in steps:
+        for module, seconds in fields.items():
+            if module != 'total':
+                _count(spans, (phase, module), seconds)
+                logged += seconds
+    return logged
+
+
+def _clock_rest(segment: dict, logged: float) -> float | None:
+    """The segment's clock minus its spans, floored at 0; None without a clock."""
+    if not (segment['start'] and segment['end']):
+        return None
+    return max(0.0, (segment['end'] - segment['start']).total_seconds() - logged)
 
 
 def _count(spans: dict, key: tuple[str, str], seconds: float) -> None:
@@ -159,9 +176,7 @@ def _notes(i: int, segment: dict) -> list[str]:
 
 
 def case_folder(logs: list[Path]) -> Path:
-    """The case's output folder: the one holding ``proteus_NN.log``, or ``<grid>/<case>``
-    for a grid's ``logs/<case>.log`` copy.
-    """
+    """The folder holding ``proteus_NN.log``, or ``<grid>/<case>`` for ``logs/<case>.log``."""
     log = logs[0]
     return log.parent if OWN_LOG.fullmatch(log.name) else log.parent.parent / log.stem
 
@@ -181,20 +196,16 @@ def status_code(folder: Path) -> int | None:
 
 
 def simulated_time_yr(folder: Path) -> float | None:
-    """``Time`` [yr] in the last complete row of the folder's ``runtime_helpfile.csv``.
-
-    None without the file or a complete data row. A row with fewer fields than the
-    header, as a run killed while writing leaves, is not complete.
+    """``Time`` [yr] in the last complete row of the folder's ``runtime_helpfile.csv``,
+    or None without the file or such a row.
     """
     path = folder / 'runtime_helpfile.csv'
-    if not path.is_file():
+    last = last_complete_row(path) if path.is_file() else None
+    if last is None:
         return None
-    lines = path.read_text(errors='replace').splitlines()
-    header = lines[0].split('\t') if lines else []
-    if lines and 'Time' not in header:
-        raise ValueError(f'{path}: expected a Time column, found {header[:3]}...')
-    rows = [fields for line in lines[1:] if len(fields := line.split('\t')) == len(header)]
-    return float(rows[-1][header.index('Time')]) if rows else None
+    if 'Time' not in last:
+        raise ValueError(f'{path}: expected a Time column, found {list(last)[:3]}...')
+    return float(last['Time'])
 
 
 def column(phase: str, module: str) -> str:

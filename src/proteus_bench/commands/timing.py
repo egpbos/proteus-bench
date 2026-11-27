@@ -1,17 +1,8 @@
 """``proteus-bench timing``: the time split of finished PROTEUS runs, from their logs alone.
 
-Reads the log files given, or every ``*.log`` under the folders given (one run's
-output folder, or a grid folder with many cases); see ``proteus_bench.logsplit``.
-Writes to ``--out``, which must be new or empty:
-
-- ``cases.csv``: per case its status code, segments, iterations, total seconds, the
-  simulated time reached [yr] and per wall-clock hour, notes, and seconds per
-  ``phase.module`` span and ``unlogged``;
-- ``spans.csv``: per case and span the seconds, the calls and the longest call;
-- ``summary.csv``: per span how it follows the spread in total time;
-- ``timing.html``: the cases as stacked bars, and the summary table.
-
-Exit code 1 when no log has a PROTEUS header or timing line.
+Takes log files, run output folders or grid folders and writes cases.csv, spans.csv
+and summary.csv to ``--out`` (README, "Time split from logs"). Exit code 1 when no
+log has a PROTEUS header or timing line, or when ``--out`` is not empty.
 """
 
 from __future__ import annotations
@@ -41,7 +32,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         'paths', type=Path, nargs='+', help='log files, run output folders or grid folders'
     )
     parser.add_argument(
-        '--out', type=Path, required=True, help='new or empty directory for the tables and page'
+        '--out', type=Path, required=True, help='new or empty directory for the tables'
     )
 
 
@@ -67,9 +58,9 @@ def write_csv(path: Path, fields: list[str], rows: list[dict]) -> None:
 
 
 def main(args: argparse.Namespace) -> int:
-    # on use, so the other subcommands never need the report extra
-    from proteus_bench.report.timingpage import write
-
+    if args.out.exists() and any(args.out.iterdir()):
+        print(f'{args.out} is not empty; write the tables into a new or empty directory')
+        return 1
     found = [case_row(name, logs) for name, logs in find_cases(args.paths).items()]
     found = [(row, spans) for row, spans in found if row['segments']]
     if not found:
@@ -81,7 +72,7 @@ def main(args: argparse.Namespace) -> int:
     rows = [row for row, _ in found]
     columns = ordered_columns(rows)
     spread = summary(rows, columns)
-    write(args.out, rows, spread, columns)
+    args.out.mkdir(parents=True, exist_ok=True)
     write_csv(args.out / 'cases.csv', [*FIELDS, *columns], rows)
     write_csv(
         args.out / 'spans.csv',
